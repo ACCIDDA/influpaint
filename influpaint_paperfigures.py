@@ -388,6 +388,21 @@ fig3d, _ = fig_unconditional_3d_heat_ridges(
 )
 plt.close(fig3d)
 
+# Mean heatmap only (like mask plot style)
+mean_heatmap = uncond[:, 0, :53, :len(season_setup.locations)].mean(axis=0)
+fig_heat, ax_heat = plt.subplots(figsize=(8, 8), dpi=200)
+im = ax_heat.imshow(mean_heatmap.T, cmap='Reds', aspect='equal', origin='lower')
+ax_heat.set_xlabel('Week')
+ax_heat.set_ylabel('Location')
+ax_heat.set_xticks([0, 13, 26, 39, 52])
+ax_heat.set_xticklabels(['1', '14', '27', '40', '53'])
+ax_heat.set_yticks([0, 12, 25, 38, len(season_setup.locations)-1])
+ax_heat.set_yticklabels(['1', '13', '26', '39', str(len(season_setup.locations))])
+plt.colorbar(im, ax=ax_heat, label='Incidence', shrink=0.5)
+plt.tight_layout()
+plt.savefig(os.path.join(FIG_DIR, f"{_MODEL_NUM}_uncond_mean_heatmap.png"), dpi=300, bbox_inches='tight')
+plt.close(fig_heat)
+
 def fig_unconditional_3d_heat_ridges_plotly(inv_samples: np.ndarray,
                                             season_axis: SeasonAxis,
                                             states: list[str] | None = None,
@@ -1212,3 +1227,110 @@ if os.path.isdir(MASK_RESULTS_DIR):
         plot_median=False,
     )
     print("Mask figures:", outputs)
+
+
+def plot_unconditional_states_with_history(inv_samples: np.ndarray,
+                                           season_axis: SeasonAxis,
+                                           states: list[str],
+                                           n_sample_trajs: int = 10,
+                                           plot_median: bool = True,
+                                           save_path: str | None = None):
+    """Plot unconditional samples with historical data overlay for selected states.
+    
+    Combines black historical data (like US map) with quantiles and trajectories (like mask plot).
+    """
+    if inv_samples.ndim == 4:
+        arr = inv_samples
+    elif inv_samples.ndim == 3:
+        arr = inv_samples[:, None, :, :]
+    else:
+        raise ValueError("inv_samples must be (sample, feature, week, place) or (sample, week, place)")
+
+    n, c, w, p = arr.shape
+    real_weeks = min(53, w)
+    weeks = np.arange(1, real_weeks + 1)
+
+    n_states = len(states)
+    ncols = min(3, n_states)
+    nrows = int(np.ceil(n_states / ncols))
+    fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 4*nrows), dpi=200, sharey=False)
+    axes_list = axes.flatten() if isinstance(axes, np.ndarray) else [axes]
+
+    # Load historical ground truth using same approach as US map plot
+    gt_df = pd.read_csv('influpaint/data/nhsn_flusight_past.csv')
+    
+    # Process ground truth by season like in plotting.py
+    gt_plot_data = {}
+    for season in gt_df['fluseason'].unique():
+        season_data = gt_df[gt_df['fluseason'] == season]
+        season_pivot = season_data.pivot(columns='location_code', values='value', index='season_week')
+        gt_plot_data[season] = season_pivot
+
+    for i, st in enumerate(states):
+        ax = axes_list[i]
+        loc_code = _state_to_code(st, season_axis)
+        place_idx = season_axis.locations.index(loc_code)
+        ts = arr[:, 0, :real_weeks, place_idx]  # (N, W)
+
+        # Plot historical data in black by season (like US map plot)
+        for season_key, season_data in gt_plot_data.items():
+            if loc_code in season_data.columns:
+                gt_series = season_data[loc_code].dropna()
+                if not gt_series.empty:
+                    ax.plot(gt_series.index, gt_series.values, 
+                           color='black', lw=1.5, alpha=0.6, zorder=10)
+
+        # Color for this state
+        color = sns.color_palette('Set2', n_colors=n_states)[i % n_states]
+
+        # Light sample trajectories (like mask plot)
+        if n_sample_trajs and n_sample_trajs > 0:
+            ns = min(n_sample_trajs, ts.shape[0])
+            sample_idxs = np.linspace(0, ts.shape[0]-1, num=ns, dtype=int)
+            for si in sample_idxs:
+                ax.plot(weeks, ts[si], color=color, alpha=0.25, lw=0.8, zorder=1)
+
+        # Quantile bands (like mask plot)
+        for lo, hi in flusight_quantile_pairs:
+            lo_curve = np.quantile(ts, lo, axis=0)
+            hi_curve = np.quantile(ts, hi, axis=0)
+            ax.fill_between(weeks, lo_curve, hi_curve, color=color, alpha=0.08, lw=0)
+
+        # Median (like mask plot)
+        if plot_median:
+            med = np.quantile(ts, 0.5, axis=0)
+            ax.plot(weeks, med, color=color, lw=1.8, zorder=2)
+
+        # Styling
+        ax.text(0.02, 0.98, st.upper(), transform=ax.transAxes, va='top', ha='left',
+                fontsize=11, fontweight='bold', 
+                bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
+        ax.set_xlim(1, real_weeks)
+        ax.set_ylim(bottom=0)
+        ax.set_xlabel('Epiweek')
+        if i % ncols == 0:
+            ax.set_ylabel('Incidence')
+        ax.grid(True, alpha=0.3)
+        sns.despine(ax=ax, trim=True)
+
+    # Hide unused axes
+    for j in range(len(axes_list)):
+        if j >= n_states:
+            axes_list[j].set_axis_off()
+
+    fig.tight_layout()
+    if save_path:
+        fig.savefig(save_path, dpi=300, bbox_inches='tight')
+    return fig
+
+
+# New unconditional plot with historical overlay
+fig_hist = plot_unconditional_states_with_history(
+    inv_samples=uncond,
+    season_axis=season_setup,
+    states=['NC', 'CA', 'NY', 'TX', 'FL'],
+    n_sample_trajs=8,
+    plot_median=False,
+    save_path=os.path.join(FIG_DIR, f"{_MODEL_NUM}_uncond_states_with_history.png"),
+)
+plt.close(fig_hist)
