@@ -1,0 +1,3 @@
+# Inpainting
+
+::: influpaint.batch.inpainting

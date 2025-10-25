@@ -1,0 +1,78 @@
+site_name: InfluPaint
+site_description: Inpainting denoising diffusion probabilistic models for infectious disease forecasting
+site_author: Joseph Lemaitre, Justin Lessler
+repo_url: https://github.com/ACCIDDA/influpaint
+repo_name: influpaint
+
+theme:
+  name: material
+  palette:
+    scheme: default
+    primary: indigo
+    accent: indigo
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - toc.follow
+    - search.suggest
+    - search.highlight
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quick-start.md
+  - Architecture:
+      - Overview: architecture/overview.md
+      - Training: architecture/training.md
+      - Inpainting: architecture/inpainting.md
+  - Workflows:
+      - Training Workflow: workflows/training.md
+      - Inpainting Workflow: workflows/inpainting.md
+      - Evaluation: workflows/evaluation.md
+  - API Reference:
+      - Batch:
+          - Scenarios: api/batch/scenarios.md
+          - Training: api/batch/training.md
+          - Inpainting: api/batch/inpainting.md
+          - Aggregation: api/batch/aggregation.md
+          - Config: api/batch/config.md
+          - MLflow Utils: api/batch/mlflow_utils.md
+          - Generate Jobs: api/batch/generate_inpainting_jobs.md
+      - Datasets:
+          - Loaders: api/datasets/loaders.md
+          - Mixer: api/datasets/mixer.md
+          - Transforms: api/datasets/transforms.md
+          - Read Datasources: api/datasets/read_datasources.md
+      - Models:
+          - DDPM: api/models/ddpm.md
+          - Inpaint Module: api/models/inpaint_module.md
+          - NN Blocks: api/models/nn_blocks.md
+      - Utils:
+          - Converters: api/utils/converters.md
+          - Ground Truth: api/utils/ground_truth.md
+          - Helpers: api/utils/helpers.md
+          - Plotting: api/utils/plotting.md
+          - Season Axis: api/utils/season_axis.md
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [.]
+          options:
+            show_source: true
+            show_root_heading: true
