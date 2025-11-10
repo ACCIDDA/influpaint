@@ -935,7 +935,7 @@ fig = plot_npy_multi_date_two_seasons(
     per_season_pick=4,
     state=['US','NC','CA','NY','TX'],
     save_path=os.path.join(FIG_DIR, f"{_MODEL_NUM}_forecast_npy_two_panel_states.png"),
-    plot_median=PLOT_MEDIAN,
+    plot_median=False,
 )
 plt.close(fig)
 
@@ -1048,7 +1048,7 @@ fig = plot_npy_two_panel_national(
     seasons=("2023-2024", "2024-2025"),
     per_season_pick=4,
     save_path=os.path.join(FIG_DIR, f"{_MODEL_NUM}_forecast_npy_two_panel_US.png"),
-    plot_median=PLOT_MEDIAN,
+    plot_median=False,
 )
 plt.close(fig)
 fig = plot_npy_multi_date_two_seasons(
@@ -1059,7 +1059,7 @@ fig = plot_npy_multi_date_two_seasons(
     per_season_pick=4,
     state='CA',
     save_path=os.path.join(FIG_DIR, f"{_MODEL_NUM}_forecast_npy_two_panel_state_CA.png"),
-    plot_median=PLOT_MEDIAN,
+    plot_median=False,
 )
 plt.close(fig)
 
@@ -1236,8 +1236,8 @@ def plot_unconditional_states_with_history(inv_samples: np.ndarray,
                                            plot_median: bool = True,
                                            save_path: str | None = None):
     """Plot unconditional samples with historical data overlay for selected states.
-    
-    Combines black historical data (like US map) with quantiles and trajectories (like mask plot).
+
+    Combines historical data by season with quantiles and trajectories.
     """
     if inv_samples.ndim == 4:
         arr = inv_samples
@@ -1256,64 +1256,159 @@ def plot_unconditional_states_with_history(inv_samples: np.ndarray,
     fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 4*nrows), dpi=200, sharey=False)
     axes_list = axes.flatten() if isinstance(axes, np.ndarray) else [axes]
 
-    # Load historical ground truth using same approach as US map plot
     gt_df = pd.read_csv('influpaint/data/nhsn_flusight_past.csv')
-    
-    # Process ground truth by season like in plotting.py
+
     gt_plot_data = {}
     for season in gt_df['fluseason'].unique():
         season_data = gt_df[gt_df['fluseason'] == season]
         season_pivot = season_data.pivot(columns='location_code', values='value', index='season_week')
         gt_plot_data[season] = season_pivot
 
+    sorted_seasons = sorted(gt_plot_data.keys())
+    line_styles = ['-', '--', '-.', ':']
+
+    month_labels = ['Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul']
+    month_weeks = [1, 5, 9, 13, 17, 22, 26, 31, 35, 40, 44, 48]
+
     for i, st in enumerate(states):
         ax = axes_list[i]
         loc_code = _state_to_code(st, season_axis)
         place_idx = season_axis.locations.index(loc_code)
-        ts = arr[:, 0, :real_weeks, place_idx]  # (N, W)
+        ts = arr[:, 0, :real_weeks, place_idx]
 
-        # Plot historical data in black by season (like US map plot)
-        for season_key, season_data in gt_plot_data.items():
-            if loc_code in season_data.columns:
-                gt_series = season_data[loc_code].dropna()
-                if not gt_series.empty:
-                    ax.plot(gt_series.index, gt_series.values, 
-                           color='black', lw=1.5, alpha=0.6, zorder=10)
-
-        # Color for this state
         color = sns.color_palette('Set2', n_colors=n_states)[i % n_states]
 
-        # Light sample trajectories (like mask plot)
+        for lo, hi in flusight_quantile_pairs:
+            lo_curve = np.quantile(ts, lo, axis=0)
+            hi_curve = np.quantile(ts, hi, axis=0)
+            ax.fill_between(weeks, lo_curve, hi_curve, color=color, alpha=0.08, lw=0, zorder=0)
+
         if n_sample_trajs and n_sample_trajs > 0:
             ns = min(n_sample_trajs, ts.shape[0])
             sample_idxs = np.linspace(0, ts.shape[0]-1, num=ns, dtype=int)
             for si in sample_idxs:
-                ax.plot(weeks, ts[si], color=color, alpha=0.25, lw=0.8, zorder=1)
+                ax.plot(weeks, ts[si], color=color, alpha=0.7, lw=1.5, zorder=1)
 
-        # Quantile bands (like mask plot)
-        for lo, hi in flusight_quantile_pairs:
-            lo_curve = np.quantile(ts, lo, axis=0)
-            hi_curve = np.quantile(ts, hi, axis=0)
-            ax.fill_between(weeks, lo_curve, hi_curve, color=color, alpha=0.08, lw=0)
-
-        # Median (like mask plot)
         if plot_median:
             med = np.quantile(ts, 0.5, axis=0)
-            ax.plot(weeks, med, color=color, lw=1.8, zorder=2)
+            ax.plot(weeks, med, color=color, lw=2.5, zorder=2)
 
-        # Styling
+        for j, season_key in enumerate(sorted_seasons):
+            season_data = gt_plot_data[season_key]
+            if loc_code in season_data.columns:
+                gt_series = season_data[loc_code].dropna()
+                if not gt_series.empty:
+                    ls = line_styles[j % len(line_styles)]
+                    ax.plot(gt_series.index, gt_series.values,
+                           color='black', lw=2.0, alpha=0.9, ls=ls, zorder=10,
+                           label=season_key if i == 0 else None)
+
         ax.text(0.02, 0.98, st.upper(), transform=ax.transAxes, va='top', ha='left',
-                fontsize=11, fontweight='bold', 
+                fontsize=11, fontweight='bold',
                 bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
         ax.set_xlim(1, real_weeks)
         ax.set_ylim(bottom=0)
-        ax.set_xlabel('Epiweek')
+        ax.set_xticks([month_weeks[j] for j in range(0, len(month_weeks), 2)])
+        ax.set_xticklabels([month_labels[j] for j in range(0, len(month_labels), 2)])
+        ax.set_xlabel('Season month')
         if i % ncols == 0:
             ax.set_ylabel('Incidence')
         ax.grid(True, alpha=0.3)
         sns.despine(ax=ax, trim=True)
 
-    # Hide unused axes
+        if i == 0:
+            ax.legend(loc='upper right', fontsize=8, framealpha=0.8)
+
+    for j in range(len(axes_list)):
+        if j >= n_states:
+            axes_list[j].set_axis_off()
+
+    fig.tight_layout()
+    if save_path:
+        fig.savefig(save_path, dpi=300, bbox_inches='tight')
+    return fig
+
+
+def plot_unconditional_states_with_history_alt(inv_samples: np.ndarray,
+                                                season_axis: SeasonAxis,
+                                                states: list[str],
+                                                save_path: str | None = None):
+    """Plot unconditional samples with historical data overlay showing all trajectories and envelope.
+
+    Shows all sample trajectories with alpha and 95% envelope with fill_between.
+    """
+    if inv_samples.ndim == 4:
+        arr = inv_samples
+    elif inv_samples.ndim == 3:
+        arr = inv_samples[:, None, :, :]
+    else:
+        raise ValueError("inv_samples must be (sample, feature, week, place) or (sample, week, place)")
+
+    n, c, w, p = arr.shape
+    real_weeks = min(53, w)
+    weeks = np.arange(1, real_weeks + 1)
+
+    n_states = len(states)
+    ncols = min(3, n_states)
+    nrows = int(np.ceil(n_states / ncols))
+    fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 4*nrows), dpi=200, sharey=False)
+    axes_list = axes.flatten() if isinstance(axes, np.ndarray) else [axes]
+
+    gt_df = pd.read_csv('influpaint/data/nhsn_flusight_past.csv')
+
+    gt_plot_data = {}
+    for season in gt_df['fluseason'].unique():
+        season_data = gt_df[gt_df['fluseason'] == season]
+        season_pivot = season_data.pivot(columns='location_code', values='value', index='season_week')
+        gt_plot_data[season] = season_pivot
+
+    sorted_seasons = sorted(gt_plot_data.keys())
+    line_styles = ['-', '--', '-.', ':']
+
+    month_labels = ['Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul']
+    month_weeks = [1, 5, 9, 13, 17, 22, 26, 31, 35, 40, 44, 48]
+
+    for i, st in enumerate(states):
+        ax = axes_list[i]
+        loc_code = _state_to_code(st, season_axis)
+        place_idx = season_axis.locations.index(loc_code)
+        ts = arr[:, 0, :real_weeks, place_idx]
+
+        color = sns.color_palette('Set2', n_colors=n_states)[i % n_states]
+
+        lower_envelope = np.quantile(ts, 0.025, axis=0)
+        upper_envelope = np.quantile(ts, 0.975, axis=0)
+        ax.fill_between(weeks, lower_envelope, upper_envelope, color='gray', alpha=0.3, lw=0, zorder=0)
+
+        for si in range(ts.shape[0]):
+            ax.plot(weeks, ts[si], color=color, alpha=0.05, lw=0.6, zorder=1)
+
+        for j, season_key in enumerate(sorted_seasons):
+            season_data = gt_plot_data[season_key]
+            if loc_code in season_data.columns:
+                gt_series = season_data[loc_code].dropna()
+                if not gt_series.empty:
+                    ls = line_styles[j % len(line_styles)]
+                    ax.plot(gt_series.index, gt_series.values,
+                           color='black', lw=2.0, alpha=0.9, ls=ls, zorder=10,
+                           label=season_key if i == 0 else None)
+
+        ax.text(0.02, 0.98, st.upper(), transform=ax.transAxes, va='top', ha='left',
+                fontsize=11, fontweight='bold',
+                bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
+        ax.set_xlim(1, real_weeks)
+        ax.set_ylim(bottom=0)
+        ax.set_xticks([month_weeks[j] for j in range(0, len(month_weeks), 2)])
+        ax.set_xticklabels([month_labels[j] for j in range(0, len(month_labels), 2)])
+        ax.set_xlabel('Season month')
+        if i % ncols == 0:
+            ax.set_ylabel('Incidence')
+        ax.grid(True, alpha=0.3)
+        sns.despine(ax=ax, trim=True)
+
+        if i == 0:
+            ax.legend(loc='upper right', fontsize=8, framealpha=0.8)
+
     for j in range(len(axes_list)):
         if j >= n_states:
             axes_list[j].set_axis_off()
@@ -1334,3 +1429,11 @@ fig_hist = plot_unconditional_states_with_history(
     save_path=os.path.join(FIG_DIR, f"{_MODEL_NUM}_uncond_states_with_history.png"),
 )
 plt.close(fig_hist)
+
+fig_hist_alt = plot_unconditional_states_with_history_alt(
+    inv_samples=uncond,
+    season_axis=season_setup,
+    states=['NC', 'CA', 'NY', 'TX', 'FL'],
+    save_path=os.path.join(FIG_DIR, f"{_MODEL_NUM}_uncond_states_with_history_alt.png"),
+)
+plt.close(fig_hist_alt)
