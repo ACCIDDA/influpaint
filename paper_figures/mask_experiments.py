@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
+import matplotlib.colors as mcolors
 import seaborn as sns
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
@@ -61,43 +62,30 @@ def add_mask_heatmap_inset(ax, gt_data, mask, location_idx, P):
         location_idx: Index of the location to highlight
         P: Number of locations
     """
-    # Create inset axis in upper left (15% width, 15% height)
-    axins = inset_axes(ax, width="20%", height="20%", loc='upper left',
+    # Create square inset axis in upper left
+    axins = inset_axes(ax, width="25%", height="25%", loc='upper left',
                       bbox_to_anchor=(0.02, 0.02, 1, 1), bbox_transform=ax.transAxes)
 
     # Crop to 52 weeks and P locations
-    gt_crop = gt_data[:52, :P]
     mask_crop = mask[:52, :P]
 
-    # Create RGB image: green for truth, yellow for masked
-    # Shape: (weeks, places, 3)
-    rgb_image = np.zeros((52, P, 3))
+    # Create custom colormap: yellow (0) for masked, green (1) for truth
+    colors = ['#FFD700', '#228B22']  # Yellow, ForestGreen
+    cmap = mcolors.ListedColormap(colors)
 
-    # Where mask is 1 (kept/truth): green
-    # Where mask is 0 (masked/hidden): yellow
-    for w in range(52):
-        for p in range(P):
-            if mask_crop[w, p] == 1:
-                # Green for truth (kept data)
-                rgb_image[w, p] = [0, 0.7, 0]  # Green
-            else:
-                # Yellow for masked (hidden data)
-                rgb_image[w, p] = [1, 1, 0]  # Yellow
-
-    # Display transposed so locations are on y-axis
-    axins.imshow(rgb_image.transpose(1, 0, 2), aspect='auto', origin='lower',
-                extent=[0, 52, 0, P])
+    # Display mask as heatmap (transposed so locations are on y-axis)
+    axins.imshow(mask_crop.T, aspect='equal', origin='lower',
+                cmap=cmap, vmin=0, vmax=1, interpolation='nearest')
 
     # Highlight the current location with a red rectangle
-    rect = mpatches.Rectangle((0, location_idx), 52, 1,
-                              linewidth=2, edgecolor='red', facecolor='none')
+    # Rectangle covers the entire width (52 weeks) and height of 1 location
+    rect = mpatches.Rectangle((-0.5, location_idx - 0.5), 52, 1,
+                              linewidth=2.5, edgecolor='red', facecolor='none')
     axins.add_patch(rect)
 
     # Minimal labels
     axins.set_xticks([])
     axins.set_yticks([])
-    axins.set_xlim(0, 52)
-    axins.set_ylim(0, P)
 
     # Remove spines for cleaner look
     for spine in axins.spines.values():
