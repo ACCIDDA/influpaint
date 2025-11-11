@@ -162,27 +162,42 @@ def plot_mask_experiments(mask_dir: str, forecast_date: str,
         arr = np.load(f_path)
         mk = np.load(m_path)
 
-        # Choose locations: if exactly 5 masked locations -> plot those; else pick up to 5 masked
+        # Choose locations: prefer unmasked locations with interesting, diverse states
         p_len = len(gt.season_setup.locations)
         masked_any = (mk[0, :arr.shape[2], :p_len] == 0).any(axis=0)
-        masked_idx = np.where(masked_any)[0].tolist()
-        if len(masked_idx) == 5:
-            plot_indices = masked_idx
-        elif len(masked_idx) > 0:
-            plot_indices = masked_idx[:5]
-        else:
-            # fallback to provided states
-            plot_indices = []
-            for st in (states if isinstance(states, (list, tuple)) else [states]):
-                code = state_to_code(st, gt.season_setup)
-                plot_indices.append(gt.season_setup.locations.index(code))
-            plot_indices = plot_indices[:5]
+        unmasked_idx = np.where(~masked_any)[0].tolist()
 
-        # Get full state names
+        # Preferred states: geographically diverse, large population
+        preferred_states = ['CA', 'NY', 'TX', 'FL', 'IL', 'PA', 'OH', 'MI', 'WA', 'MA']
+
+        # Get abbreviation mapping
         locdf = gt.season_setup.locations_df
         abbr_map = None
         if 'abbreviation' in locdf.columns:
             abbr_map = locdf.set_index('location_code')['abbreviation']
+
+        # Find preferred states that are unmasked
+        plot_indices = []
+        for pref_state in preferred_states:
+            for idx in unmasked_idx:
+                loc_code = str(gt.season_setup.locations[idx])
+                if abbr_map is not None:
+                    abbrev = abbr_map.get(loc_code, loc_code)
+                else:
+                    abbrev = loc_code
+                if str(abbrev).upper() == pref_state:
+                    plot_indices.append(idx)
+                    break
+            if len(plot_indices) >= 5:
+                break
+
+        # If we don't have 5 preferred states, fill with remaining unmasked locations
+        if len(plot_indices) < 5:
+            for idx in unmasked_idx:
+                if idx not in plot_indices:
+                    plot_indices.append(idx)
+                if len(plot_indices) >= 5:
+                    break
 
         # Map to full names using STATE_NAMES
         labels = []
