@@ -13,6 +13,12 @@ from .helpers import state_to_code, list_influpaint_csvs, format_date_axis
 from .config import SEASON_XLIMS
 
 
+FLUSIGHT_BASES = {
+    "2023-2024": "Flusight/2023-2024/FluSight-forecast-hub-official",
+    "2024-2025": "Flusight/2024-2025/FluSight-forecast-hub-official",
+}
+
+
 def load_truth_for_season(season: str) -> pd.DataFrame:
     """Load ground truth data for a given season (with caching).
 
@@ -26,12 +32,57 @@ def load_truth_for_season(season: str) -> pd.DataFrame:
     return load_ground_truth_cached(season)
 
 
+def load_flusight_ensemble_forecast(season: str, location: str, reference_date) -> pd.DataFrame:
+    """Load FluSight-Ensemble median forecast for a specific reference date and location.
+
+    Args:
+        season: Season string like '2023-2024'
+        location: Location code like 'US' or state FIPS code
+        reference_date: Reference date (can be date object or datetime)
+
+    Returns:
+        DataFrame with target_end_date and value columns for median forecast
+    """
+    if season not in FLUSIGHT_BASES:
+        raise ValueError(f"Season {season} not found in FLUSIGHT_BASES")
+
+    base_dir = FLUSIGHT_BASES[season]
+    ensemble_dir = os.path.join(base_dir, "model-output", "FluSight-ensemble")
+
+    if not os.path.exists(ensemble_dir):
+        raise FileNotFoundError(f"FluSight-ensemble directory not found: {ensemble_dir}")
+
+    if hasattr(reference_date, 'date'):
+        ref_date_str = str(reference_date.date())
+    else:
+        ref_date_str = str(reference_date)
+
+    csv_path = os.path.join(ensemble_dir, f"{ref_date_str}-FluSight-ensemble.csv")
+
+    if not os.path.exists(csv_path):
+        return pd.DataFrame()
+
+    df = pd.read_csv(csv_path, dtype={"location": str})
+    df["target_end_date"] = pd.to_datetime(df["target_end_date"])
+    df["output_type_id"] = pd.to_numeric(df.get("output_type_id"), errors="coerce")
+
+    df_median = df[
+        (df["location"] == location) &
+        (np.isclose(df["output_type_id"], 0.5)) &
+        (df["target"] == "wk inc flu hosp") &
+        (df["output_type"] == "quantile")
+    ].copy()
+
+    return df_median.sort_values("target_end_date")
+
+
 def plot_csv_quantile_fans_for_season(season: str, base_dir: str, model_id: str, config: str,
                                       season_axis,
                                       pick_every: int = 2, state='US',
                                       start_date: str = '2023-10-07',
                                       save_path: str | None = None,
-                                      plot_median: bool = True):
+                                      plot_median: bool = True,
+                                      plot_flusight_ensemble: bool = True):
     """Plot CSV forecast quantile fans for a single season.
 
     Args:
@@ -45,6 +96,7 @@ def plot_csv_quantile_fans_for_season(season: str, base_dir: str, model_id: str,
         start_date: Start date for x-axis
         save_path: Optional path to save figure
         plot_median: Whether to plot median
+        plot_flusight_ensemble: Whether to plot FluSight-Ensemble median
 
     Returns:
         matplotlib Figure object or None
@@ -55,10 +107,10 @@ def plot_csv_quantile_fans_for_season(season: str, base_dir: str, model_id: str,
     if n >= 4:
         nrows = 2
         ncols = int(np.ceil(n / 2))
-        fig, axes = plt.subplots(nrows, ncols, figsize=(4*ncols, 3.5*nrows), dpi=200, sharey=False)
+        fig, axes = plt.subplots(nrows, ncols, figsize=(4*ncols, 3.5*nrows), dpi=200, sharey=False, sharex=True)
         axes_list = axes.flatten()
     else:
-        fig, axes = plt.subplots(1, n, figsize=(4*n, 3.5), dpi=200, sharey=False)
+        fig, axes = plt.subplots(1, n, figsize=(4*n, 3.5), dpi=200, sharey=False, sharex=True)
         axes_list = axes if isinstance(axes, (list, np.ndarray)) else [axes]
 
     csvs = list_influpaint_csvs(base_dir, model_id, config)
@@ -132,6 +184,13 @@ def plot_csv_quantile_fans_for_season(season: str, base_dir: str, model_id: str,
                     ax.text(rdt, ymax*0.95, str(rdt.date()), color=palette[j], rotation=90,
                             ha='right', va='top', fontsize=8,
                             bbox=dict(facecolor='white', alpha=0.6, edgecolor='none'))
+            if plot_flusight_ensemble:
+                ensemble = load_flusight_ensemble_forecast(season, loc_code, r)
+                if not ensemble.empty:
+                    x = ensemble["target_end_date"].values
+                    mask = (x >= np.datetime64(left_bound)) & (x <= np.datetime64(right_bound))
+                    if np.any(mask):
+                        ax.plot(x[mask], ensemble["value"].values[mask], color='red', lw=2, label='FluSight-ensemble' if j == 0 else '')
         ax.text(0.02, 0.98, st.upper(), transform=ax.transAxes, va='top', ha='left',
                                fontsize=11, fontweight='bold',
                                bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
@@ -145,6 +204,8 @@ def plot_csv_quantile_fans_for_season(season: str, base_dir: str, model_id: str,
         sns.despine(ax=ax, trim=True)
         ax.set_xlim(left_bound, right_bound)
         format_date_axis(ax)
+        if plot_flusight_ensemble:
+            ax.legend(loc='upper right', framealpha=0.9)
 
     fig.tight_layout()
     if save_path:
@@ -156,7 +217,8 @@ def plot_csv_quantile_fans_multiseasons(seasons: list, base_dir: str, model_id: 
                                         season_axis,
                                         states: list, pick_every: int = 2,
                                         save_path: str | None = None,
-                                        plot_median: bool = True):
+                                        plot_median: bool = True,
+                                        plot_flusight_ensemble: bool = True):
     """Plot CSV forecast fans over full multi-season ground truth for multiple states.
 
     Args:
@@ -169,6 +231,7 @@ def plot_csv_quantile_fans_multiseasons(seasons: list, base_dir: str, model_id: 
         pick_every: Step for picking forecast dates
         save_path: Optional path to save figure
         plot_median: Whether to plot median
+        plot_flusight_ensemble: Whether to plot FluSight-Ensemble median
 
     Returns:
         matplotlib Figure object or None
@@ -214,10 +277,10 @@ def plot_csv_quantile_fans_multiseasons(seasons: list, base_dir: str, model_id: 
     if n >= 4:
         nrows = 2
         ncols = int(np.ceil(n / 2))
-        fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 4.5*nrows), dpi=200, sharey=False)
+        fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 4.5*nrows), dpi=200, sharey=False, sharex=True)
         axes_list = axes.flatten()
     else:
-        fig, axes = plt.subplots(1, n, figsize=(5*n, 4.5), dpi=200, sharey=False)
+        fig, axes = plt.subplots(1, n, figsize=(5*n, 4.5), dpi=200, sharey=False, sharex=True)
         axes_list = axes if isinstance(axes, (list, np.ndarray)) else [axes]
 
     # Global x-lims spanning both seasons
@@ -260,6 +323,13 @@ def plot_csv_quantile_fans_multiseasons(seasons: list, base_dir: str, model_id: 
                 ax.text(rdt, ax.get_ylim()[1]*0.95, str(r), color=palette[i], rotation=90,
                         ha='right', va='top', fontsize=8,
                         bbox=dict(facecolor='white', alpha=0.6, edgecolor='none'))
+            if plot_flusight_ensemble:
+                for season in seasons:
+                    ensemble = load_flusight_ensemble_forecast(season, loc_code, r)
+                    if not ensemble.empty:
+                        x = ensemble["target_end_date"].values
+                        ax.plot(x, ensemble["value"].values, color='red', lw=2, label='FluSight-ensemble' if i == 0 else '')
+                        break
 
         # Styling
         ax.text(0.02, 0.98, st.upper(), transform=ax.transAxes, va='top', ha='left', fontsize=11, fontweight='bold', bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
@@ -269,6 +339,8 @@ def plot_csv_quantile_fans_multiseasons(seasons: list, base_dir: str, model_id: 
         ax.grid(True, alpha=0.3)
         sns.despine(ax=ax, trim=True)
         format_date_axis(ax)
+        if plot_flusight_ensemble:
+            ax.legend(loc='upper right', framealpha=0.9)
     fig.tight_layout()
     if save_path:
         fig.savefig(save_path, dpi=300, bbox_inches='tight')
