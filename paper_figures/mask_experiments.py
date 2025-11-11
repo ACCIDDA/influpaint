@@ -62,20 +62,33 @@ def add_mask_heatmap_inset(ax, gt_data, mask, location_idx, P):
         location_idx: Index of the location to highlight
         P: Number of locations
     """
-    # Create square inset axis in upper left
-    axins = inset_axes(ax, width="25%", height="25%", loc='upper left',
+    # Create square inset axis in upper left (30% bigger: 32.5%)
+    axins = inset_axes(ax, width="32.5%", height="32.5%", loc='upper left',
                       bbox_to_anchor=(0.02, 0.02, 1, 1), bbox_transform=ax.transAxes)
 
     # Crop to 52 weeks and P locations
+    gt_crop = gt_data[:52, :P]
     mask_crop = mask[:52, :P]
 
-    # Create custom colormap: yellow (0) for masked, green (1) for truth
-    colors = ['#FFD700', '#228B22']  # Yellow, ForestGreen
-    cmap = mcolors.ListedColormap(colors)
+    # Create RGBA image with ground truth data and mask-based alpha
+    # Shape: (weeks, places, 4) for RGBA
+    rgba_image = np.zeros((52, P, 4))
 
-    # Display mask as heatmap (transposed so locations are on y-axis)
-    axins.imshow(mask_crop.T, aspect='equal', origin='lower',
-                cmap=cmap, vmin=0, vmax=1, interpolation='nearest')
+    # Normalize ground truth data for color mapping
+    gt_norm = (gt_crop - gt_crop.min()) / (gt_crop.max() - gt_crop.min() + 1e-8)
+
+    for w in range(52):
+        for p in range(P):
+            if mask_crop[w, p] == 1:
+                # Green for truth/kept data
+                rgba_image[w, p] = [0, 0.8, 0, 1.0]  # Green with full alpha
+            else:
+                # Yellow for masked/hidden data
+                rgba_image[w, p] = [1, 1, 0, 0.7]  # Yellow with alpha
+
+    # Display heatmap (transposed so locations are on y-axis)
+    axins.imshow(rgba_image.transpose(1, 0, 2), aspect='equal', origin='lower',
+                interpolation='nearest')
 
     # Highlight the current location with a red rectangle
     # Rectangle covers the entire width (52 weeks) and height of 1 location
