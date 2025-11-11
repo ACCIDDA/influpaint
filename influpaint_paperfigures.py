@@ -22,6 +22,17 @@ import influpaint.utils.plotting as idplots
 from influpaint.utils.helpers import flusight_quantile_pairs, flusight_quantiles
 from influpaint.utils import ground_truth
 
+# Global matplotlib settings for publication
+plt.rcParams['xtick.labelsize'] = 12
+plt.rcParams['ytick.labelsize'] = 12
+plt.rcParams['axes.labelsize'] = 13
+plt.rcParams['legend.fontsize'] = 10
+
+# State abbreviation to full name mapping
+STATE_NAMES = {
+    'CA': 'California', 'FL': 'Florida', 'MT': 'Montana', 'NC': 'North Carolina',
+    'NY': 'New York', 'TX': 'Texas', 'IL': 'Illinois'
+}
 
 # ==== Constants / Paths (edit as needed) ====
 IMAGE_SIZE = 64
@@ -1287,7 +1298,7 @@ def plot_unconditional_states_with_history(inv_samples: np.ndarray,
             ns = min(n_sample_trajs, ts.shape[0])
             sample_idxs = np.linspace(0, ts.shape[0]-1, num=ns, dtype=int)
             for si in sample_idxs:
-                ax.plot(weeks, ts[si], color=color, alpha=0.7, lw=1.5, zorder=1)
+                ax.plot(weeks, ts[si], color=color, alpha=0.8, lw=1.8, zorder=1)
 
         if plot_median:
             med = np.quantile(ts, 0.5, axis=0)
@@ -1303,8 +1314,9 @@ def plot_unconditional_states_with_history(inv_samples: np.ndarray,
                            color='black', lw=2.0, alpha=0.9, ls=ls, zorder=10,
                            label=season_key if i == 0 else None)
 
-        ax.text(0.02, 0.98, st.upper(), transform=ax.transAxes, va='top', ha='left',
-                fontsize=11, fontweight='bold',
+        state_name = STATE_NAMES.get(st.upper(), st.upper())
+        ax.text(0.02, 0.98, state_name, transform=ax.transAxes, va='top', ha='left',
+                fontsize=12, fontweight='bold',
                 bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
         ax.set_xlim(1, real_weeks)
         ax.set_ylim(bottom=0)
@@ -1393,8 +1405,9 @@ def plot_unconditional_states_with_history_alt(inv_samples: np.ndarray,
                            color='black', lw=2.0, alpha=0.9, ls=ls, zorder=10,
                            label=season_key if i == 0 else None)
 
-        ax.text(0.02, 0.98, st.upper(), transform=ax.transAxes, va='top', ha='left',
-                fontsize=11, fontweight='bold',
+        state_name = STATE_NAMES.get(st.upper(), st.upper())
+        ax.text(0.02, 0.98, state_name, transform=ax.transAxes, va='top', ha='left',
+                fontsize=12, fontweight='bold',
                 bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
         ax.set_xlim(1, real_weeks)
         ax.set_ylim(bottom=0)
@@ -1535,7 +1548,7 @@ def plot_peak_distributions_comparison(inv_samples: np.ndarray,
 fig_hist = plot_unconditional_states_with_history(
     inv_samples=uncond,
     season_axis=season_setup,
-    states=['NC', 'CA', 'NY', 'TX', 'FL'],
+    states=['NC', 'CA', 'NY', 'TX', 'FL', 'MT'],
     n_sample_trajs=8,
     plot_median=False,
     save_path=os.path.join(FIG_DIR, f"{_MODEL_NUM}_uncond_states_with_history.png"),
@@ -1545,7 +1558,7 @@ plt.close(fig_hist)
 fig_hist_alt = plot_unconditional_states_with_history_alt(
     inv_samples=uncond,
     season_axis=season_setup,
-    states=['NC', 'CA', 'NY', 'TX', 'FL'],
+    states=['NC', 'CA', 'NY', 'TX', 'FL', 'MT'],
     save_path=os.path.join(FIG_DIR, f"{_MODEL_NUM}_uncond_states_with_history_alt.png"),
 )
 plt.close(fig_hist_alt)
@@ -1681,14 +1694,15 @@ fig_peaks = plot_peak_distributions_comparison(
 )
 plt.close(fig_peaks)
 
-def plot_peak_distributions_by_location_swarm(inv_samples: np.ndarray,
-                                               season_axis: SeasonAxis,
-                                               states: list[str],
-                                               save_path: str | None = None,
-                                               prominence_threshold: float = 50.0):
-    """Compare peak timing and size distributions using swarmplot for generated samples.
+def plot_peak_distributions_by_metric(inv_samples: np.ndarray,
+                                       season_axis: SeasonAxis,
+                                       states: list[str],
+                                       metric: str,
+                                       save_path: str | None = None,
+                                       prominence_threshold: float = 50.0):
+    """Compare peak distributions for multiple states, grouped by metric (timing or size).
 
-    Creates multi-panel figure showing discrete peak values per location.
+    Creates 1-row × N-column figure with vertical swarmplots for one metric across states.
     """
     from scipy.signal import find_peaks
 
@@ -1705,14 +1719,16 @@ def plot_peak_distributions_by_location_swarm(inv_samples: np.ndarray,
     gt_df = pd.read_csv('influpaint/data/nhsn_flusight_past.csv')
 
     n_states = len(states)
-    fig, axes = plt.subplots(n_states, 2, figsize=(12, 5*n_states), dpi=200, sharex='col')
+    fig, axes = plt.subplots(1, n_states, figsize=(3.75*n_states, 5), dpi=200, sharey=True)
     if n_states == 1:
-        axes = axes.reshape(1, -1)
+        axes = [axes]
 
-    for i_state, state in enumerate(states):
+    for state_idx, state in enumerate(states):
+        ax = axes[state_idx]
         loc_code = _state_to_code(state, season_axis)
         place_idx = season_axis.locations.index(loc_code)
 
+        # Extract historical peaks for this state
         historical_peaks = {'timing': [], 'size': [], 'season': []}
 
         for season_year in sorted(gt_df['fluseason'].unique()):
@@ -1730,6 +1746,7 @@ def plot_peak_distributions_by_location_swarm(inv_samples: np.ndarray,
                     historical_peaks['size'].append(series[peak_idx])
                     historical_peaks['season'].append(season_label)
 
+        # Extract generated peaks for this state
         generated_peaks = {'timing': [], 'size': []}
 
         for sample_idx in range(n):
@@ -1741,59 +1758,68 @@ def plot_peak_distributions_by_location_swarm(inv_samples: np.ndarray,
                 generated_peaks['timing'].append(peak_idx + 1)
                 generated_peaks['size'].append(series[peak_idx])
 
+        # Plot historical peaks as horizontal lines with labels
         seasons = sorted(set(historical_peaks['season']))
         colors = sns.color_palette('Set2', n_colors=len(seasons))
         line_styles = ['--', '-.', ':']
 
-        ax_timing = axes[i_state, 0]
-        ax_size = axes[i_state, 1]
-
         if len(historical_peaks['timing']) > 0:
             for j, season in enumerate(seasons):
                 mask = [s == season for s in historical_peaks['season']]
-                timing_data = [historical_peaks['timing'][k] for k in range(len(mask)) if mask[k]]
-                size_data = [historical_peaks['size'][k] for k in range(len(mask)) if mask[k]]
 
-                for idx, timing_val in enumerate(timing_data):
-                    ax_timing.axvline(timing_val, color=colors[j], ls=line_styles[j % len(line_styles)],
-                                    lw=2.0, alpha=0.8, label=season if idx == 0 else None, zorder=10)
+                if metric == 'timing':
+                    data = [historical_peaks['timing'][k] for k in range(len(mask)) if mask[k]]
+                    for idx, val in enumerate(data):
+                        ax.axhline(val, color=colors[j], ls=line_styles[j % len(line_styles)],
+                                  lw=2.0, alpha=0.9, zorder=10)
+                        if idx == 0:
+                            ax.text(0.85, val + 1.5, season, va='bottom', ha='right',
+                                   fontsize=9, color=colors[j],
+                                   bbox=dict(facecolor='white', alpha=0.9, edgecolor='none', pad=1.5))
 
-                for idx, size_val in enumerate(size_data):
-                    ax_size.axvline(size_val, color=colors[j], ls=line_styles[j % len(line_styles)],
-                                  lw=2.0, alpha=0.8, label=season if idx == 0 else None, zorder=10)
+                elif metric == 'size':
+                    data = [historical_peaks['size'][k] for k in range(len(mask)) if mask[k]]
+                    for idx, val in enumerate(data):
+                        ax.axhline(val, color=colors[j], ls=line_styles[j % len(line_styles)],
+                                  lw=2.0, alpha=0.9, zorder=10)
+                        if idx == 0:
+                            ax.text(0.85, val * 1.15, season, va='bottom', ha='right',
+                                   fontsize=9, color=colors[j],
+                                   bbox=dict(facecolor='white', alpha=0.9, edgecolor='none', pad=1.5))
 
-        if len(generated_peaks['timing']) > 5:
-            df_timing = pd.DataFrame({'value': generated_peaks['timing'], 'type': 'Generated'})
-            sns.swarmplot(data=df_timing, x='value', y='type', ax=ax_timing,
-                         color='black', alpha=0.5, size=3, zorder=1)
-            ax_timing.set_ylabel('')
-            ax_timing.set_yticks([])
+        # Plot generated peaks as swarmplot
+        if metric == 'timing' and len(generated_peaks['timing']) > 5:
+            timing_values = np.array(generated_peaks['timing'])
+            timing_jittered = timing_values + np.random.uniform(-0.4, 0.4, size=len(timing_values))
+            df = pd.DataFrame({'type': 'Generated', 'value': timing_jittered})
+            sns.swarmplot(data=df, y='value', x='type', ax=ax,
+                         color='black', alpha=0.8, size=2.5, zorder=1)
+            ax.set_xlabel('')
+            ax.set_xticks([])
+            ax.set_ylim(1, real_weeks)
+            ax.set_ylabel('Season week' if state_idx == 0 else '')
+            ax.grid(True, alpha=0.3)
+            sns.despine(ax=ax, trim=True, bottom=True)
 
-        if len(generated_peaks['size']) > 5:
-            df_size = pd.DataFrame({'value': generated_peaks['size'], 'type': 'Generated'})
-            sns.swarmplot(data=df_size, x='value', y='type', ax=ax_size,
-                         color='black', alpha=0.5, size=3, zorder=1)
-            ax_size.set_ylabel('')
-            ax_size.set_yticks([])
+        elif metric == 'size' and len(generated_peaks['size']) > 5:
+            df = pd.DataFrame({'type': 'Generated', 'value': generated_peaks['size']})
+            sns.swarmplot(data=df, y='value', x='type', ax=ax,
+                         color='black', alpha=0.8, size=2.5, zorder=1)
+            ax.set_xlabel('')
+            ax.set_xticks([])
+            ax.set_yscale('log')
+            ax.set_ylim(bottom=10)
+            ax.set_ylabel('Log incidence' if state_idx == 0 else '')
+            ax.grid(True, alpha=0.3)
+            sns.despine(ax=ax, trim=True, bottom=True)
 
-        ax_timing.text(0.02, 0.98, state.upper(), transform=ax_timing.transAxes, va='top', ha='left',
-                fontsize=11, fontweight='bold',
-                bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
-        ax_timing.set_xlabel('Peak timing (season week)')
-        ax_timing.set_xlim(1, real_weeks)
-        if i_state == 0:
-            ax_timing.legend(loc='upper left', fontsize=9, framealpha=0.9)
-        ax_timing.grid(True, alpha=0.3)
-        sns.despine(ax=ax_timing, trim=True, left=True)
-
-        ax_size.text(0.02, 0.98, state.upper(), transform=ax_size.transAxes, va='top', ha='left',
-                fontsize=11, fontweight='bold',
-                bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
-        ax_size.set_xlabel('Peak size (log incidence)')
-        ax_size.set_xscale('log')
-        ax_size.set_xlim(left=10)
-        ax_size.grid(True, alpha=0.3)
-        sns.despine(ax=ax_size, trim=True, left=True)
+        # Set title
+        state_name = STATE_NAMES.get(state.upper(), state.upper())
+        if state_idx == 0:
+            metric_title = 'Peak timing' if metric == 'timing' else 'Peak size'
+            ax.set_title(f'{metric_title}\n{state_name}', fontsize=12, fontweight='bold')
+        else:
+            ax.set_title(state_name, fontsize=12, fontweight='bold')
 
     fig.tight_layout()
     if save_path:
@@ -1810,11 +1836,22 @@ fig_peaks_loc = plot_peak_distributions_by_location(
 )
 plt.close(fig_peaks_loc)
 
-fig_peaks_loc_swarm = plot_peak_distributions_by_location_swarm(
+fig_peak_timing = plot_peak_distributions_by_metric(
     inv_samples=uncond,
     season_axis=season_setup,
     states=['CA', 'FL'],
-    save_path=os.path.join(FIG_DIR, f"{_MODEL_NUM}_peak_distributions_by_location_swarm.png"),
+    metric='timing',
+    save_path=os.path.join(FIG_DIR, f"{_MODEL_NUM}_peak_timing.png"),
     prominence_threshold=50.0,
 )
-plt.close(fig_peaks_loc_swarm)
+plt.close(fig_peak_timing)
+
+fig_peak_size = plot_peak_distributions_by_metric(
+    inv_samples=uncond,
+    season_axis=season_setup,
+    states=['CA', 'FL'],
+    metric='size',
+    save_path=os.path.join(FIG_DIR, f"{_MODEL_NUM}_peak_size.png"),
+    prominence_threshold=50.0,
+)
+plt.close(fig_peak_size)
