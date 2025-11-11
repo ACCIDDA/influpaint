@@ -70,21 +70,22 @@ def add_mask_heatmap_inset(ax, gt_data, mask, location_idx, P):
     gt_crop = gt_data[:52, :P]
     mask_crop = mask[:52, :P]
 
-    # Create RGBA image with ground truth data and mask-based alpha
+    # Normalize ground truth data for color mapping (0-1 range)
+    gt_norm = (gt_crop - gt_crop.min()) / (gt_crop.max() - gt_crop.min() + 1e-8)
+
+    # Create RGBA image showing ground truth heatmap with mask-based color overlay
     # Shape: (weeks, places, 4) for RGBA
     rgba_image = np.zeros((52, P, 4))
 
-    # Normalize ground truth data for color mapping
-    gt_norm = (gt_crop - gt_crop.min()) / (gt_crop.max() - gt_crop.min() + 1e-8)
-
     for w in range(52):
         for p in range(P):
+            intensity = gt_norm[w, p]
             if mask_crop[w, p] == 1:
-                # Green for truth/kept data
-                rgba_image[w, p] = [0, 0.8, 0, 1.0]  # Green with full alpha
+                # Green overlay for truth/kept data - high alpha
+                rgba_image[w, p] = [0, intensity * 0.9, 0, 0.9]
             else:
-                # Yellow for masked/hidden data
-                rgba_image[w, p] = [1, 1, 0, 0.7]  # Yellow with alpha
+                # Yellow overlay for masked/hidden data - lower alpha
+                rgba_image[w, p] = [intensity, intensity * 0.9, 0, 0.4]
 
     # Display heatmap (transposed so locations are on y-axis)
     axins.imshow(rgba_image.transpose(1, 0, 2), aspect='equal', origin='lower',
