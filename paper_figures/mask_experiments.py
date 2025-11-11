@@ -7,12 +7,14 @@ import datetime as dt
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 import seaborn as sns
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 from influpaint.utils import ground_truth
 from influpaint.utils.helpers import flusight_quantile_pairs
 from .helpers import state_to_code
-from .config import IMAGE_SIZE, CHANNELS
+from .config import IMAGE_SIZE, CHANNELS, STATE_NAMES
 
 
 def recreate_mask(gt: ground_truth.GroundTruth, mask_name: str):
@@ -49,6 +51,59 @@ def recreate_mask(gt: ground_truth.GroundTruth, mask_name: str):
     return mask
 
 
+def add_mask_heatmap_inset(ax, gt_data, mask, location_idx, P):
+    """Add a small heatmap inset showing the mask pattern with highlighted location.
+
+    Args:
+        ax: Matplotlib axis to add inset to
+        gt_data: Ground truth data (weeks, places)
+        mask: Mask array (weeks, places)
+        location_idx: Index of the location to highlight
+        P: Number of locations
+    """
+    # Create inset axis in upper left (15% width, 15% height)
+    axins = inset_axes(ax, width="20%", height="20%", loc='upper left',
+                      bbox_to_anchor=(0.02, 0.02, 1, 1), bbox_transform=ax.transAxes)
+
+    # Crop to 52 weeks and P locations
+    gt_crop = gt_data[:52, :P]
+    mask_crop = mask[:52, :P]
+
+    # Create RGB image: green for truth, yellow for masked
+    # Shape: (weeks, places, 3)
+    rgb_image = np.zeros((52, P, 3))
+
+    # Where mask is 1 (kept/truth): green
+    # Where mask is 0 (masked/hidden): yellow
+    for w in range(52):
+        for p in range(P):
+            if mask_crop[w, p] == 1:
+                # Green for truth (kept data)
+                rgb_image[w, p] = [0, 0.7, 0]  # Green
+            else:
+                # Yellow for masked (hidden data)
+                rgb_image[w, p] = [1, 1, 0]  # Yellow
+
+    # Display transposed so locations are on y-axis
+    axins.imshow(rgb_image.transpose(1, 0, 2), aspect='auto', origin='lower',
+                extent=[0, 52, 0, P])
+
+    # Highlight the current location with a red rectangle
+    rect = mpatches.Rectangle((0, location_idx), 52, 1,
+                              linewidth=2, edgecolor='red', facecolor='none')
+    axins.add_patch(rect)
+
+    # Minimal labels
+    axins.set_xticks([])
+    axins.set_yticks([])
+    axins.set_xlim(0, 52)
+    axins.set_ylim(0, P)
+
+    # Remove spines for cleaner look
+    for spine in axins.spines.values():
+        spine.set_visible(False)
+
+
 def plot_mask_experiments(mask_dir: str, forecast_date: str,
                           states=('NC', 'CA'),
                           n_sample_trajs: int = 10,
@@ -69,6 +124,11 @@ def plot_mask_experiments(mask_dir: str, forecast_date: str,
     if not masks:
         print("No mask experiment subfolders found.")
         return []
+
+    # Month labels for x-axis (every 2 months like unconditional figures)
+    month_labels = ['Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul']
+    # Approximate week positions for each month (season starts ~August)
+    month_positions_weeks = [1, 5, 9, 13, 17, 22, 26, 31, 35, 40, 44, 48]
 
     outs = []
     for name in sorted(masks):
@@ -119,30 +179,40 @@ def plot_mask_experiments(mask_dir: str, forecast_date: str,
                 plot_indices.append(gt.season_setup.locations.index(code))
             plot_indices = plot_indices[:5]
 
-        # Labels
+        # Get full state names
         locdf = gt.season_setup.locations_df
         abbr_map = None
         if 'abbreviation' in locdf.columns:
             abbr_map = locdf.set_index('location_code')['abbreviation']
-        labels = [abbr_map.get(str(gt.season_setup.locations[i]), str(gt.season_setup.locations[i])) if abbr_map is not None else str(gt.season_setup.locations[i]) for i in plot_indices]
 
-        ncols = 1 + len(plot_indices)
+        # Map to full names using STATE_NAMES
+        labels = []
+        for i in plot_indices:
+            loc_code = str(gt.season_setup.locations[i])
+            if abbr_map is not None:
+                abbrev = abbr_map.get(loc_code, loc_code)
+            else:
+                abbrev = loc_code
+            # Get full name from STATE_NAMES, fallback to abbreviation
+            full_name = STATE_NAMES.get(str(abbrev).upper(), str(abbrev).upper())
+            labels.append(full_name)
+
+        ncols = len(plot_indices)
         fig, axes = plt.subplots(1, ncols, figsize=(5*ncols, 4.5), dpi=200)
-        if ncols == 2:
-            axes = [axes[0], axes[1]]
-        # Mask overlay
-        base_crop = gt.gt_xarr.data[0][:52, :52]
-        mask_crop = mk[0][:52, :52]
-        axes[0].imshow(base_crop.T, cmap='Greys', aspect='equal')
-        axes[0].imshow(mask_crop.T, alpha=.3, cmap='rainbow', aspect='equal')
-        axes[0].set_aspect('equal')
-        axes[0].set_axis_off()
+        if ncols == 1:
+            axes = [axes]
 
         palette = sns.color_palette('Set1', n_colors=len(plot_indices))
         for j, (idx, lab) in enumerate(zip(plot_indices, labels)):
-            ax = axes[j+1]
+            ax = axes[j]
+
+            # Add small heatmap inset in upper left
+            add_mask_heatmap_inset(ax, gt.gt_xarr.data[0], mk[0], idx, p_len)
+
+            # Plot ground truth
             gt_series = gt.gt_xarr.data[0, :, idx]
-            ax.plot(dates, gt_series, color='k', lw=1.5)
+            ax.plot(dates, gt_series, color='k', lw=1.5, label='Ground truth')
+
             ts = arr[:, 0, :, idx]
             # Sample trajectories (only where masked)
             if n_sample_trajs and n_sample_trajs > 0:
@@ -153,6 +223,7 @@ def plot_mask_experiments(mask_dir: str, forecast_date: str,
                     y = ts[si, :len(dates)].copy()
                     y[keep == 1] = np.nan
                     ax.plot(dates[:len(y)], y, color=palette[j], alpha=0.25, lw=0.7)
+
             # Quantile fans and median (only where masked)
             for lo, hi in flusight_quantile_pairs:
                 lo_curve = np.quantile(ts, lo, axis=0)
@@ -161,21 +232,41 @@ def plot_mask_experiments(mask_dir: str, forecast_date: str,
                 lo_curve = lo_curve.copy(); hi_curve = hi_curve.copy()
                 lo_curve[keepw == 1] = np.nan
                 hi_curve[keepw == 1] = np.nan
-                ax.fill_between(dates[:len(lo_curve)], lo_curve, hi_curve, color=palette[j], alpha=0.06, lw=0)
+                ax.fill_between(dates[:len(lo_curve)], lo_curve, hi_curve,
+                               color=palette[j], alpha=0.06, lw=0)
+
             if plot_median:
                 med = np.quantile(ts, 0.5, axis=0)
                 med_masked = med.copy()
                 med_masked[mk[0, :len(med), idx] == 1] = np.nan
-                ax.plot(dates[:len(med_masked)], med_masked, color=palette[j], lw=1.8)
-            # Corner label
-            ax.text(0.02, 0.98, str(lab).upper(), transform=ax.transAxes, va='top', ha='left',
-                    fontsize=11, fontweight='bold', bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
+                ax.plot(dates[:len(med_masked)], med_masked, color=palette[j], lw=1.8,
+                       label='Forecast median')
+
+            # Title with full state name
+            ax.set_title(lab, fontsize=12, fontweight='bold', pad=10)
+
             ax.set_ylim(bottom=0)
             ax.grid(True, alpha=0.3)
+
             if j == 0:
                 ax.set_ylabel('Incident flu hospitalizations')
-            ax.set_xlabel('Date')
+
+            # X-axis: Set ticks at every 2 months
+            # Map month positions (in weeks) to corresponding dates
+            tick_dates = []
+            tick_labels_to_show = []
+            for k in range(0, len(month_positions_weeks), 2):  # Every 2 months
+                week_idx = month_positions_weeks[k]
+                if week_idx < len(dates):
+                    tick_dates.append(dates[week_idx])
+                    tick_labels_to_show.append(month_labels[k])
+
+            ax.set_xticks(tick_dates)
+            ax.set_xticklabels(tick_labels_to_show, rotation=0, ha='center')
+            ax.set_xlabel('Month')
+
             sns.despine(ax=ax, trim=True)
+
         fig.tight_layout()
 
         # Save figure
