@@ -87,11 +87,12 @@ def add_mask_heatmap_inset(ax, gt_data, mask, location_idx, P):
     # Overlay mask with alpha transparency
     axins.imshow(mask_colored, aspect='equal', origin='lower')
 
-    # Highlight the current location with a red rectangle
-    # Rectangle covers the entire width (52 weeks) and height of 1 location
-    rect = mpatches.Rectangle((-0.5, location_idx - 0.5), 52, 1,
-                              linewidth=2.5, edgecolor='red', facecolor='none')
-    axins.add_patch(rect)
+    # Highlight the current location with a red arrow pointing to it
+    # Arrow points from left side to the middle of the location row
+    arrow = mpatches.FancyArrow(-5, location_idx, 4, 0,
+                               width=0.5, head_width=1.2, head_length=1.5,
+                               edgecolor='red', facecolor='red', linewidth=2)
+    axins.add_patch(arrow)
 
     # Minimal labels
     axins.set_xticks([])
