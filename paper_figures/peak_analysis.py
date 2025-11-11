@@ -10,6 +10,7 @@ from scipy.signal import find_peaks
 from scipy.stats import gaussian_kde
 
 from influpaint.utils import SeasonAxis
+from .data_utils import normalize_samples_shape, get_real_weeks, get_state_timeseries
 from .helpers import state_to_code
 from .config import STATE_NAMES
 
@@ -31,15 +32,9 @@ def plot_peak_distributions_comparison(inv_samples: np.ndarray,
     Returns:
         matplotlib Figure object
     """
-    if inv_samples.ndim == 4:
-        arr = inv_samples
-    elif inv_samples.ndim == 3:
-        arr = inv_samples[:, None, :, :]
-    else:
-        raise ValueError("inv_samples must be (sample, feature, week, place) or (sample, week, place)")
-
+    arr = normalize_samples_shape(inv_samples)
     n, c, w, p = arr.shape
-    real_weeks = min(53, w)
+    real_weeks = get_real_weeks(arr)
 
     gt_df = pd.read_csv('influpaint/data/nhsn_flusight_past.csv')
 
@@ -137,7 +132,7 @@ def plot_peak_distributions_by_location(inv_samples: np.ndarray,
                                          states: list[str],
                                          save_path: str | None = None,
                                          prominence_threshold: float = 50.0):
-    """Compare peak timing and size distributions between generated and historical seasons for specific locations.
+    """Compare peak timing and size distributions for specific locations.
 
     Creates multi-panel figure showing density curves for peak characteristics per location.
 
@@ -151,15 +146,9 @@ def plot_peak_distributions_by_location(inv_samples: np.ndarray,
     Returns:
         matplotlib Figure object
     """
-    if inv_samples.ndim == 4:
-        arr = inv_samples
-    elif inv_samples.ndim == 3:
-        arr = inv_samples[:, None, :, :]
-    else:
-        raise ValueError("inv_samples must be (sample, feature, week, place) or (sample, week, place)")
-
+    arr = normalize_samples_shape(inv_samples)
     n, c, w, p = arr.shape
-    real_weeks = min(53, w)
+    real_weeks = get_real_weeks(arr)
 
     gt_df = pd.read_csv('influpaint/data/nhsn_flusight_past.csv')
 
@@ -283,15 +272,9 @@ def plot_peak_distributions_by_metric(inv_samples: np.ndarray,
     Returns:
         matplotlib Figure object
     """
-    if inv_samples.ndim == 4:
-        arr = inv_samples
-    elif inv_samples.ndim == 3:
-        arr = inv_samples[:, None, :, :]
-    else:
-        raise ValueError("inv_samples must be (sample, feature, week, place) or (sample, week, place)")
-
+    arr = normalize_samples_shape(inv_samples)
     n, c, w, p = arr.shape
-    real_weeks = min(53, w)
+    real_weeks = get_real_weeks(arr)
 
     gt_df = pd.read_csv('influpaint/data/nhsn_flusight_past.csv')
 
@@ -302,6 +285,7 @@ def plot_peak_distributions_by_metric(inv_samples: np.ndarray,
 
     for state_idx, state in enumerate(states):
         ax = axes[state_idx]
+        ts = get_state_timeseries(arr, state, season_axis)
         loc_code = state_to_code(state, season_axis)
         place_idx = season_axis.locations.index(loc_code)
 

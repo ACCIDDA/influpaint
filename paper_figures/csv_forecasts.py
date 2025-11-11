@@ -8,13 +8,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-from influpaint.utils.helpers import flusight_quantile_pairs
+from .data_utils import flusight_quantile_pairs
 from .helpers import state_to_code, list_influpaint_csvs, format_date_axis
 from .config import SEASON_XLIMS
 
 
 def load_truth_for_season(season: str) -> pd.DataFrame:
-    """Load ground truth data for a given season.
+    """Load ground truth data for a given season (with caching).
 
     Args:
         season: Season string like '2023-2024'
@@ -22,11 +22,8 @@ def load_truth_for_season(season: str) -> pd.DataFrame:
     Returns:
         DataFrame with ground truth data
     """
-    from prepare_dataset_for_scoringutils import ScoringutilsFullEvaluator
-    ev = ScoringutilsFullEvaluator()
-    gt = ev.load_ground_truth(season)
-    gt["date"] = pd.to_datetime(gt["date"])  # ensure datetime
-    return gt
+    from .data_utils import load_ground_truth_cached
+    return load_ground_truth_cached(season)
 
 
 def plot_csv_quantile_fans_for_season(season: str, base_dir: str, model_id: str, config: str,

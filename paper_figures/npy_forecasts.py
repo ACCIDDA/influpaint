@@ -10,11 +10,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 from influpaint.utils import SeasonAxis
-from influpaint.utils.helpers import flusight_quantile_pairs
+from .data_utils import flusight_quantile_pairs, load_ground_truth_cached as load_truth_for_season
 from .helpers import (state_to_code, list_inpainting_dirs, parse_date_from_folder,
                       forecast_week_saturdays, format_date_axis)
 from .config import SEASON_XLIMS, SHOW_NPY_PAST
-from .csv_forecasts import load_truth_for_season
 
 
 def plot_npy_multi_date_two_seasons(base_dir: str, model_id: str, config: str,

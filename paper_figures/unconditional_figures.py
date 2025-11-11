@@ -9,8 +9,12 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from influpaint.utils import SeasonAxis
 import influpaint.utils.plotting as idplots
-from influpaint.utils.helpers import flusight_quantile_pairs
 
+from .data_utils import (
+    normalize_samples_shape, get_real_weeks, get_state_timeseries,
+    compute_quantile_curves, compute_median, flusight_quantile_pairs,
+    get_state_labels
+)
 from .helpers import state_to_code
 from .config import STATE_NAMES
 
@@ -25,6 +29,7 @@ def plot_unconditional_states_quantiles_and_trajs(inv_samples: np.ndarray,
 
     Args:
         inv_samples: (N, 1, weeks, places) or (N, weeks, places)
+        season_axis: SeasonAxis object for location mapping
         states: list of state codes/abbrevs (expected ~5)
         n_sample_trajs: number of light sample lines to overlay per state
         plot_median: toggle median line overlay
@@ -33,34 +38,21 @@ def plot_unconditional_states_quantiles_and_trajs(inv_samples: np.ndarray,
     Returns:
         matplotlib Figure object
     """
-    # Normalize shape to (N, 1, W, P)
-    if inv_samples.ndim == 4:
-        arr = inv_samples
-    elif inv_samples.ndim == 3:
-        arr = inv_samples[:, None, :, :]
-    else:
-        raise ValueError("inv_samples must be (sample, feature, week, place) or (sample, week, place)")
-
-    n, c, w, p = arr.shape
-    real_weeks = min(53, w)
+    # Normalize shape
+    arr = normalize_samples_shape(inv_samples)
+    real_weeks = get_real_weeks(arr)
     weeks = np.arange(1, real_weeks + 1)
 
     n_states = len(states)
-    ncols = n_states
-    nrows = 1
-    if n_states > 5:
-        nrows = 2
-        ncols = int(np.ceil(n_states / 2))
+    ncols = n_states if n_states <= 5 else int(np.ceil(n_states / 2))
+    nrows = 1 if n_states <= 5 else 2
+
     fig, axes = plt.subplots(nrows, ncols, figsize=(4*ncols, 3.5*nrows), dpi=200, sharey=False)
     axes_list = axes.flatten() if isinstance(axes, np.ndarray) else [axes]
 
     for i, st in enumerate(states):
         ax = axes_list[i]
-        loc_code = state_to_code(st, season_axis)
-        place_idx = season_axis.locations.index(loc_code)
-        ts = arr[:, 0, :real_weeks, place_idx]  # (N, W)
-
-        # Color
+        ts = get_state_timeseries(arr, st, season_axis)
         color = sns.color_palette('Set2', n_colors=n_states)[i % n_states]
 
         # Light sampled trajectories
@@ -71,14 +63,12 @@ def plot_unconditional_states_quantiles_and_trajs(inv_samples: np.ndarray,
                 ax.plot(weeks, ts[si], color=color, alpha=0.25, lw=0.8, zorder=1)
 
         # Quantile bands
-        for lo, hi in flusight_quantile_pairs:
-            lo_curve = np.quantile(ts, lo, axis=0)
-            hi_curve = np.quantile(ts, hi, axis=0)
+        for lo_curve, hi_curve in compute_quantile_curves(ts):
             ax.fill_between(weeks, lo_curve, hi_curve, color=color, alpha=0.08, lw=0)
 
         # Median
         if plot_median:
-            med = np.quantile(ts, 0.5, axis=0)
+            med = compute_median(ts)
             ax.plot(weeks, med, color=color, lw=1.8, zorder=2)
 
         # Styling
@@ -92,7 +82,7 @@ def plot_unconditional_states_quantiles_and_trajs(inv_samples: np.ndarray,
         ax.grid(True, alpha=0.3)
         sns.despine(ax=ax, trim=True)
 
-    # Hide any unused axes if states < grid size
+    # Hide any unused axes
     for j in range(len(axes_list)):
         if j >= n_states:
             axes_list[j].set_axis_off()
@@ -112,7 +102,6 @@ def fig_unconditional_3d_heat_ridges(inv_samples: np.ndarray,
                                      azim: float = -60,
                                      heatmap_mode: str = 'mean',
                                      sample_idx: int = 0,
-                                     surface_alpha: float = 0.8,
                                      surface_zoffset_ratio: float = 0.0,
                                      ridge_offset_ratio: float = 0.005,
                                      location_stride: int = 1,
@@ -124,14 +113,13 @@ def fig_unconditional_3d_heat_ridges(inv_samples: np.ndarray,
     Args:
         inv_samples: (N, 1, weeks, places) or (N, weeks, places)
         season_axis: SeasonAxis object
-        states: optional list of state abbrevs/codes to overlay as ridges; if None, picks evenly spaced locations
-        stat: 'median' or 'mean' used for ridge z-values across samples
+        states: optional list of state abbrevs/codes to overlay as ridges
+        stat: 'median' or 'mean' used for ridge z-values
         cmap: colormap for bottom heatmap
         elev: elevation angle for 3D view
         azim: azimuth angle for 3D view
         heatmap_mode: 'mean' or 'sample' for heatmap data
         sample_idx: which sample to use if heatmap_mode='sample'
-        surface_alpha: transparency of the surface (not used in current implementation)
         surface_zoffset_ratio: z-offset ratio for surface
         ridge_offset_ratio: offset ratio for ridges
         location_stride: stride for location selection when states is None
@@ -142,34 +130,27 @@ def fig_unconditional_3d_heat_ridges(inv_samples: np.ndarray,
     Returns:
         Tuple of (figure, axis)
     """
-    # Normalize samples shape
-    if inv_samples.ndim == 4:
-        arr = inv_samples
-    elif inv_samples.ndim == 3:
-        arr = inv_samples[:, None, :, :]
-    else:
-        raise ValueError("inv_samples must be (sample, feature, week, place) or (sample, week, place)")
-
+    # Normalize shape
+    arr = normalize_samples_shape(inv_samples)
     n, c, w, p = arr.shape
     P = len(season_axis.locations)
-    real_weeks = min(53, w)
+    real_weeks = get_real_weeks(arr)
 
-    # Compute heatmap (mean across samples or a single sample)
+    # Compute heatmap
     if heatmap_mode == 'sample':
         sample_idx = int(np.clip(sample_idx, 0, n-1))
         heat = arr[sample_idx, 0, :real_weeks, :P]
     else:
-        heat = arr[:, 0, :real_weeks, :P].mean(axis=0)  # (W, P)
+        heat = arr[:, 0, :real_weeks, :P].mean(axis=0)
 
     # Build grid for bottom surface
     x_vals = np.arange(1, real_weeks + 1)
     y_vals = np.arange(P)
-    X, Y = np.meshgrid(x_vals, y_vals)  # shapes (P, W)
-    # Optional tiny z-offset for surface (defaults to 0 to avoid visible shift)
+    X, Y = np.meshgrid(x_vals, y_vals)
     zmax_global = float(np.nanmax(heat)) if np.isfinite(heat).all() else 1.0
     zmax_global = max(1.0, zmax_global)
     Z0 = np.zeros_like(X, dtype=float) - (surface_zoffset_ratio * zmax_global if surface_zoffset_ratio else 0.0)
-    Cdata = heat.T  # (P, W)
+    Cdata = heat.T
 
     # Normalize colors
     cmap_obj = plt.cm.get_cmap(cmap)
@@ -180,7 +161,7 @@ def fig_unconditional_3d_heat_ridges(inv_samples: np.ndarray,
     fig = plt.figure(figsize=(12, 7), dpi=200)
     ax = fig.add_subplot(111, projection='3d')
 
-    # Plot bottom colored surface (flat at z=0)
+    # Plot bottom colored surface
     surf = ax.plot_surface(X, Y, Z0, rstride=1, cstride=1,
                            facecolors=facecolors[:-1, :-1], shade=False,
                            linewidth=0, antialiased=False, alpha=1)
@@ -192,35 +173,28 @@ def fig_unconditional_3d_heat_ridges(inv_samples: np.ndarray,
         labels = [s.upper() for s in states]
     else:
         stride = max(1, int(location_stride))
-        place_idxs = list(range(0, P, stride))[1:-1]  # Remove first (AL) and last (WY)
-        # readable labels using abbreviations if available
-        locdf = season_axis.locations_df
-        if 'abbreviation' in locdf.columns:
-            abbr_map = locdf.set_index('location_code')['abbreviation']
-            labels = [abbr_map.get(str(season_axis.locations[i]), str(season_axis.locations[i])) for i in place_idxs]
-        else:
-            labels = [str(season_axis.locations[i]) for i in place_idxs]
+        place_idxs = list(range(0, P, stride))[1:-1]
+        labels = get_state_labels(place_idxs, season_axis)
 
     # Palette for ridges
     ridge_colors = sns.color_palette('Set2', n_colors=len(place_idxs))
 
-    # Plot ridges: x=weeks, y=place_idx, z=statistic over samples
+    # Plot ridges
     ridge_offset = ridge_offset_ratio * zmax_global
     for j, (pi, lab) in enumerate(zip(place_idxs, labels)):
-        ts = arr[:, 0, :real_weeks, pi]  # (N, W)
-        if stat == 'mean':
-            z = np.nanmean(ts, axis=0)
-        else:
-            z = np.nanmedian(ts, axis=0)
+        ts = arr[:, 0, :real_weeks, pi]
+        z = np.nanmean(ts, axis=0) if stat == 'mean' else np.nanmedian(ts, axis=0)
         y_curve = np.full_like(x_vals, fill_value=pi)
-        # Optional ribbon fill under the curve using vertical lines
+
         if fill_ridges:
             for k in range(len(x_vals)):
                 ax.plot([x_vals[k], x_vals[k]], [pi, pi], [ridge_offset * 0.1, z[k] + ridge_offset],
                        color=ridge_colors[j], alpha=fill_alpha, lw=1.5, zorder=50-pi)
-        ax.plot(x_vals, y_curve, z + ridge_offset, color=ridge_colors[j], lw=2.0, zorder=100-pi, marker='.', markersize=4)
-        # Label near end of ridge
-        ax.text(x_vals[-1]+0.5, pi, (z[-1] + ridge_offset), lab, color=ridge_colors[j], fontsize=9, ha='left', va='center')
+
+        ax.plot(x_vals, y_curve, z + ridge_offset, color=ridge_colors[j], lw=2.0,
+               zorder=100-pi, marker='.', markersize=4)
+        ax.text(x_vals[-1]+0.5, pi, (z[-1] + ridge_offset), lab, color=ridge_colors[j],
+               fontsize=9, ha='left', va='center')
 
     # Aesthetics
     ax.view_init(elev=elev, azim=azim)
@@ -230,8 +204,6 @@ def fig_unconditional_3d_heat_ridges(inv_samples: np.ndarray,
     ax.set_xlim(1, real_weeks)
     ax.set_ylim(0, P-1)
     ax.set_zlim(bottom=0)
-
-    # Light grid styling
     ax.grid(False)
 
     if save_path:
@@ -275,16 +247,10 @@ def fig_unconditional_3d_heat_ridges_plotly(inv_samples: np.ndarray,
         raise RuntimeError("Plotly is required for this function. Please install plotly.") from e
 
     # Normalize shape
-    if inv_samples.ndim == 4:
-        arr = inv_samples
-    elif inv_samples.ndim == 3:
-        arr = inv_samples[:, None, :, :]
-    else:
-        raise ValueError("inv_samples must be (sample, feature, week, place) or (sample, week, place)")
-
+    arr = normalize_samples_shape(inv_samples)
     n, c, w, p = arr.shape
     P = len(season_axis.locations)
-    real_weeks = min(53, w)
+    real_weeks = get_real_weeks(arr)
 
     # Heatmap data
     if heatmap_mode == 'sample':
@@ -295,7 +261,7 @@ def fig_unconditional_3d_heat_ridges_plotly(inv_samples: np.ndarray,
 
     weeks = np.arange(1, real_weeks + 1)
     y_idx = np.arange(P)
-    Z = heat.T  # (P, W)
+    Z = heat.T
 
     # Build figure with surface
     fig = go.Figure()
@@ -312,24 +278,14 @@ def fig_unconditional_3d_heat_ridges_plotly(inv_samples: np.ndarray,
         place_idxs = list(range(0, P, stride))
         if len(place_idxs) > 2:
             place_idxs = place_idxs[1:-1]
-        locdf = season_axis.locations_df
-        if 'abbreviation' in locdf.columns:
-            abbr_map = locdf.set_index('location_code')['abbreviation']
-            labels = [abbr_map.get(str(season_axis.locations[i]), str(season_axis.locations[i])) for i in place_idxs]
-        else:
-            labels = [str(season_axis.locations[i]) for i in place_idxs]
-        labels = [str(l).upper() for l in labels]
+        labels = [str(l).upper() for l in get_state_labels(place_idxs, season_axis)]
 
     # Add ridge lines
     for pi, lab in zip(place_idxs, labels):
         ts = arr[:, 0, :real_weeks, pi]
-        if stat == 'mean':
-            z = np.nanmean(ts, axis=0)
-        else:
-            z = np.nanmedian(ts, axis=0)
+        z = np.nanmean(ts, axis=0) if stat == 'mean' else np.nanmedian(ts, axis=0)
         fig.add_trace(go.Scatter3d(x=weeks, y=np.full_like(weeks, pi), z=z + ridge_lift,
-                                   mode='lines', name=lab,
-                                   line=dict(width=4)))
+                                   mode='lines', name=lab, line=dict(width=4)))
 
     # Layout and camera
     if camera_eye is None:
@@ -347,12 +303,9 @@ def fig_unconditional_3d_heat_ridges_plotly(inv_samples: np.ndarray,
     )
 
     if save_path_html:
-        # Embed plotly.js for offline viewing
         pio.write_html(fig, file=save_path_html, include_plotlyjs=True, full_html=True)
-        if os.path.exists(save_path_html):
-            print(f"Saved Plotly HTML to {save_path_html}")
-        else:
-            print(f"Failed to save Plotly HTML to {save_path_html}")
+        print(f"Saved Plotly HTML to {save_path_html}" if os.path.exists(save_path_html)
+              else f"Failed to save Plotly HTML to {save_path_html}")
     return fig
 
 
@@ -363,8 +316,6 @@ def plot_unconditional_states_with_history(inv_samples: np.ndarray,
                                            plot_median: bool = True,
                                            save_path: str | None = None):
     """Plot unconditional samples with historical data overlay for selected states.
-
-    Combines historical data by season with quantiles and trajectories.
 
     Args:
         inv_samples: (N, 1, weeks, places) or (N, weeks, places)
@@ -377,15 +328,8 @@ def plot_unconditional_states_with_history(inv_samples: np.ndarray,
     Returns:
         matplotlib Figure object
     """
-    if inv_samples.ndim == 4:
-        arr = inv_samples
-    elif inv_samples.ndim == 3:
-        arr = inv_samples[:, None, :, :]
-    else:
-        raise ValueError("inv_samples must be (sample, feature, week, place) or (sample, week, place)")
-
-    n, c, w, p = arr.shape
-    real_weeks = min(53, w)
+    arr = normalize_samples_shape(inv_samples)
+    real_weeks = get_real_weeks(arr)
     weeks = np.arange(1, real_weeks + 1)
 
     n_states = len(states)
@@ -394,8 +338,8 @@ def plot_unconditional_states_with_history(inv_samples: np.ndarray,
     fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 4*nrows), dpi=200, sharey=False)
     axes_list = axes.flatten() if isinstance(axes, np.ndarray) else [axes]
 
+    # Load historical data
     gt_df = pd.read_csv('influpaint/data/nhsn_flusight_past.csv')
-
     gt_plot_data = {}
     for season in gt_df['fluseason'].unique():
         season_data = gt_df[gt_df['fluseason'] == season]
@@ -404,33 +348,32 @@ def plot_unconditional_states_with_history(inv_samples: np.ndarray,
 
     sorted_seasons = sorted(gt_plot_data.keys())
     line_styles = ['-', '--', '-.', ':']
-
     month_labels = ['Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul']
     month_weeks = [1, 5, 9, 13, 17, 22, 26, 31, 35, 40, 44, 48]
 
     for i, st in enumerate(states):
         ax = axes_list[i]
+        ts = get_state_timeseries(arr, st, season_axis)
         loc_code = state_to_code(st, season_axis)
-        place_idx = season_axis.locations.index(loc_code)
-        ts = arr[:, 0, :real_weeks, place_idx]
-
         color = sns.color_palette('Set2', n_colors=n_states)[i % n_states]
 
-        for lo, hi in flusight_quantile_pairs:
-            lo_curve = np.quantile(ts, lo, axis=0)
-            hi_curve = np.quantile(ts, hi, axis=0)
+        # Quantile bands
+        for lo_curve, hi_curve in compute_quantile_curves(ts):
             ax.fill_between(weeks, lo_curve, hi_curve, color=color, alpha=0.08, lw=0, zorder=0)
 
+        # Sample trajectories
         if n_sample_trajs and n_sample_trajs > 0:
             ns = min(n_sample_trajs, ts.shape[0])
             sample_idxs = np.linspace(0, ts.shape[0]-1, num=ns, dtype=int)
             for si in sample_idxs:
                 ax.plot(weeks, ts[si], color=color, alpha=0.8, lw=1.8, zorder=1)
 
+        # Median
         if plot_median:
-            med = np.quantile(ts, 0.5, axis=0)
+            med = compute_median(ts)
             ax.plot(weeks, med, color=color, lw=2.5, zorder=2)
 
+        # Historical data
         for j, season_key in enumerate(sorted_seasons):
             season_data = gt_plot_data[season_key]
             if loc_code in season_data.columns:
@@ -472,9 +415,7 @@ def plot_unconditional_states_with_history_alt(inv_samples: np.ndarray,
                                                 season_axis: SeasonAxis,
                                                 states: list[str],
                                                 save_path: str | None = None):
-    """Plot unconditional samples with historical data overlay showing all trajectories and envelope.
-
-    Shows all sample trajectories with alpha and 95% envelope with fill_between.
+    """Plot unconditional samples with historical data showing all trajectories and envelope.
 
     Args:
         inv_samples: (N, 1, weeks, places) or (N, weeks, places)
@@ -485,15 +426,8 @@ def plot_unconditional_states_with_history_alt(inv_samples: np.ndarray,
     Returns:
         matplotlib Figure object
     """
-    if inv_samples.ndim == 4:
-        arr = inv_samples
-    elif inv_samples.ndim == 3:
-        arr = inv_samples[:, None, :, :]
-    else:
-        raise ValueError("inv_samples must be (sample, feature, week, place) or (sample, week, place)")
-
-    n, c, w, p = arr.shape
-    real_weeks = min(53, w)
+    arr = normalize_samples_shape(inv_samples)
+    real_weeks = get_real_weeks(arr)
     weeks = np.arange(1, real_weeks + 1)
 
     n_states = len(states)
@@ -502,8 +436,8 @@ def plot_unconditional_states_with_history_alt(inv_samples: np.ndarray,
     fig, axes = plt.subplots(nrows, ncols, figsize=(5*ncols, 4*nrows), dpi=200, sharey=False)
     axes_list = axes.flatten() if isinstance(axes, np.ndarray) else [axes]
 
+    # Load historical data
     gt_df = pd.read_csv('influpaint/data/nhsn_flusight_past.csv')
-
     gt_plot_data = {}
     for season in gt_df['fluseason'].unique():
         season_data = gt_df[gt_df['fluseason'] == season]
@@ -512,25 +446,25 @@ def plot_unconditional_states_with_history_alt(inv_samples: np.ndarray,
 
     sorted_seasons = sorted(gt_plot_data.keys())
     line_styles = ['-', '--', '-.', ':']
-
     month_labels = ['Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul']
     month_weeks = [1, 5, 9, 13, 17, 22, 26, 31, 35, 40, 44, 48]
 
     for i, st in enumerate(states):
         ax = axes_list[i]
+        ts = get_state_timeseries(arr, st, season_axis)
         loc_code = state_to_code(st, season_axis)
-        place_idx = season_axis.locations.index(loc_code)
-        ts = arr[:, 0, :real_weeks, place_idx]
-
         color = sns.color_palette('Set2', n_colors=n_states)[i % n_states]
 
+        # 95% envelope
         lower_envelope = np.quantile(ts, 0.025, axis=0)
         upper_envelope = np.quantile(ts, 0.975, axis=0)
         ax.fill_between(weeks, lower_envelope, upper_envelope, color='gray', alpha=0.3, lw=0, zorder=0)
 
+        # All trajectories
         for si in range(ts.shape[0]):
             ax.plot(weeks, ts[si], color=color, alpha=0.05, lw=0.6, zorder=1)
 
+        # Historical data
         for j, season_key in enumerate(sorted_seasons):
             season_data = gt_plot_data[season_key]
             if loc_code in season_data.columns:
@@ -568,15 +502,9 @@ def plot_unconditional_states_with_history_alt(inv_samples: np.ndarray,
     return fig
 
 
-def generate_unconditional_us_grid(inv_samples: np.ndarray, season_axis: SeasonAxis, fig_dir: str, model_num: str):
-    """Generate US grid of unconditional samples.
-
-    Args:
-        inv_samples: Unconditional samples array
-        season_axis: SeasonAxis object
-        fig_dir: Directory to save figures
-        model_num: Model number for filenames
-    """
+def generate_unconditional_us_grid(inv_samples: np.ndarray, season_axis: SeasonAxis,
+                                    fig_dir: str, model_num: str):
+    """Generate US grid of unconditional samples using influpaint's plotting library."""
     fig, _ = idplots.plot_unconditional_us_map(
         inv_samples=inv_samples,
         season_axis=season_axis,
@@ -589,14 +517,9 @@ def generate_unconditional_us_grid(inv_samples: np.ndarray, season_axis: SeasonA
     plt.close(fig)
 
 
-def generate_unconditional_trajs_and_heatmap(inv_samples: np.ndarray, season_axis: SeasonAxis, fig_dir: str):
-    """Generate trajectories + mean heatmap figure.
-
-    Args:
-        inv_samples: Unconditional samples array
-        season_axis: SeasonAxis object
-        fig_dir: Directory to save figures
-    """
+def generate_unconditional_trajs_and_heatmap(inv_samples: np.ndarray, season_axis: SeasonAxis,
+                                              fig_dir: str):
+    """Generate trajectories + mean heatmap using influpaint's plotting library."""
     fig, _ = idplots.fig_unconditional_trajectories_and_mean_heatmap(
         inv_samples=inv_samples,
         season_axis=season_axis,
@@ -606,15 +529,9 @@ def generate_unconditional_trajs_and_heatmap(inv_samples: np.ndarray, season_axi
     plt.close(fig)
 
 
-def generate_mean_heatmap(inv_samples: np.ndarray, season_axis: SeasonAxis, fig_dir: str, model_num: str):
-    """Generate mean heatmap figure.
-
-    Args:
-        inv_samples: Unconditional samples array
-        season_axis: SeasonAxis object
-        fig_dir: Directory to save figures
-        model_num: Model number for filenames
-    """
+def generate_mean_heatmap(inv_samples: np.ndarray, season_axis: SeasonAxis,
+                          fig_dir: str, model_num: str):
+    """Generate mean heatmap figure."""
     mean_heatmap = inv_samples[:, 0, :53, :len(season_axis.locations)].mean(axis=0)
     fig_heat, ax_heat = plt.subplots(figsize=(8, 8), dpi=200)
     im = ax_heat.imshow(mean_heatmap.T, cmap='Reds', aspect='equal', origin='lower')
