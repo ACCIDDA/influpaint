@@ -15,7 +15,7 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from influpaint.utils import ground_truth
 from influpaint.utils.helpers import flusight_quantile_pairs
 from .helpers import state_to_code
-from .config import IMAGE_SIZE, CHANNELS, STATE_NAMES
+from .config import IMAGE_SIZE, CHANNELS
 
 
 def recreate_mask(gt: ground_truth.GroundTruth, mask_name: str):
@@ -199,17 +199,22 @@ def plot_mask_experiments(mask_dir: str, forecast_date: str,
                 if len(plot_indices) >= 5:
                     break
 
-        # Map to full names using STATE_NAMES
+        # Map to full names using location_name from locations_df
         labels = []
         for i in plot_indices:
             loc_code = str(gt.season_setup.locations[i])
+            # Try to get location_name from locations_df
+            if 'location_name' in locdf.columns:
+                name_match = locdf[locdf['location_code'] == loc_code]['location_name']
+                if not name_match.empty:
+                    labels.append(name_match.iloc[0])
+                    continue
+            # Fallback to abbreviation
             if abbr_map is not None:
                 abbrev = abbr_map.get(loc_code, loc_code)
             else:
                 abbrev = loc_code
-            # Get full name from STATE_NAMES, fallback to abbreviation
-            full_name = STATE_NAMES.get(str(abbrev).upper(), str(abbrev).upper())
-            labels.append(full_name)
+            labels.append(str(abbrev).upper())
 
         ncols = len(plot_indices)
         fig, axes = plt.subplots(1, ncols, figsize=(5*ncols, 4.5), dpi=200)
