@@ -23,8 +23,15 @@ REQUIRED_QUANTILES = [
 WEEKLY_HORIZONS = [-1, 0, 1, 2, 3]
 RATE_CHANGE_HORIZONS = [0, 1, 2, 3]
 
-# Rate change categories
-RATE_CATEGORIES = ["large_decrease", "decrease", "stable", "increase", "large_increase"]
+# Rate change categories (Hub README order)
+RATE_CATEGORIES = ["large_increase", "increase", "stable", "decrease", "large_decrease"]
+
+
+def _format_quantile_level(level: float) -> str:
+    """Return compact string representation for a quantile level."""
+    s = f"{level:.3f}"
+    s = s.rstrip("0").rstrip(".")
+    return s or "0"
 
 
 def get_rate_change_thresholds(horizon: int) -> Dict[str, float]:
@@ -278,25 +285,32 @@ def convert_trajectories_to_flusight(
     ref_date = datetime.strptime(reference_date, "%Y-%m-%d")
     rows = []
 
-    # 1. Weekly hospital admission quantiles
+    # Precompute quantiles per horizon to avoid recomputing for each q_level
+    weekly_quantiles: Dict[int, np.ndarray] = {}
     for horizon in WEEKLY_HORIZONS:
         if horizon not in trajectories_dict:
             continue
+        weekly_quantiles[horizon] = trajectories_to_quantiles(
+            trajectories_dict[horizon],
+            quantiles,
+            round_to_int=True
+        )
 
-        target_end_date = (ref_date + timedelta(days=horizon * 7)).strftime("%Y-%m-%d")
-        traj = trajectories_dict[horizon]
-        quantile_values = trajectories_to_quantiles(traj, quantiles, round_to_int=True)
-
-        for q_level, q_value in zip(quantiles, quantile_values):
+    # 1. Weekly hospital admission quantiles (quantile-major ordering like legacy exporter)
+    for q_idx, q_level in enumerate(quantiles):
+        q_label = _format_quantile_level(q_level)
+        for horizon in WEEKLY_HORIZONS:
+            if horizon not in weekly_quantiles:
+                continue
             rows.append({
                 "reference_date": reference_date,
                 "target": "wk inc flu hosp",
                 "horizon": horizon,
-                "target_end_date": target_end_date,
+                "target_end_date": (ref_date + timedelta(days=horizon * 7)).strftime("%Y-%m-%d"),
                 "location": location,
                 "output_type": "quantile",
-                "output_type_id": f"{q_level:.3f}",
-                "value": int(q_value)
+                "output_type_id": q_label,
+                "value": int(weekly_quantiles[horizon][q_idx])
             })
 
     # 2. Rate change probabilities
@@ -366,7 +380,7 @@ def convert_trajectories_to_flusight(
                 "target_end_date": "",  # Not applicable for seasonal targets
                 "location": location,
                 "output_type": "quantile",
-                "output_type_id": f"{q_level:.3f}",
+                "output_type_id": _format_quantile_level(q_level),
                 "value": int(q_value)
             })
 
@@ -377,7 +391,16 @@ def convert_trajectories_to_flusight(
         "location", "output_type", "output_type_id", "value"
     ]
 
-    return df[column_order]
+    df = df[column_order]
+
+    # Cast value column to object so quantile rows can retain pure integers
+    df["value"] = df["value"].astype(object)
+    quant_mask = df["output_type"] == "quantile"
+    df.loc[quant_mask, "value"] = df.loc[quant_mask, "value"].apply(
+        lambda v: int(round(float(v)))
+    )
+
+    return df
 
 
 def convert_samples_to_flusight(

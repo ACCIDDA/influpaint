@@ -4,6 +4,7 @@ InfluPaint vs FluSight evaluation plotting from scoringutils CSV.
 Uses benchmark_plotting utilities for visualization.
 """
 
+import argparse
 import os
 import pandas as pd
 import numpy as np
@@ -25,6 +26,8 @@ GROUP_COLORS = {'influpaint': 'green', 'flusight': 'blue'}
 ALLOW_MISSING_DATES_PER_MODEL = 5  # Same threshold as evaluation_pipeline.py
 LEADERBOARD_DIR = "results/leaderboards"
 LEADERBOARD_CSV = os.path.join(LEADERBOARD_DIR, "leaderboard_full.csv")
+DEFAULT_SAVE_DIR = SAVE_DIR
+DEFAULT_LEADERBOARD_DIR = LEADERBOARD_DIR
 
 def add_inclusion_columns(df: pd.DataFrame) -> pd.DataFrame:
     """Add columns indicating which plots each model should be included in based on per-season performance."""
@@ -149,10 +152,85 @@ def get_missing_data_for_plot(original_df: pd.DataFrame, models_in_plot: List[st
     
     return compute_missing_data(original_df, models_in_plot, expected_locations, expected_horizons, expected_dates)
 
+def plot_dual_metric_bars(agg_df: pd.DataFrame, left_metric: str, right_metric: str, title: str, save_path: str, bar_color: str, missing_info: Dict[str, Dict[str, Union[str, bool]]] = None) -> None:
+    """Plot two aligned horizontal bar charts (left/right metrics) ordered by left_metric, labeling missing data if provided."""
+    df = agg_df.copy()
+    df = df.replace({np.inf: np.nan})
+    df = df.dropna(subset=[left_metric, right_metric])
+    if df.empty:
+        print(f"No data to plot for {title}")
+        return
+
+    df = df.sort_values(left_metric, ascending=True).reset_index(drop=True)
+    df['rank'] = df[left_metric].rank(method='min', ascending=True).astype(int)
+
+    # Build labels with rank prefix and optional missing-info text
+    labels = []
+    colors = []
+    for _, row in df.iterrows():
+        model_name = row['model']
+        rank_prefix = f"#{row['rank']} "
+        if missing_info and model_name in missing_info:
+            info = missing_info[model_name]
+            miss_text = info.get("text", "") if isinstance(info, dict) else str(info)
+            label = f"{rank_prefix}{model_name}"
+            if miss_text:
+                label = f"{label}\n{miss_text}"
+            colors.append('red' if isinstance(info, dict) and info.get("critical", False) else bar_color)
+        else:
+            label = f"{rank_prefix}{model_name}"
+            colors.append(bar_color)
+        labels.append(label)
+
+    fig_height = max(4, 0.45 * len(df))
+    fig_width = max(18, 0.8 * fig_height + 12)
+    fig, axes = plt.subplots(1, 2, figsize=(fig_width, fig_height), sharey=True)
+    y_pos = np.arange(len(df))
+
+    # Left: relative metric (ranking order)
+    axes[0].barh(y_pos, df[left_metric], color=bar_color, alpha=0.85, label=left_metric)
+    axes[0].set_xlabel(left_metric.upper().replace('_', ' '))
+    axes[0].set_yticks(y_pos)
+    axes[0].set_yticklabels(labels, fontsize=9)
+    axes[0].invert_yaxis()
+    for label, color in zip(axes[0].get_yticklabels(), colors):
+        label.set_color(color)
+    for y, val in zip(y_pos, df[left_metric]):
+        axes[0].text(val, y, f"{val:.2f}", va='center', ha='left', fontsize=9, color='black')
+    axes[0].grid(True, axis='x', alpha=0.3, linewidth=0.5)
+    axes[0].legend(loc='lower right', framealpha=0.8)
+
+    # Right: secondary metric, same order
+    axes[1].barh(y_pos, df[right_metric], color=bar_color, alpha=0.55, label=right_metric)
+    axes[1].set_xlabel(right_metric.upper().replace('_', ' '))
+    axes[1].set_yticks(y_pos)
+    axes[1].set_yticklabels([])
+    for y, val in zip(y_pos, df[right_metric]):
+        axes[1].text(val, y, f"{val:.2f}", va='center', ha='left', fontsize=9, color='black')
+    axes[1].grid(True, axis='x', alpha=0.3, linewidth=0.5)
+    axes[1].legend(loc='lower right', framealpha=0.8)
+
+    fig.suptitle(title, y=0.98, fontsize=12, fontweight='medium')
+    plt.tight_layout()
+    plt.subplots_adjust(left=0.6, wspace=0.32)
+    fig.savefig(save_path, dpi=200, bbox_inches='tight')
+    plt.close(fig)
 
 # %% Main Script
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Plot evaluation results.")
+    parser.add_argument("--csv-path", default=CSV_PATH, help="Path to scoringutils CSV.")
+    parser.add_argument("--save-dir", default=SAVE_DIR, help="Directory to save plots.")
+    parser.add_argument("--group-filter", default=None, help="Restrict plots to a single group label (e.g., 'flusight').")
+    parser.add_argument("--annotate-ranks", action="store_true", help="Add value and rank labels for WIS and relative WIS bar charts.")
+    args = parser.parse_args()
+
+    CSV_PATH = args.csv_path
+    SAVE_DIR = args.save_dir
+    LEADERBOARD_DIR = DEFAULT_LEADERBOARD_DIR if args.save_dir == DEFAULT_SAVE_DIR else os.path.join(SAVE_DIR, "leaderboards")
+    LEADERBOARD_CSV = os.path.join(LEADERBOARD_DIR, "leaderboard_full.csv")
+
     # Load data with proper location column handling
     df_raw = pd.read_csv(CSV_PATH, dtype={'location': str})
     df_raw['target_end_date'] = pd.to_datetime(df_raw['target_end_date']).dt.date
@@ -175,6 +253,12 @@ if __name__ == "__main__":
         )
     else:
         df_raw['relative_wis'] = np.nan
+    
+    # Optional group filtering
+    if args.group_filter:
+        df_raw = df_raw[df_raw['group'] == args.group_filter].copy()
+        if df_raw.empty:
+            raise SystemExit(f"No rows found for group '{args.group_filter}'")
     
     # Add inclusion columns based on per-season performance
     df_with_flags = add_inclusion_columns(df_raw)
@@ -216,6 +300,31 @@ if __name__ == "__main__":
             continue
         
         print(f"Models in {season}: {len(season_df['model'].unique())} (after per-season filtering)")
+
+        if args.group_filter and args.annotate_ranks:
+            filtered_group_df = season_df[season_df['group'] == args.group_filter]
+            if not filtered_group_df.empty:
+                agg_group = filtered_group_df.groupby('model', as_index=False).agg({
+                    'relative_wis': 'mean',
+                    'wis': 'sum'
+                })
+                group_color = GROUP_COLORS.get(args.group_filter, 'blue')
+                group_missing_info = get_missing_data_for_plot(
+                    season_raw_df,
+                    filtered_group_df['model'].unique().tolist(),
+                    "sum_all_states",
+                    season
+                )
+
+                plot_dual_metric_bars(
+                    agg_group,
+                    left_metric='relative_wis',
+                    right_metric='wis',
+                    title=f"{season}: {args.group_filter.title()} Relative WIS (left) and WIS (right)",
+                    save_path=os.path.join(season_dir, f"{args.group_filter}_relative_wis_wis_dual.png"),
+                    bar_color=group_color,
+                    missing_info=group_missing_info
+                )
         
         # INFLUPAINT LEADERBOARDS
         influpaint_df = season_df[season_df['group'] == 'influpaint'].copy()
@@ -553,92 +662,94 @@ if __name__ == "__main__":
             save_path=interactive_save_path
         )
 
-    # PAPER ANALYSIS: Best model and ensemble comparison
-    print(f"\n{'='*60}")
-    print("PAPER ANALYSIS: Model Performance Summary")
-    print('='*60)
+    run_paper_analysis = (not args.group_filter) or (args.group_filter == 'influpaint')
+    if run_paper_analysis:
+        # PAPER ANALYSIS: Best model and ensemble comparison
+        print(f"\n{'='*60}")
+        print("PAPER ANALYSIS: Model Performance Summary")
+        print('='*60)
 
-    # Define models for paper analysis
-    best_model_full = f"i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::inpaint_CoPaint::celebahq_noTTJ5"
-    ensemble_model = "FluSight-ensemble"
-    submitted_model = "UNC_IDD-InfluPaint"
+        # Define models for paper analysis
+        best_model_full = f"i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::inpaint_CoPaint::celebahq_noTTJ5"
+        ensemble_model = "FluSight-ensemble"
+        submitted_model = "UNC_IDD-InfluPaint"
 
-    # Verify models exist
-    if best_model_full not in df_with_flags['model'].unique():
-        print(f"ERROR: Best model '{best_model_full}' not found in data")
-    if ensemble_model not in df_with_flags['model'].unique():
-        print(f"ERROR: Ensemble model '{ensemble_model}' not found in data")
-    if submitted_model not in df_with_flags['model'].unique():
-        print(f"ERROR: Submitted model '{submitted_model}' not found in data")
+        # Verify models exist
+        if best_model_full not in df_with_flags['model'].unique():
+            print(f"ERROR: Best model '{best_model_full}' not found in data")
+        if ensemble_model not in df_with_flags['model'].unique():
+            print(f"ERROR: Ensemble model '{ensemble_model}' not found in data")
+        if submitted_model not in df_with_flags['model'].unique():
+            print(f"ERROR: Submitted model '{submitted_model}' not found in data")
 
-    # Process each season
-    paper_results = []
-    for season in seasons_to_plot:
-        if season == "Combined":
-            season_data = df_with_flags[df_with_flags['include_combined']].copy()
-        else:
-            include_col = f'include_{season.replace("-", "_")}'
-            season_data = df_with_flags[df_with_flags['season'] == season]
-            season_data = season_data[season_data[include_col]].copy()
+        # Process each season
+        paper_results = []
+        for season in seasons_to_plot:
+            if season == "Combined":
+                season_data = df_with_flags[df_with_flags['include_combined']].copy()
+            else:
+                include_col = f'include_{season.replace("-", "_")}'
+                season_data = df_with_flags[df_with_flags['season'] == season]
+                season_data = season_data[season_data[include_col]].copy()
 
-        if season_data.empty:
-            continue
-
-        # Compute for all locations and all horizons
-        all_data = season_data.copy()
-        flusight_all = all_data[all_data['group'] == 'flusight'].copy()
-
-        for model_name, model_id in [(best_model_full, "i868_celebahq_noTTJ5"),
-                                      (ensemble_model, "FluSight-ensemble"),
-                                      (submitted_model, "UNC_IDD-InfluPaint")]:
-            model_data = all_data[all_data['model'] == model_name]
-
-            if model_data.empty:
-                print(f"WARNING: {model_id} not found in {season} (may not meet inclusion criteria)")
+            if season_data.empty:
                 continue
 
-            # Compute metrics (all locations, all horizons)
-            total_wis = model_data['wis'].sum()
-            coverage_50 = model_data['interval_coverage_50'].mean()
-            coverage_95 = model_data['interval_coverage_90'].mean()
+            # Compute for all locations and all horizons
+            all_data = season_data.copy()
+            flusight_all = all_data[all_data['group'] == 'flusight'].copy()
 
-            # Rank against FluSight models for Total WIS
-            flusight_wis = flusight_all.groupby('model')['wis'].sum().sort_values()
-            wis_rank = (flusight_wis < total_wis).sum() + 1
-            wis_total_models = len(flusight_wis)
+            for model_name, model_id in [(best_model_full, "i868_celebahq_noTTJ5"),
+                                          (ensemble_model, "FluSight-ensemble"),
+                                          (submitted_model, "UNC_IDD-InfluPaint")]:
+                model_data = all_data[all_data['model'] == model_name]
 
-            # Rank against FluSight models for Coverage 50%
-            flusight_cov50 = flusight_all.groupby('model')['interval_coverage_50'].mean()
-            flusight_cov50_diff = (flusight_cov50 - 0.5).abs()
-            model_cov50_diff = abs(coverage_50 - 0.5)
-            cov50_rank = (flusight_cov50_diff < model_cov50_diff).sum() + 1
+                if model_data.empty:
+                    print(f"WARNING: {model_id} not found in {season} (may not meet inclusion criteria)")
+                    continue
 
-            # Rank against FluSight models for Coverage 95%
-            flusight_cov95 = flusight_all.groupby('model')['interval_coverage_90'].mean()
-            flusight_cov95_diff = (flusight_cov95 - 0.9).abs()
-            model_cov95_diff = abs(coverage_95 - 0.9)
-            cov95_rank = (flusight_cov95_diff < model_cov95_diff).sum() + 1
+                # Compute metrics (all locations, all horizons)
+                total_wis = model_data['wis'].sum()
+                coverage_50 = model_data['interval_coverage_50'].mean()
+                coverage_95 = model_data['interval_coverage_90'].mean()
 
-            paper_results.append({
-                'Model': model_id,
-                'Season': season,
-                'Total WIS': f"{total_wis:.2f}",
-                'WIS Rank': f"{wis_rank}/{wis_total_models}",
-                'Coverage 50%': f"{coverage_50:.3f}",
-                'Cov50 Rank': f"{cov50_rank}/{wis_total_models}",
-                'Coverage 95%': f"{coverage_95:.3f}",
-                'Cov95 Rank': f"{cov95_rank}/{wis_total_models}"
-            })
+                # Rank against FluSight models for Total WIS
+                flusight_wis = flusight_all.groupby('model')['wis'].sum().sort_values()
+                wis_rank = (flusight_wis < total_wis).sum() + 1
+                wis_total_models = len(flusight_wis)
 
-    # Display results table
-    if paper_results:
-        results_df = pd.DataFrame(paper_results)
-        print("\n" + results_df.to_string(index=False))
+                # Rank against FluSight models for Coverage 50%
+                flusight_cov50 = flusight_all.groupby('model')['interval_coverage_50'].mean()
+                flusight_cov50_diff = (flusight_cov50 - 0.5).abs()
+                model_cov50_diff = abs(coverage_50 - 0.5)
+                cov50_rank = (flusight_cov50_diff < model_cov50_diff).sum() + 1
 
-        # Save to CSV
-        paper_csv_path = os.path.join(SAVE_DIR, "paper_model_analysis.csv")
-        results_df.to_csv(paper_csv_path, index=False)
-        print(f"\nSaved paper analysis to: {paper_csv_path}")
+                # Rank against FluSight models for Coverage 95%
+                flusight_cov95 = flusight_all.groupby('model')['interval_coverage_90'].mean()
+                flusight_cov95_diff = (flusight_cov95 - 0.9).abs()
+                model_cov95_diff = abs(coverage_95 - 0.9)
+                cov95_rank = (flusight_cov95_diff < model_cov95_diff).sum() + 1
+
+                paper_results.append({
+                    'Model': model_id,
+                    'Season': season,
+                    'Total WIS': f"{total_wis:.2f}",
+                    'WIS Rank': f"{wis_rank}/{wis_total_models}",
+                    'Coverage 50%': f"{coverage_50:.3f}",
+                    'Cov50 Rank': f"{cov50_rank}/{wis_total_models}",
+                    'Coverage 95%': f"{coverage_95:.3f}",
+                    'Cov95 Rank': f"{cov95_rank}/{wis_total_models}"
+                })
+
+        # Display results table
+        if paper_results:
+            results_df = pd.DataFrame(paper_results)
+            print("\n" + results_df.to_string(index=False))
+
+            # Save to CSV
+            paper_csv_path = os.path.join(SAVE_DIR, "paper_model_analysis.csv")
+            results_df.to_csv(paper_csv_path, index=False)
+            print(f"\nSaved paper analysis to: {paper_csv_path}")
 
     print(f"\n{'='*50}")
     print(f"ALL PLOTS SAVED TO: {SAVE_DIR}")
