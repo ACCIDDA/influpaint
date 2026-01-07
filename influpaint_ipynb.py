@@ -496,7 +496,7 @@ print(f"  This will be included in the forecast CSV files")
 
 # %%
 # Create output directory
-output_dir = Path("output") / str(submission_date)
+output_dir = Path("operational_output") / str(submission_date)
 output_dir.mkdir(parents=True, exist_ok=True)
 
 # Export using ground truth helper
