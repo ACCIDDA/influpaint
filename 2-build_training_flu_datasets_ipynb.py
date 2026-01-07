@@ -180,6 +180,12 @@ frame_list = dataset_mixer.build_frames(all_datasets_df, {
             scaling_distribution=scaling_distribution)
 
 # %%
+frame_list[0]
+
+# %%
+frame_list[8]
+
+# %%
 all_frames_df = pd.concat(frame_list)
 flu_payload_array, main_origins = build_dataset_from_framelist(frame_list)
 from importlib import reload
