@@ -1,0 +1,3 @@
+# Training
+
+::: influpaint.batch.training

@@ -1,0 +1,3 @@
+# Aggregation
+
+::: influpaint.batch.aggregation

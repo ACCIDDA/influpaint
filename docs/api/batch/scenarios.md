@@ -1,0 +1,3 @@
+# Scenarios
+
+::: influpaint.batch.scenarios

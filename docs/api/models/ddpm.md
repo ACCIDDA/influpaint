@@ -1,0 +1,3 @@
+# DDPM
+
+::: influpaint.models.ddpm

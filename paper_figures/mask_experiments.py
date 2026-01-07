@@ -1,0 +1,275 @@
+"""
+Functions for plotting mask experiment results.
+"""
+
+import os
+import datetime as dt
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import matplotlib.colors as mcolors
+import seaborn as sns
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+
+from influpaint.utils import ground_truth
+from influpaint.utils.helpers import flusight_quantile_pairs
+from .helpers import state_to_code
+from .config import IMAGE_SIZE, CHANNELS
+
+
+def recreate_mask(gt: ground_truth.GroundTruth, mask_name: str):
+    """Recreate mask pattern based on mask name.
+
+    Args:
+        gt: GroundTruth object
+        mask_name: Name of the mask experiment
+
+    Returns:
+        Mask array with shape (CHANNELS, IMAGE_SIZE, IMAGE_SIZE)
+    """
+    mask = np.ones((CHANNELS, IMAGE_SIZE, IMAGE_SIZE))
+    ss = gt.season_setup
+    if mask_name == 'missing_half_subpop':
+        half = len(ss.locations)//2
+        mask[:, :, :half] = 0
+    elif mask_name == 'missing_midseason':
+        start = pd.to_datetime(f"{gt.season_first_year}-12-07")
+        end = pd.to_datetime(f"{int(gt.season_first_year)+1}-01-07")
+        w0 = ss.get_season_week(start)
+        w1 = ss.get_season_week(end)
+        mask[:, w0-1:w1, :] = 0
+    elif mask_name == 'missing_midseason_peak':
+        start = pd.to_datetime(f"{int(gt.season_first_year)+1}-02-01")
+        end = pd.to_datetime(f"{int(gt.season_first_year)+1}-02-15")
+        w0 = ss.get_season_week(start)
+        w1 = ss.get_season_week(end)
+        mask[:, w0-1:w1, :] = 0
+    elif mask_name == 'missing_nc':
+        code = '37'
+        idx = ss.locations.index(code)
+        mask[:, :, idx] = 0
+    return mask
+
+
+def add_mask_heatmap_inset(ax, gt_data, mask, location_idx, P):
+    """Add a small heatmap inset showing the mask pattern with highlighted location.
+
+    Args:
+        ax: Matplotlib axis to add inset to
+        gt_data: Ground truth data (weeks, places)
+        mask: Mask array (weeks, places)
+        location_idx: Index of the location to highlight
+        P: Number of locations
+    """
+    # Create square inset axis in upper left (10% bigger: 35.75%)
+    axins = inset_axes(ax, width="35.75%", height="35.75%", loc='upper left',
+                      bbox_to_anchor=(0.02, 0.02, 1, 1), bbox_transform=ax.transAxes)
+
+    # Crop to 52 weeks and P locations
+    gt_crop = gt_data[:52, :P]
+    mask_crop = mask[:52, :P]
+
+    # Display ground truth heatmap with Greys colormap
+    axins.imshow(gt_crop.T, cmap='Greys', aspect='equal', origin='lower')
+
+    # Create colored mask overlay: green for truth (1), yellow for masked (0)
+    mask_colored = np.zeros((P, 52, 4))
+    for p in range(P):
+        for w in range(52):
+            if mask_crop[w, p] == 1:
+                # Green for truth/kept data
+                mask_colored[p, w] = [0, 1, 0, 0.3]
+            else:
+                # red for masked/hidden data
+                mask_colored[p, w] = [1, 0, 0, 0.3]
+
+    # Overlay mask with alpha transparency
+    axins.imshow(mask_colored, aspect='equal', origin='lower')
+
+    # Highlight the current location with a red arrow pointing to it
+    arrow = mpatches.FancyArrow(-3, location_idx, 20, 0,
+                               width=2, head_width=3.6, head_length=4.5,
+                               edgecolor='white', facecolor='indigo', linewidth=.5)
+    axins.add_patch(arrow)
+
+    # Minimal labels
+    axins.set_xticks([])
+    axins.set_yticks([])
+
+    # Add axis borders for better separation
+    for spine in axins.spines.values():
+        spine.set_visible(True)
+        spine.set_linewidth(1.5)
+        spine.set_edgecolor('black')
+
+
+def plot_mask_experiments(mask_dir: str, forecast_date: str,
+                          states=('NC', 'CA'),
+                          n_sample_trajs: int = 10,
+                          plot_median: bool = True):
+    """Plot mask experiment results for all masks in directory.
+
+    Args:
+        mask_dir: Directory containing mask experiment subdirectories
+        forecast_date: Forecast reference date string
+        states: Default states to plot if masked locations aren't obvious
+        n_sample_trajs: Number of sample trajectories to plot
+        plot_median: Whether to plot median
+
+    Returns:
+        List of output file paths
+    """
+    masks = [d for d in os.listdir(mask_dir) if os.path.isdir(os.path.join(mask_dir, d))]
+    if not masks:
+        print("No mask experiment subfolders found.")
+        return []
+
+    # Month labels for x-axis (every 2 months like unconditional figures)
+    month_labels = ['Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul']
+    # Approximate week positions for each month (season starts ~August)
+    month_positions_weeks = [1, 5, 9, 13, 17, 22, 26, 31, 35, 40, 44, 48]
+
+    outs = []
+    for name in sorted(masks):
+        # Determine season from folder name if present
+        season_detect = None
+        try:
+            import re
+            m = re.search(r"_season(\d{4})", name)
+            if m:
+                season_detect = m.group(1)
+        except Exception:
+            season_detect = None
+        season_use = season_detect
+
+        # Build GT for this season
+        gt = ground_truth.GroundTruth(
+            season_first_year=str(season_use),
+            data_date=dt.datetime.today(),
+            mask_date=pd.to_datetime(forecast_date),
+            channels=CHANNELS,
+            image_size=IMAGE_SIZE,
+            nogit=True,
+        )
+        dates = pd.to_datetime(gt.gt_xarr['date'].values)
+
+        # Load data
+        subdir = os.path.join(mask_dir, name)
+        f_path = os.path.join(subdir, 'fluforecasts_ti.npy')
+        m_path = os.path.join(subdir, 'mask.npy')
+        if not (os.path.exists(f_path) and os.path.exists(m_path)):
+            continue
+        arr = np.load(f_path)
+        mk = np.load(m_path)
+
+        # Choose locations: if exactly 5 masked locations -> plot those; else pick up to 5 masked
+        p_len = len(gt.season_setup.locations)
+        masked_any = (mk[0, :arr.shape[2], :p_len] == 0).any(axis=0)
+        masked_idx = np.where(masked_any)[0].tolist()
+        if len(masked_idx) == 5:
+            plot_indices = masked_idx
+        elif len(masked_idx) > 5:
+            plot_indices = [gt.season_setup.locations.index(state_to_code("AL", gt.season_setup)), 
+                            gt.season_setup.locations.index(state_to_code("CA", gt.season_setup)), 
+                            gt.season_setup.locations.index(state_to_code("FL", gt.season_setup)), 
+                            gt.season_setup.locations.index(state_to_code("KY", gt.season_setup)), 
+                            gt.season_setup.locations.index(state_to_code("MD", gt.season_setup))]
+        elif 0 < len(masked_idx) < 5:
+            plot_indices = masked_idx[:5]
+        else:
+            # fallback to provided states
+            plot_indices = []
+            for st in (states if isinstance(states, (list, tuple)) else [states]):
+                code = state_to_code(st, gt.season_setup)
+                plot_indices.append(gt.season_setup.locations.index(code))
+            plot_indices = plot_indices[:5]
+
+        # Get full state names using SeasonAxis
+        labels = []
+        for i in plot_indices:
+            loc_code = str(gt.season_setup.locations[i])
+            full_name = gt.season_setup.get_location_name(loc_code)
+            labels.append(full_name)
+
+        ncols = len(plot_indices)
+        fig, axes = plt.subplots(1, ncols, figsize=(5*ncols, 4.5), dpi=200, sharex=True)
+        if ncols == 1:
+            axes = [axes]
+
+        palette = sns.color_palette('Set1', n_colors=len(plot_indices))
+        for j, (idx, lab) in enumerate(zip(plot_indices, labels)):
+            ax = axes[j]
+
+            # Add small heatmap inset in upper left
+            add_mask_heatmap_inset(ax, gt.gt_xarr.data[0], mk[0], idx, p_len)
+
+            # Plot ground truth
+            gt_series = gt.gt_xarr.data[0, :, idx]
+            ax.plot(dates, gt_series, color='k', lw=1.5, label='Ground truth')
+
+            ts = arr[:, 0, :, idx]
+            # Sample trajectories (only where masked)
+            if n_sample_trajs and n_sample_trajs > 0:
+                ns = min(n_sample_trajs, ts.shape[0])
+                sample_idxs = np.linspace(0, ts.shape[0]-1, num=ns, dtype=int)
+                keep = mk[0, :ts.shape[1], idx]
+                for si in sample_idxs:
+                    y = ts[si, :len(dates)].copy()
+                    y[keep == 1] = np.nan
+                    ax.plot(dates[:len(y)], y, color=palette[j], alpha=0.25, lw=0.7)
+
+            # Quantile fans and median (only where masked)
+            for lo, hi in flusight_quantile_pairs:
+                lo_curve = np.quantile(ts, lo, axis=0)
+                hi_curve = np.quantile(ts, hi, axis=0)
+                keepw = mk[0, :len(lo_curve), idx]
+                lo_curve = lo_curve.copy(); hi_curve = hi_curve.copy()
+                lo_curve[keepw == 1] = np.nan
+                hi_curve[keepw == 1] = np.nan
+                ax.fill_between(dates[:len(lo_curve)], lo_curve, hi_curve,
+                               color=palette[j], alpha=0.06, lw=0)
+
+            if plot_median:
+                med = np.quantile(ts, 0.5, axis=0)
+                med_masked = med.copy()
+                med_masked[mk[0, :len(med), idx] == 1] = np.nan
+                ax.plot(dates[:len(med_masked)], med_masked, color=palette[j], lw=1.8,
+                       label='Forecast median')
+
+            # Title with full state name
+            ax.set_title(lab, fontsize=12, fontweight='bold', pad=10)
+
+            ax.set_ylim(bottom=0)
+            ax.grid(True, alpha=0.3)
+
+            if j == 0:
+                ax.set_ylabel('Incident flu hospitalizations')
+
+            # X-axis: Set ticks at every 2 months
+            # Map month positions (in weeks) to corresponding dates
+            tick_dates = []
+            tick_labels_to_show = []
+            for k in range(0, len(month_positions_weeks), 2):  # Every 2 months
+                week_idx = month_positions_weeks[k]
+                if week_idx < len(dates):
+                    tick_dates.append(dates[week_idx])
+                    tick_labels_to_show.append(month_labels[k])
+
+            ax.set_xticks(tick_dates)
+            ax.set_xticklabels(tick_labels_to_show, rotation=0, ha='center')
+            ax.set_xlabel('Month')
+
+            sns.despine(ax=ax, trim=True)
+
+        fig.tight_layout()
+
+        # Save figure
+        from .config import FIG_DIR, BEST_MODEL_ID
+        _MODEL_NUM = BEST_MODEL_ID.lstrip('i') if isinstance(BEST_MODEL_ID, str) else str(BEST_MODEL_ID)
+        os.makedirs(os.path.join(FIG_DIR, "mask_figures"), exist_ok=True)
+        out_path = os.path.join(FIG_DIR, "mask_figures", f"{_MODEL_NUM}_mask_{name}.png")
+        fig.savefig(out_path, dpi=300, bbox_inches='tight')
+        plt.close(fig)
+        outs.append(out_path)
+    return outs
