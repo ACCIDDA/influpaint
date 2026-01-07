@@ -77,6 +77,28 @@
 #
 
 # %% [markdown]
+# ## Dataset format for Influpaint
+# The dataset is a xarray object stored as netcdf on disk. It has dimensions `(sample, feature, date, place)` where date and place are padded to have dimension 64.
+# - dates are Saturdays
+# - places are location from Flusight data locations. The sum of all places (whole U.S) is not included at that stage
+# - samples are integers
+#
+#
+# Create first dataframes with:
+# * frame identifier:
+#   * datasetH1
+#   * datasetH2
+#   * sample
+#   * fluseason
+# * Frame axis and value
+#   * location_code'
+#   * 'season_week'
+#   * 'value'
+# * available is also week_enddate
+#
+#
+
+# %% [markdown]
 # ## Setup: Geography and Time Axis
 #
 # We start by defining the spatial and temporal structure that all datasets will conform to. The `SeasonAxis` object defines:
@@ -164,6 +186,8 @@ fig, axes = idplots.plot_season_overlap_grid(flusurv_df, season_setup)
 # - `datasetH1 = "fluview"`: identifies this as FluView data
 # - `datasetH2 = "fluview"`: no sub-source, so it equals H1
 # - `sample = 1`: surveillance data has a single "sample" (no stochastic replicates)
+#
+# There is also [fluview clinical](https://cmu-delphi.github.io/delphi-epidata/api/fluview_clinical.html) for FluA, FluB, and tested specimen. Which quantity should I look for in this dataset ?
 
 # %%
 fluview_raw = read_datasources.get_from_epidata(
@@ -177,6 +201,7 @@ fluview_df["datasetH1"] = "fluview"
 fluview_df["datasetH2"] = "fluview"
 fluview_df["sample"] = 1
 
+# remove NA locations
 fig, axes = idplots.plot_timeseries_grid(fluview_raw, season_setup,
                                     location_col='region', value_col='ili',
                                     title_func=lambda x: x)
@@ -192,6 +217,8 @@ fluview_df
 # ### A.3. Check Location Coverage
 #
 # FluView has complete coverage (all 51 locations), but FluSurv only covers states participating in FluSurv-NET. This loop shows which locations are available in each dataset. Locations missing from FluSurv will need to be filled during frame construction.
+#
+# Check what is on FluSurv and/or FluView.
 
 # %%
 for locations_code in season_setup.locations_df.location_code:
@@ -215,14 +242,25 @@ for locations_code in season_setup.locations_df.location_code:
 #
 # This is an alternative FluSurv dataset where hospitalization rates from FluSurv-NET have been converted to state-level incident hospitalization counts by multiplying rates by state populations.
 #
+# (min and max from Flu SMH comes from these):
+# the numbers come from FluSurvNet -- hosp rates taken and multiplied by population
+# ```
+# [9:49 AM] Prior Peaks: are based on the minimum and maximum observed in national data in the 8 pre-pandemic seasons 2012-2020, converted to state-level estimates.
+# The estimates for incident are based on weekly peaks, and for cumulative based on cumulative hospitalizations at the end of the season.
+# ```
+#
 # This dataset was created using the COVIDScenarioPipeline ground truth functions and provides complete state-level coverage (all 51 locations). The scaling to absolute counts makes this dataset more compatible with modeling outputs.
 #
+# So on R you do:
 # **Data source:** Processed from FluSurv-NET using R ground truth functions:
 # ```R
 # source("~/Documents/phd/COVIDScenarioPipeline/Flu_USA/R/groundtruth_functions.R")
 # flus_surv <- get_flu_groundtruth(source="flusurv_hosp", "2015-10-10", "2022-06-11",
 #                                  age_strat = FALSE, daily = FALSE)
+# flus_surv %>% write_csv("flu_surv_cspGT.csv")
 # ```
+#
+# This is the only dataset where the scaling is good
 #
 # We assign this as `datasetH2 = "csp_flusurv"` to distinguish it from the raw FluSurv data, but both share `datasetH1 = "flusurv"`.
 
@@ -268,15 +306,20 @@ nhsn_flusight.to_csv("influpaint/data/nhsn_flusight_past.csv", index=False)
 #
 # The Flu Scenario Modeling Hub (FluSMH) provides multi-team projections with stochastic samples. Each modeling team submitted trajectories for multiple scenarios (e.g., high/low vaccination, optimistic/pessimistic immunity).
 #
+# Prepared using:
 # **Data source:** Archived FluSMH submissions cloned from GitHub:
 # ```bash
+# cd Flusight
 # git clone https://github.com/midas-network/flu-scenario-modeling-hub_archive.git flu-scenario-modeling-hub_archive-round4
+# cd flu-scenario-modeling-hub_archive-round4
+# git checkout a67f53fd696ee1b47596ba67b108f6dcba01a1d3
+# cd ..
 # git clone https://github.com/midas-network/flu-scenario-modeling-hub_archive.git flu-scenario-modeling-hub_archive-round5
 # ```
 #
 # The `extract_FluSMH_trajectories()` function reads all model submissions and filters to teams with coverage of at least 50 locations. Each team×scenario combination includes 100 stochastic samples. We subsample to 20 samples per scenario to balance the training dataset composition.
 #
-# We exclude PSI-M2 submissions because they used inconsistent sample numbering across locations.
+# We exclude PSI-M2 submissions because they used inconsistent sample numbering across locations and I don't want to deal with that at the moment.
 
 # %%
 importlib.reload(read_datasources)
@@ -321,11 +364,16 @@ all_smh_traj = season_setup.add_season_columns(all_smh_traj, do_fluseason_year=T
 # **Data source:** S3 bucket with model outputs:
 # ```bash
 # aws s3 sync s3://idd-inference-runs/USA-20220923T154311/model_output/ \
-#   datasets/SMH_R1/SMH_R1_lowVac_optImm_2022 --include "hosp*/final/*"
+#   datasets/SMH_R1/SMH_R1_lowVac_optImm_2022 --exclude "*" --include "hosp*/final/*"
 # aws s3 sync s3://idd-inference-runs/USA-20220923T155228/model_output/ \
-#   datasets/SMH_R1/SMH_R1_lowVac_pesImm_2022 --include "hosp*/final/*"
-# # ... (additional scenarios)
+#   datasets/SMH_R1/SMH_R1_lowVac_pesImm_2022 --exclude "*" --include "hosp*/final/*"
+# aws s3 sync s3://idd-inference-runs/USA-20220923T160106/model_output/ \
+#   datasets/SMH_R1/SMH_R1_highVac_optImm_2022 --exclude "*" --include "hosp*/final/*"
+# aws s3 sync s3://idd-inference-runs/USA-20220923T161418/model_output/ \
+#   datasets/SMH_R1/SMH_R1_highVac_pesImm_2022 --exclude "*" --include "hosp*/final/*"
 # ```
+#
+# and take a humidity file from the config
 #
 # The following cell contains the original processing code for converting FlepiMoP parquet outputs to xarray format. This code is disabled by default (`if False`) since the processed output is already saved as NetCDF.
 
@@ -445,6 +493,7 @@ flepiR1_df["value"] = flepiR1_df["incidH_FluA"] + flepiR1_df["incidH_FluB"]
 flepiR1_df = flepiR1_df.rename(columns={"date": "week_enddate", "place": "location_code"}).drop(columns=["incidH_FluA", "incidH_FluB", "R0Humidity"])
 
 flepiR1_df = flepiR1_df.dropna(subset=["week_enddate"])
+# remove empty string from location_code
 flepiR1_df = flepiR1_df[flepiR1_df["location_code"] != ""]
 flepiR1_df["location_code"] = flepiR1_df["location_code"].apply(lambda x: x[:2])
 flepiR1_df["datasetH1"] = "flepiR1"
@@ -457,6 +506,8 @@ flepiR1_df = flepiR1_df[flepiR1_df['sample'].isin(smp)]
 
 
 # %% [markdown]
+# ## C. Generate dataset for fitting
+#
 # ## C. Combine All Sources
 #
 # All surveillance and modeling datasets are concatenated into a single DataFrame. This combined dataset contains all required columns for frame construction:
@@ -516,14 +567,17 @@ all_datasets_df.to_parquet("Flusight/flu-datasets/all_datasets.parquet", index=F
 # The sections below handle optional custom datasets (e.g., North Carolina hospital data). This assert stops automatic execution at this natural checkpoint.
 
 # %%
-assert False, "Stop here for standard workflow. Remove this assert to process additional custom datasets."
+assert False, "This is a temporary assert to stop the notebook from running further. Stop here for standard workflow. Remove this assert to process additional custom datasets."
 
 # %% [markdown]
+# ## C. Addition Payload datasets
+#
 # ## D. Additional Payload Datasets (Optional)
 #
 # This section processes custom datasets for specific use cases. The North Carolina (NC) dataset includes hospital admissions and ED visits for flu and RSV from the NC Public Health Epidemiologists (PHE) program.
 
 # %% [markdown]
+# ### C.1. Read NC data
 # ### D.1. Read NC data
 # > The hospital admission data are a subset of the ILI data as those admitted will present with ILI in the ED first and then counted again when admitted. I’ve also been told the admission date generally occurs on the same date as the ED visit.
 # > ve also added the only PHE-positive test data available. They provide the last 52 weeks on a rolling basis. The historical data is unavailable at this time, and further discussions may be needed to gain access. Again, these data are confirmed (positive test) infections conducted by the hospital-based Public Health Epidemiologist (PHE) program.
