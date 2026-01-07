@@ -149,8 +149,11 @@ def extract_inpaint_config(model_name):
         config = match.group(1)
         return config.replace('celebahq_', '')  # Remove prefix
     return 'unknown'
+
+df_parsed['inpaint_config'] = df_parsed['model'].apply(extract_inpaint_config)
+
 # Analyze parameter effects for both WIS and relative WIS
-def analyze_parameter_effect(param_name, baseline_value, baseline_wis, baseline_rel_wis):
+def analyze_parameter_effect(param_name, baseline_value, baseline_filters, baseline_wis, baseline_rel_wis):
     """Analyze effect of changing one parameter from baseline for both WIS and relative WIS"""
     results = []
     
@@ -168,31 +171,26 @@ def analyze_parameter_effect(param_name, baseline_value, baseline_wis, baseline_
     ]
     
     # Get unique values for this parameter
-    param_values = combined_wis[param_name].unique()
+    param_values = combined_wis[param_name].dropna().unique()
+    
+    def _filter_to_variant(df, value):
+        mask = pd.Series(True, index=df.index)
+        for param, base_val in baseline_filters.items():
+            if param not in df.columns:
+                continue
+            target_val = value if param == param_name else base_val
+            mask &= df[param] == target_val
+        return df[mask]
     
     for value in param_values:
         if value == baseline_value:
             continue
+        if param_name == 'inpaint_config' and value == 'unknown':
+            continue
             
-        # Find models that differ only in this parameter (WIS)
-        matching_wis = combined_wis[
-            (combined_wis['ddpm_name'] == (CONFIG_BASELINE['ddpm_name'] if param_name != 'ddpm_name' else value)) &
-            (combined_wis['unet_name'] == (CONFIG_BASELINE['unet_name'] if param_name != 'unet_name' else value)) &
-            (combined_wis['dataset_name'] == (CONFIG_BASELINE['dataset_name'] if param_name != 'dataset_name' else value)) &
-            (combined_wis['transform_name'] == (CONFIG_BASELINE['transform_name'] if param_name != 'transform_name' else value)) &
-            (combined_wis['enrich_name'] == (CONFIG_BASELINE['enrich_name'] if param_name != 'enrich_name' else value)) &
-            (combined_wis[param_name] == value)
-        ]
-        
-        # Find corresponding relative WIS models
-        matching_rel_wis = combined_rel_wis[
-            (combined_rel_wis['ddpm_name'] == (CONFIG_BASELINE['ddpm_name'] if param_name != 'ddpm_name' else value)) &
-            (combined_rel_wis['unet_name'] == (CONFIG_BASELINE['unet_name'] if param_name != 'unet_name' else value)) &
-            (combined_rel_wis['dataset_name'] == (CONFIG_BASELINE['dataset_name'] if param_name != 'dataset_name' else value)) &
-            (combined_rel_wis['transform_name'] == (CONFIG_BASELINE['transform_name'] if param_name != 'transform_name' else value)) &
-            (combined_rel_wis['enrich_name'] == (CONFIG_BASELINE['enrich_name'] if param_name != 'enrich_name' else value)) &
-            (combined_rel_wis[param_name] == value)
-        ]
+        # Find models that differ only in this parameter
+        matching_wis = _filter_to_variant(combined_wis, value)
+        matching_rel_wis = _filter_to_variant(combined_rel_wis, value)
         
         if len(matching_wis) > 0 and len(matching_rel_wis) > 0:
             # Take best scores for this parameter value
@@ -215,59 +213,17 @@ def analyze_parameter_effect(param_name, baseline_value, baseline_wis, baseline_
     return pd.DataFrame(results)
 
 # Analyze all parameters including inpainting config
-all_effects = []
-for param, baseline_val in CONFIG_BASELINE.items():
-    param_key = f"{param}"
-    effects = analyze_parameter_effect(param_key, baseline_val, baseline_wis, baseline_rel_wis)
-    all_effects.append(effects)
-
-# Add inpainting config analysis - need to get baseline inpaint config first
 baseline_inpaint_config = extract_inpaint_config(baseline_model['model'])
 print(f"Baseline Inpaint Config: {baseline_inpaint_config}")
 
-# Analyze inpainting config effects
-inpaint_effects = []
-unique_configs = df_parsed['model'].apply(extract_inpaint_config).unique()
+baseline_filters = {**CONFIG_BASELINE, 'inpaint_config': baseline_inpaint_config}
 
-for config in unique_configs:
-    if config == baseline_inpaint_config or config == 'unknown':
-        continue
-    
-    # Find models with this inpaint config
-    config_models_wis = df_parsed[
-        (df_parsed['season'] == 'Combined') & 
-        (df_parsed['metric'] == 'wis') & 
-        (df_parsed['aggregation'] == 'sum') &
-        (df_parsed['model'].apply(extract_inpaint_config) == config)
-    ]
-    
-    config_models_rel = df_parsed[
-        (df_parsed['season'] == 'Combined') & 
-        (df_parsed['metric'] == 'relative_wis') & 
-        (df_parsed['aggregation'] == 'mean') &
-        (df_parsed['model'].apply(extract_inpaint_config) == config)
-    ]
-    
-    if len(config_models_wis) > 0 and len(config_models_rel) > 0:
-        best_wis = config_models_wis['score'].min()
-        best_rel_wis = config_models_rel['score'].min()
-        
-        wis_improvement = (baseline_wis - best_wis) / baseline_wis * 100
-        rel_wis_improvement = (baseline_rel_wis - best_rel_wis) / baseline_rel_wis * 100
-        
-        inpaint_effects.append({
-            'parameter': 'inpaint_config',
-            'value': config,
-            'wis': best_wis,
-            'relative_wis': best_rel_wis,
-            'wis_improvement_pct': wis_improvement,
-            'rel_wis_improvement_pct': rel_wis_improvement,
-            'n_models': len(config_models_wis)
-        })
-
-if inpaint_effects:
-    inpaint_df = pd.DataFrame(inpaint_effects)
-    all_effects.append(inpaint_df)
+all_effects = []
+parameter_grid = list(CONFIG_BASELINE.items()) + [('inpaint_config', baseline_inpaint_config)]
+for param, baseline_val in parameter_grid:
+    effects = analyze_parameter_effect(param, baseline_val, baseline_filters, baseline_wis, baseline_rel_wis)
+    if not effects.empty:
+        all_effects.append(effects)
 
 param_effects = pd.concat(all_effects, ignore_index=True)
 param_effects["wis_improvement_pct"] = param_effects["wis_improvement_pct"].round(2)
@@ -317,8 +273,10 @@ def create_elegant_forest_plot(data, title="", figsize=(12, 8)):
         decimal_precision=2,
         xline=0,  # Reference line at 0
         xlinestyle='--',
-        xlinecolor='red',
-        **{'fontfamily': 'sans-serif'}
+        xlinecolor='black',
+        **{'fontfamily': 'serif',
+           "marker": "D",  # set maker symbol as diamond
+                 "markersize": 55, "markercolor": "black"}
     )
     
     if title:
@@ -344,6 +302,7 @@ forest_df = pd.DataFrame(forest_data)
 
 # Create elegant forest plot
 ax = create_elegant_forest_plot(forest_df)
+ax.set_xlim(forest_df['upper'].min()-2, forest_df['upper'].max() + 2)
 plt.show()
 
 # Print summary table
@@ -381,7 +340,7 @@ plt.rcParams.update({
 fig, ax = plt.subplots(figsize=(12, 6))
 
 # Best model is i804 - highlight it
-best_model_id = 804
+best_model_id = 868
 
 for scenario_id in filtered_timeseries['scenario_id'].unique():
     scenario_data = filtered_timeseries[filtered_timeseries['scenario_id'] == scenario_id]
@@ -455,7 +414,7 @@ def plot_scatter(data, x_col, y_col, xlabel, ylabel, scale_y=False, ax=None, sho
     other_datasets = data[~ds_30S70M_mask]
     
     # Identify best model
-    best_model_mask = ((data['scenario_id'] == 804) & 
+    best_model_mask = ((data['scenario_id'] == 868) & 
                       (data['inpaint_config'] == 'noTTJ5'))
     best_model_data = data[best_model_mask]
     
@@ -509,7 +468,7 @@ def plot_scatter(data, x_col, y_col, xlabel, ylabel, scale_y=False, ax=None, sho
     for _, row in data.iterrows():
         y_val = row[y_col] / 1000 if scale_y else row[y_col]
         label = f"i{row['scenario_id']}_{row['inpaint_config']}"
-        if ((row['scenario_id'] == 804) and (row['inpaint_config'] == 'noTTJ5')):
+        if ((row['scenario_id'] == 868) and (row['inpaint_config'] == 'noTTJ5')):
             label += " (CHOICE)"
             ax.annotate(label, (row[x_col], y_val), 
                        xytext=(8, 8), textcoords='offset points', 

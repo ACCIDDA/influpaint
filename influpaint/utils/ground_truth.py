@@ -163,6 +163,9 @@ class GroundTruth():
         elif self.season_first_year == "2024":
             repo_path = "Flusight/2024-2025/FluSight-forecast-hub-official/"
             main_branch = "main"
+        elif self.season_first_year == "2025":
+            repo_path = "Flusight/2024-2025/FluSight-forecast-hub-official/"
+            main_branch = "main"
         print(repo_path)
 
         # Open the existing repository

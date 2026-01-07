@@ -276,6 +276,13 @@ def get_from_epidata(
             index_col="date",
         )
         df["week_enddate"] = df.index
+    elif dataset == "flusight2025":
+        df = pd.read_csv(
+            "Flusight/2024-2025/FluSight-forecast-hub-official/target-data/target-hospital-admissions.csv",
+            parse_dates=True,
+            index_col="date",
+        )
+        df["week_enddate"] = df.index
     else:
         raise NotImplementedError(f"Dataset {dataset} not implemented")
 

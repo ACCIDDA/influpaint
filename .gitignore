@@ -22,6 +22,9 @@ influpaint-paper/*
 # 
 interval_scoring/
 
+# MkDocs
+site/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

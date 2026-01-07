@@ -525,33 +525,120 @@ if __name__ == "__main__":
         lb_df = lb_df.sort_values(sort_cols)
         lb_df.to_csv(LEADERBOARD_CSV, index=False)
         print(f"\nSaved full leaderboard to: {LEADERBOARD_CSV}")
-        
+
         # Create interactive model selection plot for InfluPaint models only
         influpaint_leaderboard = lb_df[lb_df['model'].isin(
             df_with_flags[df_with_flags['group'] == 'influpaint']['model'].unique()
         )]
-        
+
         # Filter for WIS metric with sum aggregation for the interactive plot
         wis_data = influpaint_leaderboard[
-            (influpaint_leaderboard['metric'] == 'wis') & 
+            (influpaint_leaderboard['metric'] == 'wis') &
             (influpaint_leaderboard['aggregation'] == 'sum')
         ][['season', 'model', 'score']].rename(columns={'score': 'wis'})
-        
+
         # Get relative WIS data
         rel_wis_data = influpaint_leaderboard[
-            (influpaint_leaderboard['metric'] == 'relative_wis') & 
+            (influpaint_leaderboard['metric'] == 'relative_wis') &
             (influpaint_leaderboard['aggregation'] == 'mean')
         ][['season', 'model', 'score']].rename(columns={'score': 'relative_wis'})
-        
+
         # Merge WIS and relative WIS data
         interactive_data = wis_data.merge(rel_wis_data, on=['season', 'model'], how='inner')
-        
+
         interactive_save_path = os.path.join(SAVE_DIR, "interactive_model_selection.html")
         plot_interactive_model_selection(
             leaderboard_df=interactive_data,
             title="InfluPaint Model Selection",
             save_path=interactive_save_path
         )
+
+    # PAPER ANALYSIS: Best model and ensemble comparison
+    print(f"\n{'='*60}")
+    print("PAPER ANALYSIS: Model Performance Summary")
+    print('='*60)
+
+    # Define models for paper analysis
+    best_model_full = f"i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::inpaint_CoPaint::celebahq_noTTJ5"
+    ensemble_model = "FluSight-ensemble"
+    submitted_model = "UNC_IDD-InfluPaint"
+
+    # Verify models exist
+    if best_model_full not in df_with_flags['model'].unique():
+        print(f"ERROR: Best model '{best_model_full}' not found in data")
+    if ensemble_model not in df_with_flags['model'].unique():
+        print(f"ERROR: Ensemble model '{ensemble_model}' not found in data")
+    if submitted_model not in df_with_flags['model'].unique():
+        print(f"ERROR: Submitted model '{submitted_model}' not found in data")
+
+    # Process each season
+    paper_results = []
+    for season in seasons_to_plot:
+        if season == "Combined":
+            season_data = df_with_flags[df_with_flags['include_combined']].copy()
+        else:
+            include_col = f'include_{season.replace("-", "_")}'
+            season_data = df_with_flags[df_with_flags['season'] == season]
+            season_data = season_data[season_data[include_col]].copy()
+
+        if season_data.empty:
+            continue
+
+        # Compute for all locations and all horizons
+        all_data = season_data.copy()
+        flusight_all = all_data[all_data['group'] == 'flusight'].copy()
+
+        for model_name, model_id in [(best_model_full, "i868_celebahq_noTTJ5"),
+                                      (ensemble_model, "FluSight-ensemble"),
+                                      (submitted_model, "UNC_IDD-InfluPaint")]:
+            model_data = all_data[all_data['model'] == model_name]
+
+            if model_data.empty:
+                print(f"WARNING: {model_id} not found in {season} (may not meet inclusion criteria)")
+                continue
+
+            # Compute metrics (all locations, all horizons)
+            total_wis = model_data['wis'].sum()
+            coverage_50 = model_data['interval_coverage_50'].mean()
+            coverage_95 = model_data['interval_coverage_90'].mean()
+
+            # Rank against FluSight models for Total WIS
+            flusight_wis = flusight_all.groupby('model')['wis'].sum().sort_values()
+            wis_rank = (flusight_wis < total_wis).sum() + 1
+            wis_total_models = len(flusight_wis)
+
+            # Rank against FluSight models for Coverage 50%
+            flusight_cov50 = flusight_all.groupby('model')['interval_coverage_50'].mean()
+            flusight_cov50_diff = (flusight_cov50 - 0.5).abs()
+            model_cov50_diff = abs(coverage_50 - 0.5)
+            cov50_rank = (flusight_cov50_diff < model_cov50_diff).sum() + 1
+
+            # Rank against FluSight models for Coverage 95%
+            flusight_cov95 = flusight_all.groupby('model')['interval_coverage_90'].mean()
+            flusight_cov95_diff = (flusight_cov95 - 0.9).abs()
+            model_cov95_diff = abs(coverage_95 - 0.9)
+            cov95_rank = (flusight_cov95_diff < model_cov95_diff).sum() + 1
+
+            paper_results.append({
+                'Model': model_id,
+                'Season': season,
+                'Total WIS': f"{total_wis:.2f}",
+                'WIS Rank': f"{wis_rank}/{wis_total_models}",
+                'Coverage 50%': f"{coverage_50:.3f}",
+                'Cov50 Rank': f"{cov50_rank}/{wis_total_models}",
+                'Coverage 95%': f"{coverage_95:.3f}",
+                'Cov95 Rank': f"{cov95_rank}/{wis_total_models}"
+            })
+
+    # Display results table
+    if paper_results:
+        results_df = pd.DataFrame(paper_results)
+        print("\n" + results_df.to_string(index=False))
+
+        # Save to CSV
+        paper_csv_path = os.path.join(SAVE_DIR, "paper_model_analysis.csv")
+        results_df.to_csv(paper_csv_path, index=False)
+        print(f"\nSaved paper analysis to: {paper_csv_path}")
 
     print(f"\n{'='*50}")
     print(f"ALL PLOTS SAVED TO: {SAVE_DIR}")

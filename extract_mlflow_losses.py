@@ -10,6 +10,8 @@ import click
 import mlflow
 import pandas as pd
 import numpy as np
+import os
+import shutil
 from mlflow.tracking import MlflowClient
 
 
@@ -17,7 +19,9 @@ from mlflow.tracking import MlflowClient
 @click.option("--experiment_name", required=True, help="MLflow experiment name")
 @click.option("--output_file", default="mlflow_losses.csv", help="Output CSV file for summary")
 @click.option("--output_timeseries", default="mlflow_loss_timeseries.csv", help="Output CSV file for full time series")
-def main(experiment_name, output_file, output_timeseries):
+@click.option("--samples_dir", default="../influpaint_res/all_npy/", help="Directory to save extracted sample artifacts")
+@click.option("--download_samples", is_flag=True, help="Download and save sample artifacts from MLflow runs")
+def main(experiment_name, output_file, output_timeseries, samples_dir, download_samples):
     """Extract loss time series from MLflow experiment"""
     
     # Initialize MLflow client
@@ -125,7 +129,80 @@ def main(experiment_name, output_file, output_timeseries):
     else:
         print("\nNo time series data found. Loss may be logged under different metric names or not logged step-by-step.")
     
+    # Download sample artifacts if requested
+    if download_samples:
+        print(f"\nDownloading sample artifacts to {samples_dir}...")
+        download_sample_artifacts(client, runs, samples_dir)
+    
     return completed_summary, timeseries_df
+
+
+def download_sample_artifacts(client, runs, samples_dir):
+    """Download raw_samples and inverse_transformed_samples from MLflow runs"""
+    
+    # Create output directory
+    os.makedirs(samples_dir, exist_ok=True)
+    
+    downloaded_count = 0
+    failed_count = 0
+    
+    for run in runs:
+        run_id = run.info.run_id
+        scenario_id = run.data.params.get('scenario_id', 'unknown')
+        scenario_string = run.data.params.get('scenario_string', f'scenario_{scenario_id}')
+        
+        try:
+            # List artifacts for this run
+            artifacts = client.list_artifacts(run_id, path="samples")
+            
+            if not artifacts:
+                print(f"  No sample artifacts found for {scenario_string} (run {run_id})")
+                continue
+                
+            print(f"  Processing {scenario_string} (run {run_id})...")
+            
+            for artifact in artifacts:
+                if artifact.path.endswith('.npy'):
+                    artifact_name = os.path.basename(artifact.path)
+                    
+                    # Create scenario-specific filename using full scenario string
+                    if 'raw_samples' in artifact_name:
+                        output_filename = f"raw_samples_{scenario_string}.npy"
+                    elif 'inverse_transformed_samples' in artifact_name:
+                        output_filename = f"inverse_transformed_samples_{scenario_string}.npy"
+                    else:
+                        continue  # Skip other .npy files
+                    
+                    output_path = os.path.join(samples_dir, output_filename)
+                    
+                    # Skip if file already exists
+                    if os.path.exists(output_path):
+                        print(f"    Skipped (exists): {output_filename}")
+                        continue
+                    
+                    print(f"    Downloading {artifact_name}...")
+                    
+                    try:
+                        # Download artifact to temporary location first
+                        temp_artifact_path = client.download_artifacts(run_id, artifact.path)
+                        
+                        # Copy to final location
+                        shutil.copy2(temp_artifact_path, output_path)
+                        print(f"    Downloaded: {output_filename}")
+                        downloaded_count += 1
+                    except Exception as download_error:
+                        print(f"    Failed to download {artifact_name}: {download_error}")
+                        continue
+                    
+        except Exception as e:
+            print(f"  Failed to download artifacts for {scenario_string}: {e}")
+            failed_count += 1
+            continue
+    
+    print(f"\nSample artifact download complete:")
+    print(f"  Successfully downloaded: {downloaded_count} files")
+    print(f"  Failed downloads: {failed_count} runs")
+    print(f"  Saved to: {samples_dir}")
 
 
 if __name__ == '__main__':
