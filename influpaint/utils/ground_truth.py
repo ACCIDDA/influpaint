@@ -322,17 +322,29 @@ class GroundTruth():
 
     def plot(self):
         season_start_date = datetime.date(int(self.season_first_year), self.season_setup.season_start_month, self.season_setup.season_start_day)
-        fig, axes = plt.subplots(8, 8, sharex=True, figsize=(14,16))
+        n_locations = len(self.season_setup.locations)
+        n_plots = n_locations + 1  # include US aggregate
+        n_cols = math.ceil(math.sqrt(n_plots))
+        n_rows = math.ceil(n_plots / n_cols)
+        fig, axes = plt.subplots(
+            n_rows,
+            n_cols,
+            sharex=True,
+            figsize=(max(8, n_cols * 2.2), max(8, n_rows * 2.0)),
+        )
         gt_piv  = self.gt_df.pivot(index = "week_enddate", columns='location_code', values='value')
         gt_piv_final = self.gt_df_final.pivot(index = "week_enddate", columns='location_code', values='value')
-        ax = axes.flat[0]
+        axes_flat = np.atleast_1d(axes).flat
+        ax = axes_flat[0]
         ax.plot(gt_piv[self.season_setup.locations].sum(axis=1), color="black", linewidth=2,label="datadate")
         ax.plot(gt_piv_final[self.season_setup.locations].sum(axis=1), lw=1, color='r', ls='-.', label="final")
         ax.legend()
         ax.set_ylim(0)
         ax.set_title("US")
         for idx, pl in enumerate(gt_piv.columns):
-            ax = axes.flat[idx+1]
+            if idx + 1 >= n_plots:
+                break
+            ax = axes_flat[idx + 1]
             ax.plot(gt_piv[pl], lw=2, color='k')
             ax.plot(gt_piv_final[pl], lw=1, color='r', ls='-.')
             na_mask = gt_piv.isna()
@@ -350,6 +362,8 @@ class GroundTruth():
             ax.set_xlim(season_start_date, season_start_date + datetime.timedelta(days=365))
             #ax.set_xticks(season_setup.get_dates(52).resample("M"))
             #ax.plot(pd.date_range(season_setup.fluseason_startdate, season_setup.fluseason_startdate + datetime.timedelta(days=64*7), freq="W-SAT"), data.flu_dyn[-50:,0,:,idx].T, c='r', lw=.5, alpha=.2)
+        for extra_ax in list(axes_flat)[n_plots:]:
+            extra_ax.set_visible(False)
         fig.tight_layout()
         fig.autofmt_xdate()
 
