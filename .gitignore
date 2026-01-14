@@ -1,3 +1,5 @@
+.cache/
+.matplotlib
 operational_output/
 figures/
 results/

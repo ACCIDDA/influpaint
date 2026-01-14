@@ -514,7 +514,7 @@ def figure4_mask_experiments(season_axis):
     arr_a = np.load(os.path.join(subdir_a, 'fluforecasts_ti.npy'))
     mk_a = np.load(os.path.join(subdir_a, 'mask.npy'))
 
-    gt_a = ground_truth.GroundTruth(
+    gt_a = ground_truth.GroundTruth.for_flusight(
         season_first_year='2023',
         data_date=dt.datetime.today(),
         mask_date=pd.to_datetime('2025-05-14'),
@@ -544,7 +544,7 @@ def figure4_mask_experiments(season_axis):
     arr_b = np.load(os.path.join(subdir_b, 'fluforecasts_ti.npy'))
     mk_b = np.load(os.path.join(subdir_b, 'mask.npy'))
 
-    gt_b = ground_truth.GroundTruth(
+    gt_b = ground_truth.GroundTruth.for_flusight(
         season_first_year='2024',
         data_date=dt.datetime.today(),
         mask_date=pd.to_datetime('2025-05-14'),

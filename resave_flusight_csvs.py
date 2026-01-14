@@ -116,7 +116,7 @@ def process_folder(folder_path, gt_cache, season_setup, verbose=False):
         if verbose:
             print(f"Creating GroundTruth for season {season_first_year}")
         try:
-            gt_cache[season_first_year] = GroundTruth(
+            gt_cache[season_first_year] = GroundTruth.for_flusight(
                 season_first_year=season_first_year,
                 data_date=datetime.datetime.today(),
                 mask_date=pd.to_datetime(forecast_date),  # Use first date for mask

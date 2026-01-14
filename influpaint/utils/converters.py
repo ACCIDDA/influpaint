@@ -4,13 +4,18 @@ from helpers.delphi_epidata import Epidata
 from ..utils.season_axis import SeasonAxis
 import xarray as xr
 
-def padto64x64(x: np.ndarray) -> np.ndarray:
+
+def padtoDxD(x: np.ndarray, D: int, value: float = 0.0) -> np.ndarray:
     return np.pad(
         x,
-        ((0, 64 - x.shape[0]), (0, 64 - x.shape[1])),
+        ((0, D - x.shape[0]), (0, D - x.shape[1])),
         mode="constant",
-        constant_values=0,
+        constant_values=value,
     )
+
+def padto64x64(x: np.ndarray) -> np.ndarray:
+    return padtoDxD(x, D=64)
+
 
 def dataframe_to_xarray(
     df: pd.DataFrame,
@@ -20,6 +25,8 @@ def dataframe_to_xarray(
     date_column="week_enddate",
     value_column="value",
     pad=True,
+    pad_to=64,
+    pad_value=0.0,
 ) -> xr.DataArray:
     """
     Convert a long form dataframe to an xarray. Dataframe must have columns:
@@ -61,18 +68,22 @@ def dataframe_to_xarray(
     if pad:
         df_xarr = df_xarr.pad(
             {
-                "date": (0, 64 - len(df_xarr.date)),
-                "place": (0, 64 - len(df_xarr.place)),
+                "date": (0, pad_to - len(df_xarr.date)),
+                "place": (0, pad_to - len(df_xarr.place)),
             },
             mode="constant",
-            constant_values=0,
+            constant_values=pad_value,
         )
 
     return df_xarr
 
 
 def dataframe_to_arraylist(
-    df: pd.DataFrame, season_setup: SeasonAxis = None, value_column="value",
+    df: pd.DataFrame,
+    season_setup: SeasonAxis = None,
+    value_column="value",
+    array_dim=64,
+    pad_value=0.0,
 ) -> np.ndarray:
 
     samples = []
@@ -91,7 +102,7 @@ def dataframe_to_arraylist(
         array[np.isnan(array)] = 0  # replace NaNs with 0
 
         samples.append(
-            np.array([padto64x64(array)])
+            np.array([padtoDxD(array, D=array_dim, value=pad_value)])
         )  # pad to 64x64 and add a dimension for channel
 
     return samples
