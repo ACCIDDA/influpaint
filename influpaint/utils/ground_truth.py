@@ -43,55 +43,42 @@ def pad_dataframe(df, season_setup):
 
 
 class GroundTruth():
-    def __init__(self, season_first_year: str, 
-                data_date: datetime.datetime, 
-                mask_date: datetime.datetime, 
-                from_final_data:bool=False, 
-                channels=1, 
-                image_size=64, 
-                nogit=False, 
-                payload=None, 
-                payload_season_first_year=None,
-                dataset_coords: xr.core.coordinates.DataArrayCoordinates=None): 
+    def __init__(
+        self,
+        season_first_year: str,
+        gt_df: pd.DataFrame,
+        gt_df_final: pd.DataFrame,
+        mask_date: datetime.datetime,
+        season_setup: SeasonAxis,
+        channels=1,
+        image_size=64,
+        previous_data=None,
+        dataset_coords: xr.core.coordinates.DataArrayCoordinates = None,
+    ):
         self.season_first_year = season_first_year
-        self.data_date = data_date
-        self.mask_date = mask_date
+        self.mask_date = pd.to_datetime(mask_date)
         self.channels = channels
-        self.image_size=image_size
+        self.image_size = image_size
+        self.season_setup = season_setup
 
+        self.gt_df = gt_df
+        self.gt_df_final = gt_df_final
 
-        if not nogit: self.git_checkout_data_rev(target_date=None)
+        if previous_data is None:
+            previous_data = []
+        if isinstance(previous_data, list):
+            previous_data = pd.concat(previous_data, ignore_index=True) if previous_data else pd.DataFrame()
+        self.previous_data = previous_data
 
-        self.season_setup = SeasonAxis.for_flusight(remove_territories=True, remove_us=True)
+        if dataset_coords is not None:
+            # change the flusetup locations to be in the same order as flu_payload_array.coords["place"]
+            self.season_setup.reorder_locations(list(dataset_coords["place"].values))
 
-        flusight = read_datasources.get_from_epidata(dataset=f"flusight{self.season_first_year}", season_setup=self.season_setup, write=False)
-        flusight = self.season_setup.add_season_columns(flusight, do_fluseason_year=True)
-        gt_df_final = flusight[flusight["fluseason"] == int(self.season_first_year)]
+        self.gt_df = self.gt_df[self.gt_df["location_code"].isin(self.season_setup.locations)]
+        self.gt_df_final = self.gt_df_final[self.gt_df_final["location_code"].isin(self.season_setup.locations)]
 
-        if from_final_data:
-            gt_df = gt_df_final.copy()
-        else:
-            if not nogit: self.git_checkout_data_rev(target_date=data_date)
-            flusight = read_datasources.get_from_epidata(dataset=f"flusight{self.season_first_year}", season_setup=self.season_setup, write=False)
-            flusight = self.season_setup.add_season_columns(flusight, do_fluseason_year=True)
-            gt_df = flusight[flusight["fluseason"] == int(self.season_first_year)]   
-            if not nogit: self.git_checkout_data_rev(target_date=None)
-
-        
-        self.gt_df = gt_df[gt_df["location_code"].isin(self.season_setup.locations)]
-        self.gt_df_final = gt_df_final[gt_df_final["location_code"].isin(self.season_setup.locations)]
-        
-        # generates past data
-        past_data_1 = read_datasources.get_from_epidata(dataset=f"flusight2024", season_setup=self.season_setup, write=False)
-        past_data_2 = read_datasources.get_from_epidata(dataset=f"flusight2024", season_setup=self.season_setup, write=False)
-        
-        # Add season columns to past data
-        past_data_1 = self.season_setup.add_season_columns(past_data_1, do_fluseason_year=True)
-        past_data_2 = self.season_setup.add_season_columns(past_data_2, do_fluseason_year=True)
-        
-        self.previous_data = [past_data_1, past_data_2]
-        
-
+        if not self.previous_data.empty:
+            self.previous_data = self.season_setup.add_season_columns(self.previous_data, do_fluseason_year=True)
 
         self.gt_df = pad_dataframe(self.gt_df, self.season_setup)
         self.gt_df_final = pad_dataframe(self.gt_df_final, self.season_setup)
@@ -102,93 +89,236 @@ class GroundTruth():
             self.mask_date = last_non_nan_datadate + datetime.timedelta(days=2)
             print(f" WARNING: mask_date is after last non-NaN data date, setting mask_date to {self.mask_date}")
 
+        self.gt_xarr = converters.dataframe_to_xarray(
+            self.gt_df,
+            season_setup=self.season_setup,
+            xarray_name="gt_flusight_incidHosp",
+            xarrax_features="incidHosp",
+            pad_to=image_size,
+        )
 
-        if payload is not None:
-            if payload_season_first_year is None:
-                payload_season_first_year = season_first_year
-            import dataset_mixer
-            payload = self.season_setup.add_season_columns(payload, do_fluseason_year=True)
-            this_payload = payload[payload["fluseason"] == int(payload_season_first_year)]
-            self.gt_df = pd.concat([self.gt_df, this_payload], ignore_index=True)
-            self.gt_df_final = pd.concat([self.gt_df_final, this_payload], ignore_index=True)
-            self.previous_data.append(payload)
-            location_codes = self.gt_df.location_code.unique()
-            new_locations = pd.DataFrame({"location_code": sorted(location_codes)})
-            # Ensure location_code is of type string
-            new_locations['location_code'] = new_locations['location_code'].astype(str)
-            # Merge with season_setup.locations_df to get the location names
-            new_locations = new_locations.merge(self.season_setup.locations_df, 
-                                                on='location_code',
-                                                how='left')
-
-            # Fill missing location names with the location code
-            new_locations['location_name'] = new_locations['location_name'].fillna(new_locations['location_code'])
-            new_locations = new_locations[['location_code', 'location_name']]
-            self.season_setup.update_locations(new_locations)
-
-        if dataset_coords is not None:
-            # change the flusetup locations to be in the same order as flu_payload_array.coords["place"]
-            self.season_setup.reorder_locations(list(dataset_coords["place"].values))
-
-        # Concatenate all previous data and ensure it has season columns
-        self.previous_data = pd.concat(self.previous_data, ignore_index=True).drop_duplicates()
-        self.previous_data = self.season_setup.add_season_columns(self.previous_data, do_fluseason_year=True)
-
-        self.gt_xarr = converters.dataframe_to_xarray(self.gt_df, season_setup=self.season_setup, 
-            xarray_name = "gt_flusight_incidHosp", 
-            xarrax_features = "incidHosp")
-        
-        self.gt_final_xarr = converters.dataframe_to_xarray(self.gt_df_final, season_setup=self.season_setup, 
-            xarray_name = "gt_flusight_incidHos_final", 
-            xarrax_features = "incidHosp")
+        self.gt_final_xarr = converters.dataframe_to_xarray(
+            self.gt_df_final,
+            season_setup=self.season_setup,
+            xarray_name="gt_flusight_incidHos_final",
+            xarrax_features="incidHosp",
+            pad_to=image_size,
+        )
 
         # Find the largest index of the data dates that are before the mask date
-        dates = pd.to_datetime(self.gt_xarr.coords['date'].values)
+        dates = pd.to_datetime(self.gt_xarr.coords["date"].values)
         self.inpaintfrom_idx = sum(dates < self.mask_date)
 
-        self.gt_keep_mask = np.ones((channels,image_size,image_size))
-        self.gt_keep_mask[:,self.inpaintfrom_idx:,:] = 0
-        
+        self.gt_keep_mask = np.ones((channels, image_size, image_size))
+        self.gt_keep_mask[:, self.inpaintfrom_idx :, :] = 0
+
         print(f"Masking, >> {self.inpaintfrom_idx} weeks already in data, inpainting the next ones")
 
-    
-    def git_checkout_data_rev(self, target_date=None):
+    @staticmethod
+    def _git_checkout_repo_rev(repo_path, target_date=None, main_branch="main"):
         import pygit2
-        if self.season_first_year == "2023":
-            repo_path = "Flusight/2023-2024/FluSight-forecast-hub-official/"
-            main_branch = "main"
-        elif self.season_first_year == "2022":
-            repo_path = "Flusight/2022-2023/FluSight-forecast-hub-official/"
-            main_branch = "master"
-        elif self.season_first_year == "2024":
-            repo_path = "Flusight/2024-2025/FluSight-forecast-hub-official/"
-            main_branch = "main"
-        elif self.season_first_year == "2025":
-            repo_path = "Flusight/2024-2025/FluSight-forecast-hub-official/"
-            main_branch = "main"
-        print(repo_path)
 
-        # Open the existing repository
         repo = pygit2.Repository(repo_path)
 
         if target_date is not None:
-            # Find the commit closest to the target date
             closest_commit = None
             for commit in repo.walk(repo.head.target, pygit2.GIT_SORT_TIME):
                 if commit.commit_time <= target_date.timestamp():
                     closest_commit = commit
                     break
 
-            # Check out the commit
             if closest_commit:
                 repo.checkout_tree(closest_commit.tree)
                 repo.set_head(closest_commit.id)
-                print(f"Checked out commit on {target_date} (SHA: {closest_commit.id}, {commit.commit_time}) for repo {repo_path}")
+                print(
+                    f"Checked out commit on {target_date} (SHA: {closest_commit.id}, {commit.commit_time}) for repo {repo_path}"
+                )
             else:
-                print("ERROR: No commit found for the specified date on repo {repo_path}.")
+                print(f"ERROR: No commit found for the specified date on repo {repo_path}.")
         else:
-            repo.checkout("refs/heads/" + main_branch)      
+            repo.checkout("refs/heads/" + main_branch)
             print(f"Restored git repo {repo_path}")
+
+    @staticmethod
+    def _flusight_repo_info(season_first_year: str):
+        if season_first_year == "2023":
+            return "Flusight/2023-2024/FluSight-forecast-hub-official/", "main"
+        if season_first_year == "2022":
+            return "Flusight/2022-2023/FluSight-forecast-hub-official/", "master"
+        if season_first_year == "2024":
+            return "Flusight/2024-2025/FluSight-forecast-hub-official/", "main"
+        if season_first_year == "2025":
+            return "Flusight/2024-2025/FluSight-forecast-hub-official/", "main"
+        raise ValueError(f"Unsupported FluSight season_first_year: {season_first_year}")
+
+    @classmethod
+    def for_flusight(
+        cls,
+        season_first_year: str,
+        data_date: datetime.datetime,
+        mask_date: datetime.datetime,
+        from_final_data: bool = False,
+        channels=1,
+        image_size=64,
+        nogit=False,
+        payload=None,
+        payload_season_first_year=None,
+        dataset_coords: xr.core.coordinates.DataArrayCoordinates = None,
+    ):
+        data_date = pd.to_datetime(data_date)
+        repo_path, main_branch = cls._flusight_repo_info(season_first_year)
+        if not nogit:
+            cls._git_checkout_repo_rev(repo_path, target_date=None, main_branch=main_branch)
+
+        season_setup = SeasonAxis.for_flusight(remove_territories=True, remove_us=True)
+        flusight = read_datasources.get_from_epidata(
+            dataset=f"flusight{season_first_year}", season_setup=season_setup, write=False
+        )
+        flusight = season_setup.add_season_columns(flusight, do_fluseason_year=True)
+        gt_df_final = flusight[flusight["fluseason"] == int(season_first_year)]
+
+        if from_final_data:
+            gt_df = gt_df_final.copy()
+        else:
+            if not nogit:
+                cls._git_checkout_repo_rev(repo_path, target_date=data_date, main_branch=main_branch)
+            flusight = read_datasources.get_from_epidata(
+                dataset=f"flusight{season_first_year}", season_setup=season_setup, write=False
+            )
+            flusight = season_setup.add_season_columns(flusight, do_fluseason_year=True)
+            gt_df = flusight[flusight["fluseason"] == int(season_first_year)]
+            if not nogit:
+                cls._git_checkout_repo_rev(repo_path, target_date=None, main_branch=main_branch)
+
+        previous_data = []
+        for past_year in [int(season_first_year) - 1, int(season_first_year) - 2]:
+            try:
+                past_df = read_datasources.get_from_epidata(
+                    dataset=f"flusight{past_year}", season_setup=season_setup, write=False
+                )
+                previous_data.append(past_df)
+            except Exception as exc:
+                print(f" WARNING: could not load flusight{past_year} for historical data: {exc}")
+
+        if payload is not None:
+            if payload_season_first_year is None:
+                payload_season_first_year = season_first_year
+            payload = season_setup.add_season_columns(payload, do_fluseason_year=True)
+            this_payload = payload[payload["fluseason"] == int(payload_season_first_year)]
+            gt_df = pd.concat([gt_df, this_payload], ignore_index=True)
+            gt_df_final = pd.concat([gt_df_final, this_payload], ignore_index=True)
+            previous_data.append(payload)
+
+            location_codes = gt_df.location_code.unique()
+            new_locations = pd.DataFrame({"location_code": sorted(location_codes)})
+            new_locations["location_code"] = new_locations["location_code"].astype(str)
+            new_locations = new_locations.merge(
+                season_setup.locations_df, on="location_code", how="left"
+            )
+            new_locations["location_name"] = new_locations["location_name"].fillna(
+                new_locations["location_code"]
+            )
+            new_locations = new_locations[["location_code", "location_name"]]
+            season_setup.update_locations(new_locations)
+
+        return cls(
+            season_first_year=season_first_year,
+            gt_df=gt_df,
+            gt_df_final=gt_df_final,
+            mask_date=mask_date,
+            season_setup=season_setup,
+            channels=channels,
+            image_size=image_size,
+            previous_data=previous_data,
+            dataset_coords=dataset_coords,
+        )
+
+    @classmethod
+    def from_metrocast(
+        cls,
+        season_first_year: str,
+        data_date: datetime.datetime,
+        mask_date: datetime.datetime,
+        channels=1,
+        image_size=128,
+        nogit=False,
+        dataset_coords: xr.core.coordinates.DataArrayCoordinates = None,
+        repo_path="Flusight/metrocast/flu-metrocast",
+        data_path="Flusight/metrocast/flu-metrocast/target-data/latest-data.csv",
+        main_branch="main",
+    ):
+        data_date = pd.to_datetime(data_date)
+        if not nogit:
+            cls._git_checkout_repo_rev(repo_path, target_date=None, main_branch=main_branch)
+
+        season_setup = SeasonAxis.for_metrocast()
+
+        latest_df = pd.read_csv(data_path, parse_dates=["target_end_date"])
+        latest_df = latest_df.rename(
+            columns={
+                "target_end_date": "week_enddate",
+                "location": "location_code",
+                "observation": "value",
+            }
+        )
+        latest_df["location_code"] = latest_df["location_code"].astype(str).str.strip()
+        latest_df["target"] = latest_df["target"].astype(str).str.strip()
+
+        flu_df = latest_df[latest_df["target"] == "Flu ED visits pct"].copy()
+        ili_df = latest_df[latest_df["target"] == "ILI ED visits pct"].copy()
+
+        # Combine both targets: use Flu ED visits pct when available, fill gaps with ILI ED visits pct.
+        flu_key = flu_df[["week_enddate", "location_code"]].drop_duplicates()
+        ili_fill = ili_df.merge(flu_key, on=["week_enddate", "location_code"], how="left", indicator=True)
+        ili_fill = ili_fill[ili_fill["_merge"] == "left_only"].drop(columns="_merge")
+
+        flu_df["target_source"] = "Flu ED visits pct"
+        ili_fill["target_source"] = "ILI ED visits pct"
+        latest_df = pd.concat([flu_df, ili_fill], ignore_index=True)
+
+        full_df = season_setup.add_season_columns(latest_df, do_fluseason_year=True)
+        gt_df_final = full_df[full_df["fluseason"] == int(season_first_year)]
+
+        if not nogit:
+            cls._git_checkout_repo_rev(repo_path, target_date=data_date, main_branch=main_branch)
+            latest_df = pd.read_csv(data_path, parse_dates=["target_end_date"])
+            latest_df = latest_df.rename(
+                columns={
+                    "target_end_date": "week_enddate",
+                    "location": "location_code",
+                    "observation": "value",
+                }
+            )
+            latest_df["location_code"] = latest_df["location_code"].astype(str).str.strip()
+            latest_df["target"] = latest_df["target"].astype(str).str.strip()
+
+            flu_df = latest_df[latest_df["target"] == "Flu ED visits pct"].copy()
+            ili_df = latest_df[latest_df["target"] == "ILI ED visits pct"].copy()
+
+            flu_key = flu_df[["week_enddate", "location_code"]].drop_duplicates()
+            ili_fill = ili_df.merge(flu_key, on=["week_enddate", "location_code"], how="left", indicator=True)
+            ili_fill = ili_fill[ili_fill["_merge"] == "left_only"].drop(columns="_merge")
+
+            flu_df["target_source"] = "Flu ED visits pct"
+            ili_fill["target_source"] = "ILI ED visits pct"
+            latest_df = pd.concat([flu_df, ili_fill], ignore_index=True)
+            cls._git_checkout_repo_rev(repo_path, target_date=None, main_branch=main_branch)
+        full_df = season_setup.add_season_columns(latest_df, do_fluseason_year=True)
+        gt_df = full_df[full_df["fluseason"] == int(season_first_year)]
+
+        previous_data = full_df.copy()
+
+        return cls(
+            season_first_year=season_first_year,
+            gt_df=gt_df,
+            gt_df_final=gt_df_final,
+            mask_date=mask_date,
+            season_setup=season_setup,
+            channels=channels,
+            image_size=image_size,
+            previous_data=previous_data,
+            dataset_coords=dataset_coords,
+        )
 
     def plot(self):
         season_start_date = datetime.date(int(self.season_first_year), self.season_setup.season_start_month, self.season_setup.season_start_day)
@@ -222,6 +352,40 @@ class GroundTruth():
             #ax.plot(pd.date_range(season_setup.fluseason_startdate, season_setup.fluseason_startdate + datetime.timedelta(days=64*7), freq="W-SAT"), data.flu_dyn[-50:,0,:,idx].T, c='r', lw=.5, alpha=.2)
         fig.tight_layout()
         fig.autofmt_xdate()
+
+    def _get_historical_series(self, location_code):
+        if self.previous_data is None or self.previous_data.empty:
+            return []
+
+        if "season_week" not in self.previous_data.columns:
+            self.previous_data = self.season_setup.add_season_columns(self.previous_data, do_fluseason_year=True)
+
+        calendar = self.season_setup.get_season_calendar(int(self.season_first_year))
+        calendar = calendar[["season_week", "saturday"]]
+
+        hist = self.previous_data[self.previous_data["location_code"] == location_code].copy()
+        if hist.empty:
+            return []
+
+        series = []
+        for hist_season in sorted(hist["fluseason"].dropna().unique()):
+            if int(hist_season) == int(self.season_first_year):
+                continue
+            season_data = hist[hist["fluseason"] == hist_season][["season_week", "value"]].dropna()
+            if season_data.empty:
+                continue
+            season_data = season_data.groupby("season_week", as_index=False)["value"].mean()
+            season_data = season_data.merge(calendar, on="season_week", how="inner").sort_values("season_week")
+            if season_data.empty:
+                continue
+            series.append(
+                (
+                    hist_season,
+                    pd.to_datetime(season_data["saturday"]).to_numpy(),
+                    season_data["value"].to_numpy(),
+                )
+            )
+        return series
 
     def plot_mask(self):
         # check that it stitch
@@ -266,10 +430,10 @@ class GroundTruth():
         df_list=[]
         for qt in myutils.flusight_quantiles:
             a =  pd.DataFrame(np.quantile(fluforecasts_ti[:,:,:,:len(self.season_setup.locations)], qt, axis=0)[0], 
-                    columns= self.season_setup.locations, index=pd.date_range(season_start_date, season_start_date + datetime.timedelta(days=64*7), freq="W-SAT")).loc[target_dates]
+                    columns= self.season_setup.locations, index=pd.date_range(season_start_date, season_start_date + datetime.timedelta(days=self.image_size*7), freq="W-SAT")).loc[target_dates]
             #a["US"] = a.sum(axis=1)
             a["US"] = pd.DataFrame(np.quantile(forecasts_national, qt, axis=0)[0],
-                    columns= ["US"], index=pd.date_range(season_start_date, season_start_date + datetime.timedelta(days=64*7), freq="W-SAT")).loc[target_dates]
+                    columns= ["US"], index=pd.date_range(season_start_date, season_start_date + datetime.timedelta(days=self.image_size*7), freq="W-SAT")).loc[target_dates]
 
             a = a.reset_index().rename(columns={'index': 'target_end_date'})
             a = pd.melt(a,id_vars="target_end_date",var_name="location")
@@ -360,7 +524,7 @@ class GroundTruth():
             for iax in range(2):
                 ax = axes[0][iax]
     
-                x = np.arange(64)
+                x = np.arange(self.image_size)
                 if iax == 0:
                     x_lims_idx = (0, 51)
                     x_lims = (pd.to_datetime(self.gt_xarr["date"][x_lims_idx[0]].values), 
@@ -459,16 +623,17 @@ class GroundTruth():
                     ax.plot(self.gt_xarr["date"][self.inpaintfrom_idx:],
                             self.gt_xarr.data[0,self.inpaintfrom_idx:, ipl], color='red', marker = '.', lw=.1, markersize=.4)
 
-                    # TODO I'm here
-                    
-                    this_hist_data = self.previous_data[self.previous_data["location_code"]==self.season_setup.locations[ipl]]
-                    for hist_season in this_hist_data["fluseason"].unique():
-                        if int(hist_season) != int(self.season_first_year):
-                            hist_data = this_hist_data[this_hist_data["fluseason"]==hist_season]
-                            hist_data = hist_data.pivot(index = "season_week", columns='location_code', values='value').sort_index()
-                            thisthing = hist_data[self.season_setup.locations[ipl]]
-                            # TODO MATCH HERE !!!!
-                            ax.plot(self.gt_xarr["date"][0:len(thisthing)], thisthing, color=color_past, ls='dashed', lw=.5, label=f"{hist_season}")
+                    for hist_season, hist_dates, hist_values in self._get_historical_series(
+                        self.season_setup.locations[ipl]
+                    ):
+                        ax.plot(
+                            hist_dates,
+                            hist_values,
+                            color=color_past,
+                            ls="dashed",
+                            lw=.5,
+                            label=f"{hist_season}",
+                        )
 
                     ax.axvline(self.gt_xarr["date"][idx_now].values, c='k', lw=1, ls='-.')
                     if iax == 0:
@@ -502,10 +667,10 @@ class GroundTruth():
         df_list=[]
         for qt in myutils.flusight_quantiles:
             a =  pd.DataFrame(np.quantile(fluforecasts_ti[:,:,:,:len(self.season_setup.locations)], qt, axis=0)[0], 
-                    columns= self.season_setup.locations, index=pd.date_range(season_start_date, season_start_date + datetime.timedelta(days=64*7), freq="W-SAT")).loc[target_dates]
+                    columns= self.season_setup.locations, index=pd.date_range(season_start_date, season_start_date + datetime.timedelta(days=self.image_size*7), freq="W-SAT")).loc[target_dates]
             #a["US"] = a.sum(axis=1)
             a["US"] = pd.DataFrame(np.quantile(forecasts_national, qt, axis=0)[0],
-                    columns= ["US"], index=pd.date_range(season_start_date, season_start_date + datetime.timedelta(days=64*7), freq="W-SAT")).loc[target_dates]
+                    columns= ["US"], index=pd.date_range(season_start_date, season_start_date + datetime.timedelta(days=self.image_size*7), freq="W-SAT")).loc[target_dates]
 
             a = a.reset_index().rename(columns={'index': 'target_end_date'})
             a = pd.melt(a,id_vars="target_end_date",var_name="location")
