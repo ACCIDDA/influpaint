@@ -10,7 +10,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.2
 #   kernelspec:
-#     display_name: diffusion_torch
+#     display_name: diffusion_torch6
 #     language: python
 #     name: python3
 # ---
@@ -357,7 +357,7 @@ else:
 
 # %%
 # Parse forecast date
-season_setup = SeasonAxis.for_metrocast())
+season_setup = SeasonAxis.for_metrocast()
 
 forecast_dt = pd.to_datetime(forecast_date)
 print(f"Forecast date: {forecast_dt.date()}")
