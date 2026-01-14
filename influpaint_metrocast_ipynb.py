@@ -10,7 +10,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.2
 #   kernelspec:
-#     display_name: diffusion_torch6
+#     display_name: diffusion_torch
 #     language: python
 #     name: python3
 # ---
@@ -75,10 +75,13 @@ sns.set_style("whitegrid")
 # - **model_source**: Either auto-find from experiment, MLflow run_id, or filesystem path
 # - **device**: 'cuda' or 'cpu'
 
+# %% [markdown]
+#
+
 # %%
 # === USER CONFIGURATION ===
 scenario_id = 868  # Choose your training scenario
-forecast_date = "2026-01-10"  # YYYY-MM-DD format
+forecast_date = "2026-01-17"  # YYYY-MM-DD format
 config_name = "celebahq_noTTJ5"  # CoPaint config name
 batch_size = 512
 image_size = 128
@@ -112,6 +115,33 @@ if device == "cuda":
     print(cuda_mem_info())
     torch.cuda.empty_cache()
     print(cuda_mem_info())
+
+# %%
+# Parse forecast date
+season_setup = SeasonAxis.for_metrocast()
+
+forecast_dt = pd.to_datetime(forecast_date)
+print(f"Forecast date: {forecast_dt.date()}")
+
+# Determine flu season year dynamically
+season_first_year = str(season_setup.get_fluseason_year(forecast_dt))
+print(f"Detected flu season: {season_first_year}-{int(season_first_year)+1}")
+
+# Create ground truth object
+gt1 = ground_truth.GroundTruth.from_metrocast(
+    season_first_year=season_first_year,
+    data_date=datetime.datetime.today(),
+    mask_date=forecast_dt,
+    channels=channels,
+    image_size=image_size,
+    nogit=True  # Skip git operations for interactive use
+)
+
+gt1.plot_mask()
+plt.show()
+print(f"Ground truth shape: {gt1.gt_xarr.shape}")
+print(f"Inpainting from week: {gt1.inpaintfrom_idx}")
+print(f"Known weeks: 1-{gt1.inpaintfrom_idx-1}, Forecast weeks: {gt1.inpaintfrom_idx}-52")
 
 # %% [markdown]
 # ## Load Scenario and Create Model/Dataset
@@ -318,6 +348,8 @@ else:
 
 # %%
 # Parse forecast date
+season_setup = SeasonAxis.for_metrocast())
+
 forecast_dt = pd.to_datetime(forecast_date)
 print(f"Forecast date: {forecast_dt.date()}")
 
@@ -326,7 +358,7 @@ season_first_year = str(season_setup.get_fluseason_year(forecast_dt))
 print(f"Detected flu season: {season_first_year}-{int(season_first_year)+1}")
 
 # Create ground truth object
-gt1 = ground_truth.GroundTruth(
+gt1 = ground_truth.GroundTruth.from_metrocast(
     season_first_year=season_first_year,
     data_date=datetime.datetime.today(),
     mask_date=forecast_dt,
@@ -595,7 +627,7 @@ ground_truth = reload(ground_truth)
 submission_dt = pd.to_datetime(submission_date)
 season_first_year_submission = str(season_setup.get_fluseason_year(submission_dt))
 
-gt1 = ground_truth.GroundTruth(
+gt1 = ground_truth.GroundTruth.from_metrocast(
     season_first_year=season_first_year_submission,
     data_date=datetime.datetime.today(),
     mask_date=datetime.datetime.today(),  # Use today to get all available data
