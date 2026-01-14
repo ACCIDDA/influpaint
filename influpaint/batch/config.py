@@ -29,6 +29,7 @@ AVAILABLE_DATASETS = ["100S", "70S30M", "30S70M", "100M"] #R1Fv, R1
 AVAILABLE_TRANSFORMS = ["Lins", "Sqrt", "LinsZs", "LogZs"]
 AVAILABLE_ENRICHMENTS = ["No", "PoisPadScale", "PoisPadScaleSmall", "Pois"]
 AVAILABLE_COPAINT_CONFIGS = ["celebahq_noTTJ5",  "celebahq_try3", "celebahq"] # friendly: short-jump (no TT), short-jump (TT), long-jump (TT)
+UNET_BASE_DIM = 64
 
 # Making a baseline to prune the search space
 CONFIG_BASELINE = {
@@ -39,45 +40,47 @@ CONFIG_BASELINE = {
     "enrich_name": "No"
 }
 
-def unet_library(image_size, channels):
+def unet_library(image_size, channels, base_dim=None):
+    if base_dim is None:
+        base_dim = UNET_BASE_DIM
     unet_spec = { "Rx124":
             nn_blocks.Unet(
-                dim=image_size,
+                dim=base_dim,
                 channels=channels,
                 dim_mults=(1, 2, 4,),
                 use_convnext=False
             ),
         "Cx124":
             nn_blocks.Unet(
-                dim=image_size,
+                dim=base_dim,
                 channels=channels,
                 dim_mults=(1, 2, 4,),
                 use_convnext=True
             ),
         "Rx1224":
             nn_blocks.Unet(
-                dim=image_size,
+                dim=base_dim,
                 channels=channels,
                 dim_mults=(1, 2, 2, 4,),
                 use_convnext=False
             ),
         "Cx1224":
             nn_blocks.Unet(
-                dim=image_size,
+                dim=base_dim,
                 channels=channels,
                 dim_mults=(1, 2, 2, 4,),
                 use_convnext=True
             ),
         "Rx12448":
             nn_blocks.Unet(
-                dim=image_size,
+                dim=base_dim,
                 channels=channels,
                 dim_mults=(1, 2, 4, 4, 8,),
                 use_convnext=False
             ),
         "Cx12448":
             nn_blocks.Unet(
-                dim=image_size,
+                dim=base_dim,
                 channels=channels,
                 dim_mults=(1, 2, 4, 4, 8,),
                 use_convnext=True
