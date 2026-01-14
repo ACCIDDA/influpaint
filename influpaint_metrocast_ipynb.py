@@ -42,11 +42,14 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from tqdm.auto import tqdm
 import torch
+from torch import nn
 import numpy as np
 import pandas as pd
 import datetime
 import sys
 from pathlib import Path
+from torch.utils.data import DataLoader
+from torch.optim import Adam
 
 # InfluPaint modular imports
 from influpaint.utils import SeasonAxis, plotting as idplots
@@ -78,8 +81,13 @@ scenario_id = 868  # Choose your training scenario
 forecast_date = "2026-01-10"  # YYYY-MM-DD format
 config_name = "celebahq_noTTJ5"  # CoPaint config name
 batch_size = 512
-image_size = 64
+image_size = 128
 channels = 1
+do_finetune = True
+finetune_mode = "adapters"
+finetune_epochs = 20
+finetune_lr = 1e-5
+finetune_output_dir = Path("output/metrocast_finetune")
 
 # Model source: Choose ONE of the following options
 # Option 1: Auto-find model from MLflow experiment (recommended - same as mask_experiments)
@@ -193,6 +201,112 @@ else:
 print("Loading model checkpoint...")
 load_model(ddpm, run_id=run_id, model_path=model_path)
 print(f"✓ Model loaded from: {model_source}")
+
+# %% [markdown]
+# ## Fine-Tune and Save a New Checkpoint
+#
+# Workflow:
+# 1) Load the same model checkpoint as above
+# 2) Modify trainable parameters (adapters/norms/time-MLP)
+# 3) Fine-tune on the MetroCast dataset
+# 4) Save the new weights and reload them for inpainting
+
+# %%
+def configure_finetune(model, train_init_final=True, train_norm=True, train_time_mlp=False, unfreeze_ups=0, train_all=False):
+    unet = model.module if isinstance(model, nn.DataParallel) else model
+
+    for param in unet.parameters():
+        param.requires_grad = train_all
+
+    if train_all:
+        return
+
+    if train_init_final:
+        for param in unet.init_conv.parameters():
+            param.requires_grad = True
+        for param in unet.final_conv.parameters():
+            param.requires_grad = True
+
+    if train_norm:
+        for module in unet.modules():
+            if isinstance(module, nn.GroupNorm):
+                if module.weight is not None:
+                    module.weight.requires_grad = True
+                if module.bias is not None:
+                    module.bias.requires_grad = True
+
+    if train_time_mlp and unet.time_mlp is not None:
+        for param in unet.time_mlp.parameters():
+            param.requires_grad = True
+
+    if unfreeze_ups > 0:
+        for block in unet.ups[-unfreeze_ups:]:
+            for param in block.parameters():
+                param.requires_grad = True
+
+
+if do_finetune:
+    finetune_output_dir.mkdir(parents=True, exist_ok=True)
+
+    train_time_mlp = finetune_mode in {"adapters_time", "adapters_time_ups2"}
+    unfreeze_ups = 2 if finetune_mode == "adapters_time_ups2" else 0
+    train_all = finetune_mode == "full"
+
+    configure_finetune(
+        ddpm.model,
+        train_time_mlp=train_time_mlp,
+        unfreeze_ups=unfreeze_ups,
+        train_all=train_all,
+    )
+    finetune_snapshot = {
+        name: param.detach().clone()
+        for name, param in ddpm.model.named_parameters()
+        if param.requires_grad
+    }
+    print(f"Trainable params: {len(finetune_snapshot)} tensors")
+    ddpm.optimizer = Adam(
+        filter(lambda p: p.requires_grad, ddpm.model.parameters()),
+        lr=finetune_lr,
+    )
+    ddpm.epochs = finetune_epochs
+
+    finetune_loader = DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=True)
+    print(f"Fine-tuning for {finetune_epochs} epochs with lr={finetune_lr}")
+    ddpm.train(finetune_loader, mlflow_logging=False)
+
+    finetune_ckpt = finetune_output_dir / f"{scenario_spec.scenario_string}::finetune_{finetune_epochs}.pth"
+    ddpm.write_train_checkpoint(save_path=str(finetune_ckpt))
+    print(f"✓ Fine-tuned checkpoint saved: {finetune_ckpt}")
+
+    ddpm.load_model_checkpoint(str(finetune_ckpt))
+    print("✓ Reloaded fine-tuned checkpoint for inpainting")
+
+# %% [markdown]
+# ## Sanity Check: Did Fine-Tuning Change the Weights?
+# This compares the trainable tensors before/after fine-tuning.
+
+# %%
+if do_finetune:
+    deltas = []
+    unexpected = []
+    for name, param in ddpm.model.named_parameters():
+        if name in finetune_snapshot:
+            delta = (param.detach() - finetune_snapshot[name]).pow(2).sum().sqrt().item()
+            deltas.append((name, delta))
+        elif param.requires_grad:
+            unexpected.append(name)
+    deltas.sort(key=lambda x: x[1], reverse=True)
+    print("Top weight changes (L2 norm):")
+    for name, delta in deltas[:10]:
+        print(f"{name}: {delta:.6f}")
+    if unexpected:
+        print("Unexpected trainable parameters:")
+        for name in unexpected:
+            print(f"  {name}")
+    else:
+        print("No unexpected trainable parameters.")
+else:
+    print("Fine-tune disabled; no weight-change check.")
 
 # %% [markdown]
 # ## Prepare Ground Truth for Inpainting
