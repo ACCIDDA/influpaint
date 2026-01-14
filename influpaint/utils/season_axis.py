@@ -107,6 +107,28 @@ class SeasonAxis:
         return cls(
             locations=influpaint_locations, season_start_month=season_start_month, season_start_day=season_start_day
         )
+    
+    @classmethod
+    def for_metrocast(
+        cls,
+        location_filepath=None,
+        season_start_month=8,
+        season_start_day=1,
+        remove_territories=False,
+        remove_us=False,
+    ):
+        location_filepath = "influpaint/metrocast_locations.csv" if location_filepath is None else location_filepath
+        
+        influpaint_locations = pd.read_csv(
+            location_filepath,
+            converters={"location": lambda x: str(x).strip(), "original_location_code": lambda x: str(x).strip()},
+            skipinitialspace=True,
+        )
+        influpaint_locations = influpaint_locations.rename(columns={"location": "location_code"})
+        
+        return cls(
+            locations=influpaint_locations, season_start_month=season_start_month, season_start_day=season_start_day
+        )
 
     def get_fluseason_year(self, ts):
         return get_season_year(ts, self.season_start_month, self.season_start_day)

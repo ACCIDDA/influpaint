@@ -4,13 +4,18 @@ from helpers.delphi_epidata import Epidata
 from ..utils.season_axis import SeasonAxis
 import xarray as xr
 
-def padto64x64(x: np.ndarray) -> np.ndarray:
+
+def padtoDxD(x: np.ndarray, D: int) -> np.ndarray:
     return np.pad(
         x,
-        ((0, 64 - x.shape[0]), (0, 64 - x.shape[1])),
+        ((0, D - x.shape[0]), (0, D - x.shape[1])),
         mode="constant",
         constant_values=0,
     )
+
+def padto64x64(x: np.ndarray) -> np.ndarray:
+    return padtoDxD(x, D=64)
+
 
 def dataframe_to_xarray(
     df: pd.DataFrame,
@@ -72,7 +77,7 @@ def dataframe_to_xarray(
 
 
 def dataframe_to_arraylist(
-    df: pd.DataFrame, season_setup: SeasonAxis = None, value_column="value",
+    df: pd.DataFrame, season_setup: SeasonAxis = None, value_column="value", array_dim=64
 ) -> np.ndarray:
 
     samples = []
@@ -91,7 +96,7 @@ def dataframe_to_arraylist(
         array[np.isnan(array)] = 0  # replace NaNs with 0
 
         samples.append(
-            np.array([padto64x64(array)])
+            np.array([padtoDxD(array, D=array_dim)])
         )  # pad to 64x64 and add a dimension for channel
 
     return samples
