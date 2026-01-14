@@ -86,7 +86,13 @@ config_name = "celebahq_noTTJ5"  # CoPaint config name
 batch_size = 512
 image_size = 128
 channels = 1
+# Fine-tune controls: enable if you want to adapt weights before inpainting.
 do_finetune = True
+# finetune_mode options:
+# - "adapters": init_conv + final_conv + GroupNorm affine only
+# - "adapters_time": adapters + time_mlp
+# - "adapters_time_ups2": adapters + time_mlp + last 2 up blocks
+# - "full": full model fine-tune (not recommended with small data)
 finetune_mode = "adapters"
 finetune_epochs = 20
 finetune_lr = 1e-5
@@ -243,6 +249,7 @@ print(f"✓ Model loaded from: {model_source}")
 
 # %%
 def configure_finetune(model, train_init_final=True, train_norm=True, train_time_mlp=False, unfreeze_ups=0, train_all=False):
+    """Freeze all parameters, then selectively enable a small adaptation subset."""
     unet = model.module if isinstance(model, nn.DataParallel) else model
 
     for param in unet.parameters():
@@ -278,6 +285,7 @@ def configure_finetune(model, train_init_final=True, train_norm=True, train_time
 if do_finetune:
     finetune_output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Stage the minimal parameter set for adaptation.
     train_time_mlp = finetune_mode in {"adapters_time", "adapters_time_ups2"}
     unfreeze_ups = 2 if finetune_mode == "adapters_time_ups2" else 0
     train_all = finetune_mode == "full"
@@ -308,6 +316,7 @@ if do_finetune:
     ddpm.write_train_checkpoint(save_path=str(finetune_ckpt))
     print(f"✓ Fine-tuned checkpoint saved: {finetune_ckpt}")
 
+    # Reload to ensure downstream inpainting uses the fine-tuned weights.
     ddpm.load_model_checkpoint(str(finetune_ckpt))
     print("✓ Reloaded fine-tuned checkpoint for inpainting")
 
