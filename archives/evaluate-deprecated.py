@@ -135,7 +135,7 @@ channels = 1
 batch_size=512
 season_first_year="2022"
 import nn_blocks, idplots, ddpm, myutils, inpaint_module, ground_truth
-gt1 = ground_truth.GroundTruth(season_first_year=season_first_year, 
+gt1 = ground_truth.GroundTruth.for_flusight(season_first_year=season_first_year, 
                                 data_date=datetime.datetime(2023,7,25), 
                                 mask_date=datetime.datetime(2023,7,25),
                                 channels=channels,
@@ -579,5 +579,4 @@ tp2 = wis_total[wis_total["location"]=="US"].pivot(values="wis_total", index="ta
 f, ax = plt.subplots(figsize=(9, 6))
 sns.heatmap(tp1/tp2, annot=False, fmt="", linewidths=1, ax=ax)
 print((tp1/tp2).mean().mean())
-
 

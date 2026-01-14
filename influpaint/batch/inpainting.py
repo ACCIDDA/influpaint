@@ -193,7 +193,7 @@ def run_inpainting(scenario_spec, ddpm, dataset, image_size, channels, batch_siz
     print(f">>> Detected flu season year: {season_first_year}")
     
     # Create ground truth for this date
-    gt1 = ground_truth.GroundTruth(
+    gt1 = ground_truth.GroundTruth.for_flusight(
         season_first_year=season_first_year,
         data_date=datetime.datetime.today(),
         mask_date=forecast_dt,

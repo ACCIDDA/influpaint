@@ -10,7 +10,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.2
 #   kernelspec:
-#     display_name: diffusion_torch6
+#     display_name: diffusion_torch
 #     language: python
 #     name: python3
 # ---
@@ -212,7 +212,7 @@ season_first_year = str(season_setup.get_fluseason_year(forecast_dt))
 print(f"Detected flu season: {season_first_year}-{int(season_first_year)+1}")
 
 # Create ground truth object
-gt1 = ground_truth.GroundTruth(
+gt1 = ground_truth.GroundTruth.for_flusight(
     season_first_year=season_first_year,
     data_date=datetime.datetime.today(),
     mask_date=forecast_dt,
@@ -220,6 +220,9 @@ gt1 = ground_truth.GroundTruth(
     image_size=image_size,
     nogit=True  # Skip git operations for interactive use
 )
+fig, ax = plt.subplots(figsize=(8, 4))
+gt1.plot_mask()
+plt.show()
 
 print(f"Ground truth shape: {gt1.gt_xarr.shape}")
 print(f"Inpainting from week: {gt1.inpaintfrom_idx}")
@@ -481,7 +484,7 @@ ground_truth = reload(ground_truth)
 submission_dt = pd.to_datetime(submission_date)
 season_first_year_submission = str(season_setup.get_fluseason_year(submission_dt))
 
-gt1 = ground_truth.GroundTruth(
+gt1 = ground_truth.GroundTruth.for_flusight(
     season_first_year=season_first_year_submission,
     data_date=datetime.datetime.today(),
     mask_date=datetime.datetime.today(),  # Use today to get all available data

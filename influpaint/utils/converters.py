@@ -1,4 +1,4 @@
-cimport pandas as pd
+import pandas as pd
 import numpy as np
 from helpers.delphi_epidata import Epidata
 from ..utils.season_axis import SeasonAxis

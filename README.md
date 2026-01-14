@@ -178,6 +178,7 @@ git clone https://github.com/cdcepi/FluSight-forecast-hub Flusight/2023-2024/Flu
 git clone https://github.com/cdcepi/FluSight-forecast-hub Flusight/2024-2025/FluSight-forecast-hub-official
 git clone https://github.com/midas-network/flu-scenario-modeling-hub.git Flusight/Flu-SMH
 git clone https://github.com/ACCIDDA/NC_Forecasting_Collab.git custom_datasets/NC_Forecasting_Collab
+git clone https://github.com/reichlab/flu-metrocast.git Flusight/flu-metrocast
 ```
 
 

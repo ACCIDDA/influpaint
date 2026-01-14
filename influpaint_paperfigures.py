@@ -1076,7 +1076,7 @@ def plot_mask_experiments(mask_dir: str, season_year: str, forecast_date: str,
                           n_sample_trajs: int = 10,
                           plot_median: bool = True):
     # build GT once
-    gt = ground_truth.GroundTruth(
+    gt = ground_truth.GroundTruth.for_flusight(
         season_first_year=season_year,
         data_date=dt.datetime.today(),
         mask_date=pd.to_datetime(forecast_date),

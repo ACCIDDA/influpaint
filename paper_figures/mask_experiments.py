@@ -144,7 +144,7 @@ def plot_mask_experiments(mask_dir: str, forecast_date: str,
         season_use = season_detect
 
         # Build GT for this season
-        gt = ground_truth.GroundTruth(
+        gt = ground_truth.GroundTruth.for_flusight(
             season_first_year=str(season_use),
             data_date=dt.datetime.today(),
             mask_date=pd.to_datetime(forecast_date),

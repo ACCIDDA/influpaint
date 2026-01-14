@@ -219,7 +219,7 @@ def get_season_mid_date(season_setup: SeasonAxis, season_first_year: str) -> pd.
 # %%
 # Setup ground truth for the forecast date
 for season_first_year in ["2023", "2024"]:
-    gt1 = ground_truth.GroundTruth(
+    gt1 = ground_truth.GroundTruth.for_flusight(
         season_first_year=season_first_year,
         data_date=datetime.datetime.today(),
         mask_date=pd.to_datetime(f"{int(season_first_year)+1}-07-29"),
