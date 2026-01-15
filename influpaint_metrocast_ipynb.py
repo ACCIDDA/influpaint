@@ -524,114 +524,7 @@ forecasts_national = fluforecasts_ti.sum(axis=-1)
 print(f"✓ Generated {len(fluforecasts)} forecast samples")
 print(f"Forecast array shape: {fluforecasts_ti.shape}")
 
-# %% [markdown]
-# ## Visualize Results: National Forecast
 
-# %%
-fig, axes = plt.subplots(1, 2, figsize=(14, 4), dpi=100)
-
-for iax in range(2):
-    ax = axes[iax]
-
-    # Plot quantile bands
-    from influpaint.utils.helpers import flusight_quantile_pairs
-    for iqt in range(11):
-        ax.fill_between(
-            np.arange(64),
-            np.quantile(forecasts_national, flusight_quantile_pairs[iqt, 0], axis=0)[0],
-            np.quantile(forecasts_national, flusight_quantile_pairs[iqt, 1], axis=0)[0],
-            alpha=0.1, color='darkred'
-        )
-
-    # Plot median
-    ax.plot(np.arange(64),
-            np.quantile(forecasts_national, 0.5, axis=0)[0],
-            color='r', lw=2, label='Median forecast')
-
-    # Plot ground truth
-    ax.plot(gt1.gt_xarr.data[0, :gt1.inpaintfrom_idx].sum(axis=1),
-            color='k', marker='.', ls='', markersize=8, label='Observed data')
-
-    # Mark forecast start
-    ax.axvline(gt1.inpaintfrom_idx - 1, c='k', ls='--', lw=1.5, alpha=0.5)
-
-    if iax == 0:
-        # Full season view
-        ax.set_xlim(0, 52)
-        ax.set_ylim(bottom=0, auto=True)
-        ax.set_title("National Forecast - Full Season")
-    else:
-        # Zoomed view around forecast start
-        ax.set_xlim(gt1.inpaintfrom_idx - 4, gt1.inpaintfrom_idx + 4)
-        ax.set_ylim(bottom=0, auto=True)
-        ax.set_title("National Forecast - Forecast Window")
-
-    ax.grid(visible=True, alpha=0.3)
-    ax.set_xlabel("Season Week")
-    ax.set_ylabel("Hospitalizations")
-    ax.legend(loc='upper left')
-    sns.despine(ax=ax)
-
-fig.tight_layout()
-plt.show()
-
-# %% [markdown]
-# ## Visualize Results: State-Level Forecasts
-#
-# Plot forecasts for individual states to inspect spatial patterns.
-
-# %%
-def plot_state_forecasts(fluforecasts_ti, gt1, season_setup, states_to_plot=None, n_samples=50):
-    """Plot forecasts for selected states"""
-
-    if states_to_plot is None:
-        # Default: plot first 6 states
-        states_to_plot = list(range(6))
-
-    n_states = len(states_to_plot)
-    fig, axes = plt.subplots(2, 3, figsize=(15, 8), sharex=True)
-
-    for idx, place_idx in enumerate(states_to_plot):
-        if idx >= 6:
-            break
-
-        ax = axes.flat[idx]
-        location_name = season_setup.get_location_name(season_setup.locations[place_idx])
-
-        # Plot sample trajectories
-        for i in range(min(n_samples, batch_size)):
-            ax.plot(fluforecasts_ti[i, 0, :, place_idx],
-                   lw=0.3, alpha=0.1, color='lightcoral')
-
-        # Plot median forecast
-        median_forecast = np.median(fluforecasts_ti[:, 0, :, place_idx], axis=0)
-        ax.plot(median_forecast, color='red', lw=2, label='Median')
-
-        # Plot ground truth
-        ax.plot(gt1.gt_xarr.data[0, :gt1.inpaintfrom_idx, place_idx],
-               color='k', marker='.', ls='', markersize=6, label='Observed')
-
-        # Mark forecast start
-        ax.axvline(gt1.inpaintfrom_idx - 1, c='k', ls='--', lw=1, alpha=0.5)
-
-        ax.set_xlim(0, 52)
-        ax.set_ylim(bottom=0, auto=True)
-        ax.set_title(location_name)
-        ax.grid(visible=True, alpha=0.3)
-
-        if idx >= 3:
-            ax.set_xlabel('Season Week')
-        if idx % 3 == 0:
-            ax.set_ylabel('Hospitalizations')
-
-        sns.despine(ax=ax)
-
-    axes.flat[0].legend(loc='upper left')
-    fig.tight_layout()
-    plt.show()
-
-# Plot forecasts for selected states
-plot_state_forecasts(fluforecasts_ti, gt1, season_setup)
 
 # %% [markdown]
 # ## Summary Statistics
@@ -709,17 +602,28 @@ output_dir.mkdir(parents=True, exist_ok=True)
 team_abbrv = "UNC_IDD-InfluPaint"
 gt1.export_forecasts_2023(
     fluforecasts_ti=fluforecasts_ti,
-    forecasts_national=forecasts_national,
     directory=str(output_dir),
     prefix=f"{team_abbrv}_{config_name}",
     forecast_date=submission_date,
     save_plot=True,
-    nochecks=True
+    nochecks=True,
+    mode="metrocast"
 )
 
 print(f"✓ Forecasts exported to: {output_dir}")
 print(f"  - CSV files: {len(list(output_dir.glob('*.csv')))} files")
-print(f"  - Plots: {len(list(output_dir.glob('*.png')))} + {len(list(output_dir.glob('*.pdf')))} files")
+
+# Optional: Plot forecasts using the same path as the CLI script
+forecasts_national = fluforecasts_ti.sum(axis=-1)
+gt1.plot_forecasts(
+    fluforecasts_ti=fluforecasts_ti,
+    forecasts_national=forecasts_national,
+    directory=str(output_dir),
+    prefix=f"{team_abbrv}_{config_name}",
+    forecast_date=submission_date,
+    mode="metrocast",
+)
+print(f"  - Plots: {len(list(output_dir.glob('*.pdf')))} files")
 
 # %% [markdown]
 # ## Optional: Save Raw Arrays
