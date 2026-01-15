@@ -93,7 +93,7 @@ train_finetune = True
 # - "adapters_time": adapters + time_mlp
 # - "adapters_time_ups2": adapters + time_mlp + last 2 up blocks
 # - "full": full model fine-tune (not recommended with small data)
-finetune_mode = "adapters_time_ups2"
+finetune_mode = "adapters_time"
 finetune_epochs = 40
 finetune_lr = 1e-5
 finetune_output_dir = Path("output/metrocast_finetune")
@@ -191,6 +191,7 @@ print(f"Dataset size: {len(dataset)} samples")
 print(f"Scaling per channel: {scaling_per_channel}")
 print(f"Data mean: {data_mean:.2f}, std: {data_sd:.2f}")
 print(f"Timesteps: {ddpm.timesteps}")
+print(f"dataset mean {dataset.flu_dyn.mean()}, proportion of 0: {(dataset.flu_dyn==0).sum()/dataset.flu_dyn.size}")
 
 # %% [markdown]
 # ## Load MetroCast Dataset (Explicit)
@@ -206,6 +207,7 @@ dataset = training_datasets.FluDataset.from_xarray(
     channels=channels,
 )
 scaling_per_channel = np.array(dataset.max_per_feature)
+scaling_per_channel = 70 # overwrite it was way too low
 data_mean = dataset.flu_dyn.mean()
 data_sd = dataset.flu_dyn.std()
 transforms_spec, transform_enrich = transform_library(
@@ -223,6 +225,8 @@ dataset.add_transform(
 )
 print(f"MetroCast dataset size: {len(dataset)} samples")
 print(f"MetroCast max per channel: {scaling_per_channel}")
+print(f"dataset mean {dataset.flu_dyn.mean()}, proportion of 0: {(dataset.flu_dyn==0).sum()/dataset.flu_dyn.size}")
+
 
 # %% [markdown]
 # ## Load Trained Model
@@ -273,36 +277,6 @@ print("Loading model checkpoint...")
 load_model(ddpm, run_id=run_id, model_path=model_path)
 print(f"✓ Model loaded from: {model_source}")
 
-# %% [markdown]
-# ## Optional: Unconditional Preview Against MetroCast Distribution
-#
-# This uses the same model weights and transforms to generate unconditional samples.
-# Keep the batch size small; this can be memory-heavy.
-
-# %%
-if do_uncond_preview:
-    from influpaint.batch.training import plot_sample
-
-    prev_batch_size = ddpm.batch_size
-    ddpm.batch_size = uncond_batch_size
-    print(f"Generating {uncond_batch_size} unconditional samples...")
-    samples = ddpm.sample()
-    ddpm.batch_size = prev_batch_size
-
-    # Overlay: generated vs historical on the same axes for scale comparison.
-    n_show = min(uncond_batch_size, 8)
-    fig, axes = plt.subplots(1, n_show, figsize=(2.8 * n_show, 3.5), dpi=100, sharey=True)
-    if n_show == 1:
-        axes = [axes]
-    for i, ax in enumerate(axes[:n_show]):
-        gen_img = dataset.apply_transform_inv(samples[-1][i])
-        hist_img = dataset.get_sample_raw(i)
-        idplots.show_tensor_image(gen_img, ax=ax, place=None, multi=True)
-        idplots.show_tensor_image(hist_img, ax=ax, place=None, multi=True)
-        ax.set_title(f"Gen vs Hist {i}")
-        ax.grid(visible=True, alpha=0.3)
-    plt.tight_layout()
-    plt.show()
 
 # %% [markdown]
 # ## Fine-Tune and Save a New Checkpoint
@@ -386,7 +360,8 @@ if train_finetune:
 
 # %%
 # Reload to ensure downstream inpainting uses the fine-tuned weights.
-finetune_ckpt = "output/metrocast_finetune/i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::finetune_40.pth"
+finetune_ckpt = "output/metrocast_finetune/i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::finetune_60.pth"
+finetune_ckpt = finetune_output_dir / f"{scenario_spec.scenario_string}::finetune_{finetune_epochs}.pth"
 ckpt = torch.load(finetune_ckpt, map_location="cpu")
 ddpm.model.load_state_dict(ckpt["model_state_dict"])
 ddpm.model.eval()
@@ -406,16 +381,18 @@ if do_uncond_preview:
     ft_samples = ddpm.sample()
     ddpm.batch_size = prev_batch_size
 
-    n_show = min(uncond_batch_size, 8)
-    fig, axes = plt.subplots(1, n_show, figsize=(2.8 * n_show, 3.5), dpi=100, sharey=True)
-    if n_show == 1:
-        axes = [axes]
-    for i, ax in enumerate(axes[:n_show]):
-        gen_img = dataset.apply_transform_inv(ft_samples[-1][i])
-        hist_img = dataset.get_sample_raw(i)
-        idplots.show_tensor_image(gen_img, ax=ax, place=None, multi=True)
-        idplots.show_tensor_image(hist_img, ax=ax, place=None, multi=True)
-        ax.set_title(f"FT gen vs Hist {i}")
+    n_show = min(uncond_batch_size, 10)
+    fig, axes = plt.subplots(2, 2, figsize=(2.8 * n_show, 5.5), dpi=300)
+    for k, loc in enumerate([None, 5, 70,100]):
+        ax = axes.flat[k]
+        for i in np.arange(3):
+            hist_img = dataset.get_sample_raw(i)
+            idplots.show_tensor_image(hist_img, ax=ax, place=loc, multi=False)
+        for i in np.arange(n_show):
+            gen_img = dataset.apply_transform_inv(ft_samples[-1][i])
+            idplots.show_tensor_image(gen_img, ax=ax, place=loc, multi=True)
+            
+        ax.set_title(f"FT gen vs Hist, loc={loc}")
         ax.grid(visible=True, alpha=0.3)
     plt.tight_layout()
     plt.show()
@@ -446,6 +423,7 @@ if train_finetune:
         print("No unexpected trainable parameters.")
 else:
     print("Fine-tune disabled; no weight-change check.")
+raise ValueError("Stop here for inspection")
 
 # %% [markdown]
 # ## Prepare Ground Truth for Inpainting
