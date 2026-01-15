@@ -97,6 +97,7 @@ finetune_mode = "adapters"
 finetune_epochs = 20
 finetune_lr = 1e-5
 finetune_output_dir = Path("output/metrocast_finetune")
+metrocast_nc_path = Path("training_datasets/MetrocastTS_100M_2026-01-15.nc")
 
 # Model source: Choose ONE of the following options
 # Option 1: Auto-find model from MLflow experiment (recommended - same as mask_experiments)
@@ -188,6 +189,38 @@ print(f"Dataset size: {len(dataset)} samples")
 print(f"Scaling per channel: {scaling_per_channel}")
 print(f"Data mean: {data_mean:.2f}, std: {data_sd:.2f}")
 print(f"Timesteps: {ddpm.timesteps}")
+
+# %% [markdown]
+# ## Load MetroCast Dataset (Explicit)
+#
+# Override the scenario dataset with the MetroCast .nc file for clarity.
+
+# %%
+from influpaint.datasets import loaders as training_datasets
+from influpaint.batch.config import transform_library
+
+dataset = training_datasets.FluDataset.from_xarray(
+    str(metrocast_nc_path),
+    channels=channels,
+)
+scaling_per_channel = np.array(dataset.max_per_feature)
+data_mean = dataset.flu_dyn.mean()
+data_sd = dataset.flu_dyn.std()
+transforms_spec, transform_enrich = transform_library(
+    scaling_per_channel,
+    data_mean=data_mean,
+    data_std=data_sd,
+)
+transform = transforms_spec[scenario_spec.transform_name]
+enrich = transform_enrich[scenario_spec.enrich_name]
+dataset.add_transform(
+    transform=transform["reg"],
+    transform_inv=transform["inv"],
+    transform_enrich=enrich,
+    bypass_test=False,
+)
+print(f"MetroCast dataset size: {len(dataset)} samples")
+print(f"MetroCast max per channel: {scaling_per_channel}")
 
 # %% [markdown]
 # ## Load Trained Model
