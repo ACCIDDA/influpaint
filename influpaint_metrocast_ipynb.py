@@ -192,6 +192,10 @@ print(f"Scaling per channel: {scaling_per_channel}")
 print(f"Data mean: {data_mean:.2f}, std: {data_sd:.2f}")
 print(f"Timesteps: {ddpm.timesteps}")
 
+all_samples = np.array([sample for sample in DataLoader(dataset, batch_size=1)])
+plt.hist(all_samples.flatten());
+print(f"mean of all samples: {all_samples.mean():.4f}, std: {all_samples.std():.4f}")
+
 # %% [markdown]
 # ## Load MetroCast Dataset (Explicit)
 #
@@ -223,6 +227,11 @@ dataset.add_transform(
 )
 print(f"MetroCast dataset size: {len(dataset)} samples")
 print(f"MetroCast max per channel: {scaling_per_channel}")
+
+all_samples = np.array([sample for sample in DataLoader(dataset, batch_size=1)])
+plt.hist(all_samples.flatten());
+print(f"mean of all samples: {all_samples.mean():.4f}, std: {all_samples.std():.4f}")
+
 
 # %% [markdown]
 # ## Load Trained Model
