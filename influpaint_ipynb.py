@@ -508,7 +508,7 @@ gt1.export_forecasts_2023(
     fluforecasts_ti=fluforecasts_ti,
     forecasts_national=forecasts_national,
     directory=str(output_dir),
-    prefix=f"{team_abbrv}_{config_name}",
+    prefix=f"{team_abbrv}",
     forecast_date=submission_date,
     save_plot=True,
     nochecks=True

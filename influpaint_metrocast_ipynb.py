@@ -93,7 +93,7 @@ train_finetune = True
 # - "adapters_time": adapters + time_mlp
 # - "adapters_time_ups2": adapters + time_mlp + last 2 up blocks
 # - "full": full model fine-tune (not recommended with small data)
-finetune_mode = "adapters"
+finetune_mode = "adapters_time_ups2"
 finetune_epochs = 40
 finetune_lr = 1e-5
 finetune_output_dir = Path("output/metrocast_finetune")
@@ -389,7 +389,7 @@ if train_finetune:
 
 # %%
 # Reload to ensure downstream inpainting uses the fine-tuned weights.
-finetune_ckpt = "output/metrocast_finetune/i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::finetune_20.pth"
+finetune_ckpt = "output/metrocast_finetune/i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::finetune_40.pth"
 ckpt = torch.load(finetune_ckpt, map_location="cpu")
 ddpm.model.load_state_dict(ckpt["model_state_dict"])
 ddpm.model.eval()
@@ -648,7 +648,7 @@ print(f"  This will be included in the forecast CSV files")
 
 # %%
 # Create output directory
-output_dir = Path("operational_output") / str(submission_date)
+output_dir = Path("operational_output_metrocast") / str(submission_date)
 output_dir.mkdir(parents=True, exist_ok=True)
 
 # Export using ground truth helper
@@ -656,7 +656,7 @@ team_abbrv = "UNC_IDD-InfluPaint"
 gt1.export_forecasts_2023(
     fluforecasts_ti=fluforecasts_ti,
     directory=str(output_dir),
-    prefix=f"{team_abbrv}_{config_name}",
+    prefix=f"{team_abbrv}",
     forecast_date=submission_date,
     save_plot=True,
     nochecks=True,
@@ -672,7 +672,7 @@ gt1.plot_forecasts(
     fluforecasts_ti=fluforecasts_ti,
     forecasts_national=forecasts_national,
     directory=str(output_dir),
-    prefix=f"{team_abbrv}_{config_name}",
+    prefix=f"{team_abbrv}_metrocast",
     forecast_date=submission_date,
     mode="metrocast",
 )
