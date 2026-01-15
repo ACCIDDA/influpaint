@@ -538,6 +538,8 @@ print("GT min/max/mean:", np.nanmin(gt_vals), np.nanmax(gt_vals), np.nanmean(gt_
 print("Sample std median:", np.median(np.std(fluforecasts_ti, axis=0)))
 print("gt_keep_mask sum:", gt_keep_mask.sum().item())
 print("gt_keep_mask unique:", np.unique(gt_keep_mask.cpu().numpy()))
+plt.hist(fluforecasts.flatten())
+plt.show()
 
 
 
