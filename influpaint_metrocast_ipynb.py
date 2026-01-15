@@ -289,21 +289,18 @@ if do_uncond_preview:
     samples = ddpm.sample()
     ddpm.batch_size = prev_batch_size
 
-    fig, axes = plot_sample(samples, dataset, idplots)
-    plt.show()
-
-    # Side-by-side: generated vs historical MetroCast frames
+    # Overlay: generated vs historical on the same axes for scale comparison.
     n_show = min(uncond_batch_size, 8)
-    fig, axes = plt.subplots(2, n_show, figsize=(2.4 * n_show, 5), dpi=100)
-    for i in range(n_show):
+    fig, axes = plt.subplots(1, n_show, figsize=(2.8 * n_show, 3.5), dpi=100, sharey=True)
+    if n_show == 1:
+        axes = [axes]
+    for i, ax in enumerate(axes[:n_show]):
         gen_img = dataset.apply_transform_inv(samples[-1][i])
         hist_img = dataset.get_sample_raw(i)
-        idplots.show_tensor_image(gen_img, ax=axes[0, i], place=0, multi=True)
-        idplots.show_tensor_image(hist_img, ax=axes[1, i], place=0, multi=True)
-        axes[0, i].set_title(f"Generated {i}")
-        axes[1, i].set_title(f"Historical {i}")
-        axes[0, i].axis("off")
-        axes[1, i].axis("off")
+        idplots.show_tensor_image(gen_img, ax=ax, place=None, multi=True)
+        idplots.show_tensor_image(hist_img, ax=ax, place=None, multi=True)
+        ax.set_title(f"Gen vs Hist {i}")
+        ax.grid(visible=True, alpha=0.3)
     plt.tight_layout()
     plt.show()
 
@@ -395,6 +392,33 @@ ddpm.model.load_state_dict(ckpt["model_state_dict"])
 ddpm.model.eval()
 ddpm.model.to(device)
 print("✓ Reloaded fine-tuned checkpoint for inpainting")
+
+# %% [markdown]
+# ## Unconditional Preview (Fine-Tuned) vs History
+#
+# Compare fine-tuned unconditional samples against historical MetroCast frames.
+
+# %%
+if do_uncond_preview:
+    prev_batch_size = ddpm.batch_size
+    ddpm.batch_size = uncond_batch_size
+    print(f"Generating {uncond_batch_size} unconditional samples (fine-tuned)...")
+    ft_samples = ddpm.sample()
+    ddpm.batch_size = prev_batch_size
+
+    n_show = min(uncond_batch_size, 8)
+    fig, axes = plt.subplots(1, n_show, figsize=(2.8 * n_show, 3.5), dpi=100, sharey=True)
+    if n_show == 1:
+        axes = [axes]
+    for i, ax in enumerate(axes[:n_show]):
+        gen_img = dataset.apply_transform_inv(ft_samples[-1][i])
+        hist_img = dataset.get_sample_raw(i)
+        idplots.show_tensor_image(gen_img, ax=ax, place=None, multi=True)
+        idplots.show_tensor_image(hist_img, ax=ax, place=None, multi=True)
+        ax.set_title(f"FT gen vs Hist {i}")
+        ax.grid(visible=True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
 
 # %% [markdown]
 # ## Sanity Check: Did Fine-Tuning Change the Weights?
