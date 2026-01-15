@@ -87,7 +87,7 @@ batch_size = 512
 image_size = 128
 channels = 1
 # Fine-tune controls: enable if you want to adapt weights before inpainting.
-do_finetune = True
+train_finetune = False
 # finetune_mode options:
 # - "adapters": init_conv + final_conv + GroupNorm affine only
 # - "adapters_time": adapters + time_mlp
@@ -281,27 +281,28 @@ def configure_finetune(model, train_init_final=True, train_norm=True, train_time
             for param in block.parameters():
                 param.requires_grad = True
 
+# Stage the minimal parameter set for adaptation.
+train_time_mlp = finetune_mode in {"adapters_time", "adapters_time_ups2"}
+unfreeze_ups = 2 if finetune_mode == "adapters_time_ups2" else 0
+train_all = finetune_mode == "full"
 
-if do_finetune:
+configure_finetune(
+    ddpm.model,
+    train_time_mlp=train_time_mlp,
+    unfreeze_ups=unfreeze_ups,
+    train_all=train_all,
+)
+finetune_snapshot = {
+    name: param.detach().clone()
+    for name, param in ddpm.model.named_parameters()
+    if param.requires_grad
+}
+print(f"Trainable params: {len(finetune_snapshot)} tensors")
+
+if train_finetune:
     finetune_output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Stage the minimal parameter set for adaptation.
-    train_time_mlp = finetune_mode in {"adapters_time", "adapters_time_ups2"}
-    unfreeze_ups = 2 if finetune_mode == "adapters_time_ups2" else 0
-    train_all = finetune_mode == "full"
 
-    configure_finetune(
-        ddpm.model,
-        train_time_mlp=train_time_mlp,
-        unfreeze_ups=unfreeze_ups,
-        train_all=train_all,
-    )
-    finetune_snapshot = {
-        name: param.detach().clone()
-        for name, param in ddpm.model.named_parameters()
-        if param.requires_grad
-    }
-    print(f"Trainable params: {len(finetune_snapshot)} tensors")
     ddpm.optimizer = Adam(
         filter(lambda p: p.requires_grad, ddpm.model.parameters()),
         lr=finetune_lr,
@@ -316,16 +317,20 @@ if do_finetune:
     ddpm.write_train_checkpoint(save_path=str(finetune_ckpt))
     print(f"✓ Fine-tuned checkpoint saved: {finetune_ckpt}")
 
-    # Reload to ensure downstream inpainting uses the fine-tuned weights.
-    ddpm.load_model_checkpoint(str(finetune_ckpt))
-    print("✓ Reloaded fine-tuned checkpoint for inpainting")
+
+# %%
+# Reload to ensure downstream inpainting uses the fine-tuned weights.
+finetune_ckpt = "output/metrocast_finetune/i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::finetune_20.pth"
+
+ddpm.load_model_checkpoint(str(finetune_ckpt))
+print("✓ Reloaded fine-tuned checkpoint for inpainting")
 
 # %% [markdown]
 # ## Sanity Check: Did Fine-Tuning Change the Weights?
 # This compares the trainable tensors before/after fine-tuning.
 
 # %%
-if do_finetune:
+if train_finetune:
     deltas = []
     unexpected = []
     for name, param in ddpm.model.named_parameters():
@@ -452,11 +457,11 @@ gt_tensor = torch.from_numpy(gt_transformed).type(torch.FloatTensor).to(device)
 
 print(f"Running CoPaint inpainting with {batch_size} samples...")
 print(f"This may take several minutes...")
-
+inpaint_batch_size = 256
 # Run sampling
 result = sampler.p_sample_loop(
     model_fn=ddpm.model,
-    shape=(batch_size, channels, image_size, image_size),
+    shape=(inpaint_batch_size, channels, image_size, image_size),
     conf=conf,
     model_kwargs={
         "gt": gt_tensor.repeat(batch_size, 1, 1, 1),
