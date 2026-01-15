@@ -488,7 +488,7 @@ class GroundTruth():
         if save_plot:
             self.plot_forecasts(fluforecasts_ti, forecasts_national, directory=directory, prefix=prefix, forecast_date=forecast_date)
         
-    def plot_forecasts(self, fluforecasts_ti, forecasts_national, directory=".", prefix="", forecast_date=None):
+    def plot_forecasts(self, fluforecasts_ti, forecasts_national, directory=".", prefix="", forecast_date=None, mode="flusight"):
         forecast_date_str=str(forecast_date)
         if forecast_date == None:
             forecast_date = self.mask_date
@@ -507,6 +507,9 @@ class GroundTruth():
 
         color_gt = "black"
         color_past='grey'
+        y_label = "New Hosp. Admissions" if mode != "metrocast" else "ED visits pct"
+        national_title = "National" if mode != "metrocast" else "Aggregate"
+        median_q = 0.5 if 0.5 in myutils.flusight_quantiles else myutils.flusight_quantiles[12]
 
         nplace_toplot = len(self.season_setup.locations)
         #nplace_toplot = 3 # less plots for faster iteration
@@ -569,8 +572,13 @@ class GroundTruth():
                         max_y_value = max_y_value + max_y_value*.05 # 10% more
     
                 # median
-                ax.plot(self.gt_xarr["date"][plotrange],
-                        np.quantile(forecasts_national, myutils.flusight_quantiles[12], axis=0)[0][plotrange], color=plot_spec["color"], marker='.', label='forecast median')
+                ax.plot(
+                    self.gt_xarr["date"][plotrange],
+                    np.quantile(forecasts_national, median_q, axis=0)[0][plotrange],
+                    color=plot_spec["color"],
+                    marker=".",
+                    label="forecast median",
+                )
     
                 # ground truth
                 ax.plot(self.gt_xarr["date"][:self.inpaintfrom_idx],
@@ -599,7 +607,7 @@ class GroundTruth():
                 ax.axvline(self.gt_xarr["date"][idx_now].values, c='k', lw=1, ls='-.')
                 if iax == 0:
                     ax.axvline(self.gt_xarr["date"][idx_horizon].values, c='k', lw=1, ls='-.')
-                ax.set_title("National")
+                ax.set_title(national_title)
 
                 sns.despine(ax = ax, trim = True, offset=4)
 
@@ -629,8 +637,13 @@ class GroundTruth():
                     location_name=self.season_setup.get_location_name(self.season_setup.locations[ipl])
                     ax = axes[ipl+1][iax]
                     # median
-                    ax.plot(self.gt_xarr["date"][plotrange],
-                            np.quantile(fluforecasts_ti, myutils.flusight_quantiles[12], axis=0)[0,:,ipl][plotrange], color=plot_spec["color"], marker = '.', lw=.5)
+                    ax.plot(
+                        self.gt_xarr["date"][plotrange],
+                        np.quantile(fluforecasts_ti, median_q, axis=0)[0, :, ipl][plotrange],
+                        color=plot_spec["color"],
+                        marker=".",
+                        lw=.5,
+                    )
                     # ground truth
                     ax.plot(self.gt_xarr["date"][:self.inpaintfrom_idx],
                             self.gt_xarr.data[0,:self.inpaintfrom_idx, ipl], color=color_gt, marker = '.', lw=.5)
@@ -654,7 +667,8 @@ class GroundTruth():
                         ax.axvline(self.gt_xarr["date"][idx_horizon].values, c='k', lw=1, ls='-.')
                     ax.set_xlim(x_lims)
                     ax.set_ylim(bottom=0, top=max_y_value[ipl])
-                    if iax==0: ax.set_ylabel("New Hosp. Admissions")
+                    if iax == 0:
+                        ax.set_ylabel(y_label)
                     ax.set_title(location_name)
                     # rotate the x axis labels
                     ax.tick_params(axis='x', rotation=45)
@@ -666,33 +680,93 @@ class GroundTruth():
             fig.tight_layout()
             plt.savefig(f"{directory}/{prefix}-{forecast_date_str}-plot{plot_title}.pdf")
 
-    def export_forecasts_2023(self, fluforecasts_ti, forecasts_national, directory=".", prefix="", forecast_date=None, save_plot=True, nochecks=False, rate_trend=True):
+    def export_forecasts_2023(self, fluforecasts_ti, forecasts_national=None, directory=".", prefix="", forecast_date=None, save_plot=True, nochecks=False, rate_trend=True, mode="flusight"):
         forecast_date_str=str(forecast_date)
         if forecast_date == None:
             forecast_date = self.mask_date
         season_start_date = datetime.date(int(self.season_first_year), self.season_setup.season_start_month, self.season_setup.season_start_day)
 
-        target_dates = pd.date_range(forecast_date, forecast_date + datetime.timedelta(days=3*7), freq="W-SAT")
+        reference_date = pd.to_datetime(forecast_date).date()
+        reference_date_str = str(reference_date)
+        base_index = pd.date_range(
+            season_start_date,
+            season_start_date + datetime.timedelta(days=self.image_size * 7),
+            freq="W-SAT",
+        )
+        target_dates = [reference_date + datetime.timedelta(days=7 * h) for h in range(4)]
+        target_dates = pd.to_datetime(target_dates)
+        horizon_map = {pd.to_datetime(d): h for h, d in enumerate(target_dates)}
 
-        target_dict= dict(zip(
-            target_dates, 
-            [f"{n}" for n in range(0,4)]))
-
-        df_list=[]
+        df_list = []
         for qt in myutils.flusight_quantiles:
-            a =  pd.DataFrame(np.quantile(fluforecasts_ti[:,:,:,:len(self.season_setup.locations)], qt, axis=0)[0], 
-                    columns= self.season_setup.locations, index=pd.date_range(season_start_date, season_start_date + datetime.timedelta(days=self.image_size*7), freq="W-SAT")).loc[target_dates]
-            #a["US"] = a.sum(axis=1)
-            a["US"] = pd.DataFrame(np.quantile(forecasts_national, qt, axis=0)[0],
-                    columns= ["US"], index=pd.date_range(season_start_date, season_start_date + datetime.timedelta(days=self.image_size*7), freq="W-SAT")).loc[target_dates]
+            a = pd.DataFrame(
+                np.quantile(
+                    fluforecasts_ti[:, :, :, : len(self.season_setup.locations)], qt, axis=0
+                )[0],
+                columns=self.season_setup.locations,
+                index=base_index,
+            ).loc[target_dates]
 
-            a = a.reset_index().rename(columns={'index': 'target_end_date'})
-            a = pd.melt(a,id_vars="target_end_date",var_name="location")
-            a["output_type_id"] = "{:.3f}".format(qt).rstrip('0').rstrip('.')# " #'{:<.3f}'.format(qt)
-            
+            a = a.reset_index().rename(columns={"index": "target_end_date"})
+            a = pd.melt(a, id_vars="target_end_date", var_name="location")
+            a["output_type_id"] = "{:.3f}".format(qt).rstrip("0").rstrip(".")
             df_list.append(a)
 
-        df = pd.concat(df_list)
+        df = pd.concat(df_list, ignore_index=True)
+
+        if mode == "metrocast":
+            df["reference_date"] = reference_date_str
+            df["output_type"] = "quantile"
+            df["horizon"] = df["target_end_date"].map(horizon_map)
+            df["target"] = np.where(
+                df["location"] == "nyc", "ILI ED visits pct", "Flu ED visits pct"
+            )
+            df = df[
+                [
+                    "reference_date",
+                    "target",
+                    "horizon",
+                    "target_end_date",
+                    "location",
+                    "output_type",
+                    "output_type_id",
+                    "value",
+                ]
+            ]
+
+            if not nochecks:
+                assert sum(df["value"] < 0) == 0
+                assert sum(df["value"].isna()) == 0
+
+            df.to_csv(f"{directory}/{reference_date_str}-{prefix}.csv", index=False)
+            if save_plot:
+                self.plot_forecasts(
+                    fluforecasts_ti,
+                    forecasts_national,
+                    directory=directory,
+                    prefix=prefix,
+                    forecast_date=forecast_date,
+                    mode=mode,
+                )
+            return
+
+        if forecasts_national is None:
+            raise ValueError("forecasts_national is required for mode='flusight'")
+
+        target_dict = {d: f"{h}" for d, h in horizon_map.items()}
+        updated_df_list = []
+        for qt, dfd in zip(myutils.flusight_quantiles, df_list):
+            us_vals = pd.DataFrame(
+                np.quantile(forecasts_national, qt, axis=0)[0],
+                columns=["US"],
+                index=base_index,
+            ).loc[target_dates]
+            us_vals = us_vals.reset_index().rename(columns={"index": "target_end_date"})
+            us_vals = pd.melt(us_vals, id_vars="target_end_date", var_name="location")
+            dfd = pd.concat([dfd, us_vals], ignore_index=True)
+            updated_df_list.append(dfd)
+
+        df = pd.concat(updated_df_list, ignore_index=True)
         df["reference_date"] = forecast_date_str
         df["target"] = "wk inc flu hosp"
         df["horizon"] = df["target_end_date"].map(target_dict)
@@ -749,4 +823,3 @@ class GroundTruth():
 
         if save_plot:
             self.plot_forecasts(fluforecasts_ti, forecasts_national, directory=directory, prefix=prefix, forecast_date=forecast_date)
-        
