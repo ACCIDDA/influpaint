@@ -98,6 +98,8 @@ finetune_epochs = 40
 finetune_lr = 1e-5
 finetune_output_dir = Path("output/metrocast_finetune")
 metrocast_nc_path = Path("training_datasets/MetrocastTS_100M_2026-01-15.nc")
+do_uncond_preview = True
+uncond_batch_size = 8
 
 # Model source: Choose ONE of the following options
 # Option 1: Auto-find model from MLflow experiment (recommended - same as mask_experiments)
@@ -270,6 +272,40 @@ else:
 print("Loading model checkpoint...")
 load_model(ddpm, run_id=run_id, model_path=model_path)
 print(f"✓ Model loaded from: {model_source}")
+
+# %% [markdown]
+# ## Optional: Unconditional Preview Against MetroCast Distribution
+#
+# This uses the same model weights and transforms to generate unconditional samples.
+# Keep the batch size small; this can be memory-heavy.
+
+# %%
+if do_uncond_preview:
+    from influpaint.batch.training import plot_sample
+
+    prev_batch_size = ddpm.batch_size
+    ddpm.batch_size = uncond_batch_size
+    print(f"Generating {uncond_batch_size} unconditional samples...")
+    samples = ddpm.sample()
+    ddpm.batch_size = prev_batch_size
+
+    fig, axes = plot_sample(samples, dataset, idplots)
+    plt.show()
+
+    # Side-by-side: generated vs historical MetroCast frames
+    n_show = min(uncond_batch_size, 8)
+    fig, axes = plt.subplots(2, n_show, figsize=(2.4 * n_show, 5), dpi=100)
+    for i in range(n_show):
+        gen_img = dataset.apply_transform_inv(samples[-1][i])
+        hist_img = dataset.get_sample_raw(i)
+        idplots.show_tensor_image(gen_img, ax=axes[0, i], place=0, multi=True)
+        idplots.show_tensor_image(hist_img, ax=axes[1, i], place=0, multi=True)
+        axes[0, i].set_title(f"Generated {i}")
+        axes[1, i].set_title(f"Historical {i}")
+        axes[0, i].axis("off")
+        axes[1, i].axis("off")
+    plt.tight_layout()
+    plt.show()
 
 # %% [markdown]
 # ## Fine-Tune and Save a New Checkpoint
