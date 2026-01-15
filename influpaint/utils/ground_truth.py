@@ -492,6 +492,11 @@ class GroundTruth():
         forecast_date_str=str(forecast_date)
         if forecast_date == None:
             forecast_date = self.mask_date
+        if forecasts_national is None:
+            if mode == "metrocast":
+                forecasts_national = fluforecasts_ti.sum(axis=-1)
+            else:
+                raise ValueError("forecasts_national is required for mode='flusight'")
         idx_now = self.inpaintfrom_idx-1
         idx_horizon = idx_now+4
 
@@ -740,6 +745,8 @@ class GroundTruth():
 
             df.to_csv(f"{directory}/{reference_date_str}-{prefix}.csv", index=False)
             if save_plot:
+                if forecasts_national is None:
+                    forecasts_national = fluforecasts_ti.sum(axis=-1)
                 self.plot_forecasts(
                     fluforecasts_ti,
                     forecasts_national,
