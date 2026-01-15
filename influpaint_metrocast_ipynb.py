@@ -321,8 +321,10 @@ if train_finetune:
 # %%
 # Reload to ensure downstream inpainting uses the fine-tuned weights.
 finetune_ckpt = "output/metrocast_finetune/i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::finetune_20.pth"
-
-ddpm.load_model_checkpoint(str(finetune_ckpt))
+ckpt = torch.load(finetune_ckpt, map_location="cpu")
+ddpm.model.load_state_dict(ckpt["model_state_dict"])
+ddpm.model.eval()
+ddpm.model.to(device)
 print("✓ Reloaded fine-tuned checkpoint for inpainting")
 
 # %% [markdown]
@@ -458,17 +460,28 @@ gt_tensor = torch.from_numpy(gt_transformed).type(torch.FloatTensor).to(device)
 print(f"Running CoPaint inpainting with {batch_size} samples...")
 print(f"This may take several minutes...")
 inpaint_batch_size = 256
+
+if device == "cuda":
+    from influpaint.utils.helpers import cuda_mem_info
+    print(cuda_mem_info())
+    torch.cuda.empty_cache()
+    print(cuda_mem_info())
 # Run sampling
 result = sampler.p_sample_loop(
     model_fn=ddpm.model,
     shape=(inpaint_batch_size, channels, image_size, image_size),
     conf=conf,
     model_kwargs={
-        "gt": gt_tensor.repeat(batch_size, 1, 1, 1),
-        "gt_keep_mask": gt_keep_mask.repeat(batch_size, 1, 1, 1),
+        "gt": gt_tensor.repeat(inpaint_batch_size, 1, 1, 1),
+        "gt_keep_mask": gt_keep_mask.repeat(inpaint_batch_size, 1, 1, 1),
         "mymodel": True,
     }
 )
+if device == "cuda":
+    from influpaint.utils.helpers import cuda_mem_info
+    print(cuda_mem_info())
+    torch.cuda.empty_cache()
+    print(cuda_mem_info())
 
 # Extract results
 fluforecasts = np.array(result['sample'].cpu())
