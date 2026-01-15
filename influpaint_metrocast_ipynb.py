@@ -504,6 +504,7 @@ result = sampler.p_sample_loop(
     model_fn=ddpm.model,
     shape=(inpaint_batch_size, channels, image_size, image_size),
     conf=conf,
+    clip_denoised=False,
     model_kwargs={
         "gt": gt_tensor.repeat(inpaint_batch_size, 1, 1, 1),
         "gt_keep_mask": gt_keep_mask.repeat(inpaint_batch_size, 1, 1, 1),
@@ -523,6 +524,20 @@ forecasts_national = fluforecasts_ti.sum(axis=-1)
 
 print(f"✓ Generated {len(fluforecasts)} forecast samples")
 print(f"Forecast array shape: {fluforecasts_ti.shape}")
+
+# %% [markdown]
+# ## Sanity Checks: Forecast Scale and Variability
+#
+# Quick checks to ensure forecasts are not collapsed to the neutral value.
+
+# %%
+print("Transformed min/max/mean:", fluforecasts.min(), fluforecasts.max(), fluforecasts.mean())
+print("Inverse min/max/mean:", fluforecasts_ti.min(), fluforecasts_ti.max(), fluforecasts_ti.mean())
+gt_vals = gt1.gt_xarr.data
+print("GT min/max/mean:", np.nanmin(gt_vals), np.nanmax(gt_vals), np.nanmean(gt_vals))
+print("Sample std median:", np.median(np.std(fluforecasts_ti, axis=0)))
+print("gt_keep_mask sum:", gt_keep_mask.sum().item())
+print("gt_keep_mask unique:", np.unique(gt_keep_mask.cpu().numpy()))
 
 
 
