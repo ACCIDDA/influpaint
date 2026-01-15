@@ -83,18 +83,18 @@ sns.set_style("whitegrid")
 scenario_id = 868  # Choose your training scenario
 forecast_date = "2026-01-17"  # YYYY-MM-DD format
 config_name = "celebahq_noTTJ5"  # CoPaint config name
-batch_size = 512
+batch_size = 256
 image_size = 128
 channels = 1
 # Fine-tune controls: enable if you want to adapt weights before inpainting.
-train_finetune = False
+train_finetune = True
 # finetune_mode options:
 # - "adapters": init_conv + final_conv + GroupNorm affine only
 # - "adapters_time": adapters + time_mlp
 # - "adapters_time_ups2": adapters + time_mlp + last 2 up blocks
 # - "full": full model fine-tune (not recommended with small data)
 finetune_mode = "adapters"
-finetune_epochs = 20
+finetune_epochs = 40
 finetune_lr = 1e-5
 finetune_output_dir = Path("output/metrocast_finetune")
 metrocast_nc_path = Path("training_datasets/MetrocastTS_100M_2026-01-15.nc")
