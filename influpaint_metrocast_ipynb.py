@@ -85,6 +85,7 @@ forecast_date = "2026-01-17"  # YYYY-MM-DD format
 config_name = "celebahq_noTTJ5"  # CoPaint config name
 batch_size = 256
 image_size = 128
+image_size = 64
 channels = 1
 # Fine-tune controls: enable if you want to adapt weights before inpainting.
 train_finetune = True
@@ -93,9 +94,9 @@ train_finetune = True
 # - "adapters_time": adapters + time_mlp
 # - "adapters_time_ups2": adapters + time_mlp + last 2 up blocks
 # - "full": full model fine-tune (not recommended with small data)
-finetune_mode = "adapters_time_ups2"
-finetune_epochs = 200
-finetune_lr = 1e-3
+finetune_mode = "adapters"
+finetune_epochs = 30
+finetune_lr = 1e-4
 finetune_output_dir = Path("output/metrocast_finetune")
 metrocast_nc_path = Path("training_datasets/MetrocastTS_100M_2026-01-16.nc")
 do_uncond_preview = True
@@ -198,47 +199,7 @@ plt.hist(all_samples.flatten());
 print(f"mean of all samples: {all_samples.mean():.4f}, std: {all_samples.std():.4f}")
 
 # %% [markdown]
-# ## Load MetroCast Dataset (Explicit)
-#
-# Override the scenario dataset with the MetroCast .nc file for clarity.
-
-# %%
-from influpaint.datasets import loaders as training_datasets
-from influpaint.batch.config import transform_library
-
-dataset = training_datasets.FluDataset.from_xarray(
-    str(metrocast_nc_path),
-    channels=channels,
-)
-scaling_per_channel = np.array(dataset.max_per_feature)
-scaling_per_channel = 80 # overwrite it was way too low
-data_mean = dataset.flu_dyn.mean()
-data_sd = dataset.flu_dyn.std()
-transforms_spec, transform_enrich = transform_library(
-    scaling_per_channel,
-    data_mean=data_mean,
-    data_std=data_sd,
-)
-transform = transforms_spec[scenario_spec.transform_name]
-enrich = transform_enrich[scenario_spec.enrich_name]
-dataset.add_transform(
-    transform=transform["reg"],
-    transform_inv=transform["inv"],
-    transform_enrich=enrich,
-    bypass_test=False,
-)
-print(f"MetroCast dataset size: {len(dataset)} samples")
-print(f"MetroCast max per channel: {scaling_per_channel}")
-print(f"dataset mean {dataset.flu_dyn.mean()}, proportion of 0: {(dataset.flu_dyn==0).sum()/dataset.flu_dyn.size}")
-
-
-all_samples = np.array([sample.numpy() for sample in dataset])
-plt.hist(all_samples.flatten());
-print(f"mean of all samples: {all_samples.mean():.4f}, std: {all_samples.std():.4f}")
-
-
-# %% [markdown]
-# ## Load Trained Model
+# ### Load Trained Model
 #
 # Load the trained model weights using one of three methods:
 # - **Auto-find from experiment** (recommended): Searches MLflow experiment for matching scenario_id
@@ -286,9 +247,50 @@ print("Loading model checkpoint...")
 load_model(ddpm, run_id=run_id, model_path=model_path)
 print(f"✓ Model loaded from: {model_source}")
 
+# %% [markdown]
+# ## Finetuning for metrocastcast steps
+#
+# ### Load MetroCast Dataset
+#
+# Override the scenario dataset with the MetroCast .nc file.
+
+# %%
+from influpaint.datasets import loaders as training_datasets
+from influpaint.batch.config import transform_library
+
+dataset = training_datasets.FluDataset.from_xarray(
+    str(metrocast_nc_path),
+    channels=channels,
+)
+scaling_per_channel = np.array(dataset.max_per_feature)
+scaling_per_channel = 80 # overwrite it was way too low
+data_mean = dataset.flu_dyn.mean()
+data_sd = dataset.flu_dyn.std()
+transforms_spec, transform_enrich = transform_library(
+    scaling_per_channel,
+    data_mean=data_mean,
+    data_std=data_sd,
+)
+transform = transforms_spec[scenario_spec.transform_name]
+enrich = transform_enrich[scenario_spec.enrich_name]
+dataset.add_transform(
+    transform=transform["reg"],
+    transform_inv=transform["inv"],
+    transform_enrich=enrich,
+    bypass_test=False,
+)
+print(f"MetroCast dataset size: {len(dataset)} samples")
+print(f"MetroCast max per channel: {scaling_per_channel}")
+print(f"dataset mean {dataset.flu_dyn.mean()}, proportion of 0: {(dataset.flu_dyn==0).sum()/dataset.flu_dyn.size}")
+
+
+all_samples = np.array([sample.numpy() for sample in dataset])
+plt.hist(all_samples.flatten());
+print(f"mean of all samples: {all_samples.mean():.4f}, std: {all_samples.std():.4f}")
+
 
 # %% [markdown]
-# ## Fine-Tune and Save a New Checkpoint
+# ### Fine-Tune and Save a New Checkpoint
 #
 # Workflow:
 # 1) Load the same model checkpoint as above
@@ -362,15 +364,15 @@ if train_finetune:
     print(f"Fine-tuning for {finetune_epochs} epochs with lr={finetune_lr}")
     ddpm.train(finetune_loader, mlflow_logging=False)
 
-    finetune_ckpt = finetune_output_dir / f"{scenario_spec.scenario_string}::finetune_{finetune_epochs}.pth"
+    finetune_ckpt = finetune_output_dir / f"{scenario_spec.scenario_string}::finetune_{finetune_epochs}_{finetune_lr}_{finetune_mode}.pth"
     ddpm.write_train_checkpoint(save_path=str(finetune_ckpt))
     print(f"✓ Fine-tuned checkpoint saved: {finetune_ckpt}")
 
 
 # %%
 # Reload to ensure downstream inpainting uses the fine-tuned weights.
-finetune_ckpt = "output/metrocast_finetune/i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::finetune_60.pth"
-finetune_ckpt = finetune_output_dir / f"{scenario_spec.scenario_string}::finetune_{finetune_epochs}.pth"
+#finetune_ckpt = "output/metrocast_finetune/i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::finetune_60.pth"
+finetune_ckpt = finetune_output_dir / f"{scenario_spec.scenario_string}::finetune_{finetune_epochs}_{finetune_lr}_{finetune_mode}.pth"
 ckpt = torch.load(finetune_ckpt, map_location="cpu")
 ddpm.model.load_state_dict(ckpt["model_state_dict"])
 ddpm.model.eval()
@@ -383,16 +385,24 @@ print("✓ Reloaded fine-tuned checkpoint for inpainting")
 # Compare fine-tuned unconditional samples against historical MetroCast frames.
 
 # %%
+ft_samples[0].shape
+
+# %%
+len(ft_samples)
+
+# %%
+ddpm.model.eval()
+ddpm.model.to(device)
 if do_uncond_preview:
     prev_batch_size = ddpm.batch_size
     ddpm.batch_size = uncond_batch_size
     print(f"Generating {uncond_batch_size} unconditional samples (fine-tuned)...")
-    ft_samples = ddpm.sample()
+    ft_samples = ddpm.sample() # list of size n_diff_step.
     ddpm.batch_size = prev_batch_size
 
     n_show = min(uncond_batch_size, 10)
     fig, axes = plt.subplots(2, 2, figsize=(2.8 * n_show, 5.5), dpi=300)
-    for k, loc in enumerate([None, 0, 70,100]):
+    for k, loc in enumerate([None, 0, 5,100]):
         ax = axes.flat[k]
         for i in np.arange(3):
             hist_img = dataset.get_sample_raw(i)
