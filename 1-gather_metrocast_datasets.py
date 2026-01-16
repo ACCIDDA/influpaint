@@ -10,7 +10,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.2
 #   kernelspec:
-#     display_name: diffusion_torch
+#     display_name: diffusion_torch6
 #     language: python
 #     name: python3
 # ---
@@ -83,6 +83,11 @@ historical_data_df = season_setup.add_season_columns(historical_data_df, do_flus
 
 fig, axes = idplots.plot_timeseries_grid(historical_data_df, season_setup)
 fig, axes = idplots.plot_season_overlap_grid(historical_data_df, season_setup)
+
+# %%
+print(historical_data_df.fluseason.unique())
+historical_data_df = historical_data_df[historical_data_df["fluseason"] != 2025]
+print(historical_data_df.fluseason.unique())
 
 # %% [markdown]
 # ## C. Generate dataset for fitting
