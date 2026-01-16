@@ -93,11 +93,11 @@ train_finetune = True
 # - "adapters_time": adapters + time_mlp
 # - "adapters_time_ups2": adapters + time_mlp + last 2 up blocks
 # - "full": full model fine-tune (not recommended with small data)
-finetune_mode = "adapters_time"
-finetune_epochs = 40
-finetune_lr = 1e-5
+finetune_mode = "adapters_time_ups2"
+finetune_epochs = 200
+finetune_lr = 1e-3
 finetune_output_dir = Path("output/metrocast_finetune")
-metrocast_nc_path = Path("training_datasets/MetrocastTS_100M_2026-01-15.nc")
+metrocast_nc_path = Path("training_datasets/MetrocastTS_100M_2026-01-16.nc")
 do_uncond_preview = True
 uncond_batch_size = 8
 
@@ -193,7 +193,7 @@ print(f"Data mean: {data_mean:.2f}, std: {data_sd:.2f}")
 print(f"Timesteps: {ddpm.timesteps}")
 print(f"dataset mean {dataset.flu_dyn.mean()}, proportion of 0: {(dataset.flu_dyn==0).sum()/dataset.flu_dyn.size}")
 
-all_samples = np.array([sample for sample in DataLoader(dataset, batch_size=1)])
+all_samples = np.array([sample.numpy() for sample in dataset])
 plt.hist(all_samples.flatten());
 print(f"mean of all samples: {all_samples.mean():.4f}, std: {all_samples.std():.4f}")
 
@@ -211,7 +211,7 @@ dataset = training_datasets.FluDataset.from_xarray(
     channels=channels,
 )
 scaling_per_channel = np.array(dataset.max_per_feature)
-scaling_per_channel = 70 # overwrite it was way too low
+scaling_per_channel = 80 # overwrite it was way too low
 data_mean = dataset.flu_dyn.mean()
 data_sd = dataset.flu_dyn.std()
 transforms_spec, transform_enrich = transform_library(
@@ -232,7 +232,7 @@ print(f"MetroCast max per channel: {scaling_per_channel}")
 print(f"dataset mean {dataset.flu_dyn.mean()}, proportion of 0: {(dataset.flu_dyn==0).sum()/dataset.flu_dyn.size}")
 
 
-all_samples = np.array([sample for sample in DataLoader(dataset, batch_size=1)])
+all_samples = np.array([sample.numpy() for sample in dataset])
 plt.hist(all_samples.flatten());
 print(f"mean of all samples: {all_samples.mean():.4f}, std: {all_samples.std():.4f}")
 
@@ -392,7 +392,7 @@ if do_uncond_preview:
 
     n_show = min(uncond_batch_size, 10)
     fig, axes = plt.subplots(2, 2, figsize=(2.8 * n_show, 5.5), dpi=300)
-    for k, loc in enumerate([None, 5, 70,100]):
+    for k, loc in enumerate([None, 0, 70,100]):
         ax = axes.flat[k]
         for i in np.arange(3):
             hist_img = dataset.get_sample_raw(i)
@@ -432,7 +432,7 @@ if train_finetune:
         print("No unexpected trainable parameters.")
 else:
     print("Fine-tune disabled; no weight-change check.")
-raise ValueError("Stop here for inspection")
+#raise ValueError("Stop here for inspection")
 
 # %% [markdown]
 # ## Prepare Ground Truth for Inpainting
@@ -485,6 +485,17 @@ ax.set_title("Ground Truth Data")
 
 plt.tight_layout()
 plt.show()
+
+# %%
+# gt_keep_mask: axis 0 is channel, axis 1 is week, axis 2 is location
+gt1.gt_keep_mask[0][20,70]
+
+# %%
+gt1.gt_keep_mask[0][:,76:] = 0
+
+# %%
+gt1.plot_mask()
+
 
 # %% [markdown]
 # ## Configure CoPaint Sampler
@@ -551,7 +562,7 @@ result = sampler.p_sample_loop(
     model_fn=ddpm.model,
     shape=(inpaint_batch_size, channels, image_size, image_size),
     conf=conf,
-    clip_denoised=False,
+    #clip_denoised=False,
     model_kwargs={
         "gt": gt_tensor.repeat(inpaint_batch_size, 1, 1, 1),
         "gt_keep_mask": gt_keep_mask.repeat(inpaint_batch_size, 1, 1, 1),
@@ -628,9 +639,6 @@ print(f"Next Saturday (submission date): {submission_date}")
 
 # %% [markdown]
 # ### Update Ground Truth with Latest Data
-#
-# This is critical! We need to recreate gt1 with today's date to fetch the latest surveillance data
-# from the FluSight hub. This ensures our forecast CSV files have the most recent observed data.
 
 # %%
 print("Updating ground truth with latest surveillance data...")
@@ -656,6 +664,16 @@ gt1 = ground_truth.GroundTruth.from_metrocast(
 print(f"✓ Ground truth updated for season {season_first_year_submission}-{int(season_first_year_submission)+1}")
 print(f"  Data available through week: {gt1.inpaintfrom_idx - 1}")
 print(f"  This will be included in the forecast CSV files")
+
+# %%
+fluforecasts_ti.shape
+
+# %%
+fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(10, 6))
+axes = axes.flatten()
+for idx, loc_id in enumerate([0, 5, 70, 100]):
+    axes[idx].plot(gt1.gt_xarr.data[0,:53,loc_id], lw=4, label="Ground Truth", color='r', alpha=.9, ls='', marker='o');
+    axes[idx].plot(fluforecasts_ti[:10,0,:53,loc_id].T, lw=0.6, label=f"Loc {loc_id}", color='k', alpha=0.7);
 
 # %%
 # Create output directory
