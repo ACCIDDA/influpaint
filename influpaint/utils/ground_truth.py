@@ -473,7 +473,7 @@ class GroundTruth():
         # check for Error when validating format: Entries in `value` must be non-decreasing as quantiles increase:
         for tg in target_dates:
             old_vals = np.zeros(len(self.season_setup.locations)+1)
-            for dfd in df_list:  # very important to not call this df: it overwrites in namesapce the exported df
+            for dfd in updated_df_list:  # avoid naming this df; it would shadow the exported df
                 new_vals = dfd[dfd["target_end_date"]==tg]["value"].to_numpy()
                 if not (new_vals-old_vals >= 0).all():
                     num_negative = sum((new_vals-old_vals) < 0)
@@ -770,6 +770,7 @@ class GroundTruth():
             ).loc[target_dates]
             us_vals = us_vals.reset_index().rename(columns={"index": "target_end_date"})
             us_vals = pd.melt(us_vals, id_vars="target_end_date", var_name="location")
+            us_vals["output_type_id"] = "{:.3f}".format(qt).rstrip("0").rstrip(".")
             dfd = pd.concat([dfd, us_vals], ignore_index=True)
             updated_df_list.append(dfd)
 
