@@ -1,6 +1,6 @@
 ---
 title: "RSV"
-format: html
+format: pdf
 ---
 
 # Training Data Format
@@ -16,7 +16,13 @@ format: html
 | `sample` | Sample identifier | e.g. 1.1, 1.2 |
 
 ```{r, include=FALSE}
-knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+knitr::opts_chunk$set(
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 10,
+  fig.height = 7,
+  dpi = 300
+)
 ```
 
 # Helpers
@@ -54,7 +60,7 @@ season_week <- function(date, start_month = 6) {
 }
 ```
 
-# Fetch RSV Data
+# Gather RSV Data
 
 ## NSSP
 
@@ -223,7 +229,6 @@ data <- parquet_files |>
   map(~ read_parquet(.x$download_url))
 
 library(tidytable)
-
 rsv_smh <- data |>
   imap(
     ~ .x |>
@@ -259,17 +264,24 @@ rsv_smh <- data |>
         )
       )
   ) |>
-  bind_rows() |> 
+  bind_rows() |>
   filter(location_code != "US")
 
-# Aggregated plot 
+# --------- Sanity ---------
+# Keep only fluseasons matching the first season per datasetH2
+rsv_smh <- rsv_smh |>
+  group_by(datasetH2) |>
+  filter(fluseason == min(fluseason)) |>
+  ungroup()
+
+# Aggregated plot
 plot_data <- rsv_smh |>
   summarise(
     value = mean(value, na.rm = TRUE),
     .by = c(fluseason, datasetH2, location_code, fluseason_week)
   )
-plot_data |> 
-  filter(fluseason == "2024") |> 
+plot_data |>
+  filter(fluseason == "2024") |>
   ggplot(aes(x = fluseason_week, y = location_code)) +
   facet_wrap(~datasetH2) +
   geom_tile(aes(fill = value)) +
@@ -336,7 +348,7 @@ bind_rows(
   )) +
   facet_wrap(~ fluseason + source) +
   geom_line(alpha = 0.8) +
-  theme_classic()+
+  theme_classic() +
   theme(legend.position = "none") +
   scale_x_continuous(breaks = seq(1, 53, by = 7))
 
@@ -345,9 +357,372 @@ bind_rows(
 # Summary
 
 Surveillance data includes:
-- NSSP: Estimated ED visits due to RSV (converted to counts) -> `{r} nrow(nssp_counts)` rows.
-- RSV-Net: Laboratory-confirmed RSV hospitalizations -> `{r} nrow(rsvnet)` rows.
-- NHSN: Hospital admissions of patients with confirmed RSV -> `{r} nrow(nhsn)` rows.
+- NSSP: Estimated ED visits due to RSV (converted to counts) -> `{r} nrow(nssp_counts)` rows.\
+- RSV-Net: Laboratory-confirmed RSV hospitalizations -> `{r} nrow(rsvnet)` rows.\
+- NHSN: Hospital admissions of patients with confirmed RSV -> `{r} nrow(nhsn)` rows.\
 
 Modeling data includes:
-- RSV Scenario Modeling Hub: Projected hospitalizations under various scenarios -> `{r} nrow(rsv_smh)` rows.
+- RSV Scenario Modeling Hub: Projected hospitalizations under various scenarios -> `{r} nrow(rsv_smh)` rows.\ 
+However we will only take 20 samples per model and scenario for training.
+
+- 2025 is dropped.
+
+```{r, all_data}
+set.seed(123)
+rsv_smh20 <- read_parquet("RSV_files/RSV_SMH.parquet") |>
+  group_by(datasetH2) |>
+  filter(sample %in% sample(unique(sample), min(length(unique(sample)), 20))) |>
+  ungroup()
+
+
+rsv_all <- bind_rows(
+  read_parquet("RSV_files/NSSP_COUNTS.parquet"),
+  read_parquet("RSV_files/RSV_NET.parquet"),
+  read_parquet("RSV_files/NHSN.parquet"),
+  rsv_smh20
+) |>
+  #drop 2025
+  filter(fluseason < 2025)
+
+write_parquet(rsv_all, "RSV_files/RSV_ALL.parquet")
+```
+
+
+# Filling Missing RSV_SMH Values
+This code fills missing values in the RSV_SMH dataset, which may occur because SMH started modelling late in the season. For each location and week, it first uses the NHSN value from the same season if available. If not, it randomly samples from NHSN values for that location and week across all seasons (the latter may be unreasonable)...
+
+```{r}
+set.seed(1)
+
+nhsn_pool <- rsv_all |>
+  filter(datasetH1 == "NHSN", !is.na(value)) |>
+  group_by(location_code, fluseason_week) |>
+  summarise(
+    value_pool = list(value),
+    .groups = "drop"
+  )
+
+nhsn_same_year <- rsv_all |>
+  filter(datasetH1 == "NHSN") |>
+  select(
+    location_code,
+    fluseason_week,
+    fluseason,
+    nhsn_year_value = value
+  )
+
+
+safe_sample <- function(x) {
+  if (is.null(x) || length(x) == 0 || all(is.na(x))) {
+    NA_real_
+  } else {
+    sample(x, 1)
+  }
+}
+
+rsv_filled <- rsv_all |>
+  left_join(
+    nhsn_same_year,
+    by = c("location_code", "fluseason_week", "fluseason")
+  ) |>
+  left_join(
+    nhsn_pool,
+    by = c("location_code", "fluseason_week")
+  ) |>
+  mutate(
+    nhsn_draw = vapply(value_pool, safe_sample, numeric(1)),
+    value = case_when(
+      datasetH1 != "RSV_SMH" ~ value,
+      !is.na(value) ~ value,
+      !is.na(nhsn_year_value) ~ nhsn_year_value,
+      TRUE ~ nhsn_draw
+    )
+  ) |>
+  select(-nhsn_year_value, -value_pool, -nhsn_draw)
+
+
+write_parquet(rsv_filled, "RSV_files/RSV_FILLED.parquet")
+```
+
+
+# Sanity Checks
+1- Check that RSV SMH datasetH2 has unique fluseasons
+```{r, sanity}
+set.seed(123)
+rsv_smh <- read_parquet("RSV_files/RSV_SMH.parquet")
+# check that there is a unique fluseason per datasetH2
+rsv_smh |>
+  group_by(datasetH2) |>
+  summarise(n_fluseason = n_distinct(fluseason)) |>
+  filter(n_fluseason > 1)
+```
+
+
+# Build RSV Training Data
+```{python}
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from pathlib import Path
+import xarray as xr
+import datetime
+# InfluPaint modular imports
+from influpaint.utils import SeasonAxis
+from influpaint.utils import plotting as idplots
+from influpaint.utils import converters
+from influpaint.datasets import mixer as dataset_mixer
+# Setup
+season_setup = SeasonAxis.for_flusight(remove_us=True, remove_territories=True)
+today = datetime.datetime.now().strftime("%Y-%m-%d")
+Path("training_datasets").mkdir(parents=True, exist_ok=True)
+```
+
+
+# Helpers
+`build_dataset_from_framelist` function to convert list of dataframes to xarray DataArray
+```{python}
+def build_dataset_from_framelist(frame_list):
+    main_origins = []
+    for i, frame in enumerate(frame_list):
+        df = frame_list[i]
+        df["fluseason"] = i
+        frame_list[i] = df
+        assert df.season_week.max() == 53 and df.season_week.min() == 1
+        
+        main_origins.append(df["origin"].mode()[0] if not df["origin"].mode().empty else None)
+        
+    all_frames_df = pd.concat(frame_list).reset_index(drop=True)
+    array_list = converters.dataframe_to_arraylist(df=all_frames_df, season_setup=season_setup)
+    array = np.array(array_list)
+    flu_payload_array = xr.DataArray(array, 
+                    coords={'sample': np.arange(array.shape[0]),
+                        'feature': np.arange(array.shape[1]),
+                        'season_week': np.arange(1, array.shape[2]+1),
+                        'place': season_setup.locations + [""]*(array.shape[3] - len(season_setup.locations))}, 
+                    dims=["sample", "feature", "season_week", "place"])
+    return flu_payload_array, main_origins
+```
+
+## Load RSV data
+In the below, we compute the scaling distribution from RSV_SMH dataset to be used for scaling the training data. This means that all datasets will be scaled so that their peak values match the distribution of peak values from the RSV_SMH dataset.
+For example, if the peak value for a season in the RSV_SMH dataset is 1000, and the peak value for the same season in the NSSP dataset is 100, then the NSSP dataset will be scaled by a factor of 10 to match the RSV_SMH peak.
+
+```{python}
+all_datasets_df = pd.read_parquet("RSV_files/RSV_FILLED.parquet")
+all_datasets_df = all_datasets_df.rename(columns={'fluseason_week': 'season_week'})
+all_datasets_df["week_enddate"] = pd.NaT
+
+season_identifiers = ['datasetH1', 'datasetH2', 'fluseason', 'sample']
+time_identifier = 'season_week'
+
+#This sums values across locations for each dataset and week.
+location_sums = all_datasets_df.groupby(season_identifiers + [time_identifier])['value'].sum().reset_index()
+
+#This extracts the peak weekly value per season.
+season_peaks = location_sums.groupby(season_identifiers)['value'].max().reset_index()
+scaling_distribution = season_peaks[season_peaks['datasetH1'] == 'RSV_SMH'].value if 'RSV_SMH' in season_peaks['datasetH1'].unique() else season_peaks.value
+```
+
+## RSV configuration
+
+```{r}
+n_frames <- arrow::read_parquet("RSV_files/RSV_FILLED.parquet") |>
+  group_by(fluseason, datasetH1, sample) |>
+  count() |>
+  group_by(datasetH1) |>
+  summarise(
+    n_frames = n(),
+    .groups = "drop"
+  ) |>
+  mutate(
+    proportions = c(0.1, 0.1, 0.1, 0.7),
+    n_trains = ceiling(n_frames / proportions),
+    check = if_else(
+      n_trains > n_frames,
+      TRUE,
+      FALSE
+    )
+  )
+n_frames |> pull(n_trains) |> max()
+
+```
+
+
+```{python}
+# need to build 512 frames per dataset for training
+RSV_CONFIG = {
+    "100S": {
+        "NSSP": {"multiplier": 20},
+        "RSV-Net": {"multiplier": 20},
+        "NHSN": {"multiplier": 20},
+    },
+    "30S70M": {
+        "NSSP": {"proportion": 0.10, "total": 2229},
+        "RSV-Net": {"proportion": 0.10, "total": 2229},
+        "NHSN": {"proportion": 0.10, "total": 2229},
+        "RSV_SMH": {"proportion": 0.70, "total": 2229},
+    },
+    "100M": {
+        "RSV_SMH": {"multiplier": 1}
+    },
+}
+
+```
+
+
+## Build datasets
+```{python}
+for ds_name, mix_cfg in RSV_CONFIG.items():
+    print(f"Building dataset: {ds_name}")
+    
+    # Build frames using the mixer
+    frame_list = dataset_mixer.build_frames(
+        all_datasets_df, 
+        mix_cfg, 
+        season_axis=season_setup, 
+        fill_missing_locations="random",
+        scaling_distribution=scaling_distribution
+    )
+    
+    # Convert to Xarray
+    flu_payload_array, main_origins = build_dataset_from_framelist(frame_list)
+    
+    # Add metadata
+    flu_payload_array = flu_payload_array.assign_attrs(
+                main_origins=list(main_origins),
+                mix_cfg=mix_cfg.__str__()
+    )
+    
+    # Save to NetCDF
+    filename = f"training_datasets/RSV_{ds_name}_{today}.nc"
+    flu_payload_array.to_netcdf(filename)
+    print(f"Saved {filename}")
+
+```
+
+
+## Inspect array
+```{python}
+arr = xr.open_dataarray("training_datasets/RSV_100S_2026-01-16.nc")
+
+all_origin = arr.attrs.get("main_origins", None)
+prefixes = [entry.split('/')[0] for entry in all_origin]
+segments = []
+start = 0
+current_prefix = prefixes[0]
+for i in range(1, len(prefixes)):
+    if prefixes[i] != current_prefix:
+        segments.append((start, i - 1, current_prefix))
+        start = i
+        current_prefix = prefixes[i]
+# Add the last segment
+segments.append((start, len(prefixes) - 1, current_prefix))
+# Output: list of (start_idx, end_idx, prefix)
+for seg in segments:
+    print(f"{seg[2]}: from index {seg[0]} to {seg[1]} (n={seg[1] - seg[0] + 1})")
+```
+
+## Visualize arr
+```{python}
+
+# mat = arr.sel(sample=0, feature=0)
+# mat.plot()
+idx_tp = 0
+for i in list(np.arange(idx_tp, idx_tp+5*20, step = 17)):
+  print(all_origin[i])
+
+fig, ax = idplots.plot_us_grid(
+    data=arr,
+    season_axis=season_setup,
+    sample_idx=list(np.arange(idx_tp, idx_tp+5*17, step = 17)),
+    multi_line=True,
+    sharey=False,
+)
+
+arr.attrs
+
+```
+
+
+# TRAINING
+The RSV training datasets have been built and saved in the `training_datasets` folder. Each dataset corresponds to a different mixing configuration as specified in the `RSV_CONFIG` dictionary. 
+
+```{python}
+import matplotlib.pyplot as plt
+import seaborn as sns
+from tqdm.auto import tqdm
+import torch
+from torch import nn
+import numpy as np
+import pandas as pd
+import datetime
+import sys
+from pathlib import Path
+from torch.utils.data import DataLoader
+from torch.optim import Adam
+
+# InfluPaint modular imports
+from influpaint.utils import SeasonAxis, plotting as idplots
+from influpaint.batch.scenarios import get_training_scenario, create_scenario_objects
+from influpaint.batch.config import copaint_config_library, create_folders, get_git_revision_short_hash
+from influpaint.utils import ground_truth
+from influpaint.datasets import loaders as training_datasets
+from influpaint.batch.config import transform_library
+# CoPaint imports
+sys.path.append('CoPaint4influpaint')
+from guided_diffusion import O_DDIMSampler
+
+# Configure plotting
+sns.set_style("whitegrid")
+%matplotlib inline
+
+season_setup = SeasonAxis.for_flusight(remove_us=True, remove_territories=True)
+image_size = 64
+channels = 1
+batch_size=512
+epochs=50
+device = "cuda" if torch.cuda.is_available() else "cpu"
+print(f"Using device: {device}")
+```
+
+
+```{python}
+
+scn_id = 868  # Choose your training scenario
+experiment_name = "demo_jan2026"  # MLflow experiment name
+scenario_spec = get_training_scenario(scn_id)
+ddpm, dataset, transform, enrich, scaling_per_channel, data_mean, data_sd = create_scenario_objects(
+            scenario_spec, season_setup, image_size, channels, batch_size, epochs, device)
+
+```
+
+
+```{python}
+dataset = training_datasets.FluDataset.from_xarray("training_datasets/RSV_30S70M_2026-01-16.nc",channels=channels,)
+scaling_per_channel = np.array(dataset.max_per_feature) # one number per channel 
+
+transforms_spec, transform_enrich = transform_library(
+    scaling_per_channel,
+    data_mean=dataset.flu_dyn.mean(),
+    data_std=dataset.flu_dyn.std(),
+)
+transform = transforms_spec[scenario_spec.transform_name]
+enrich = transform_enrich[scenario_spec.enrich_name]
+dataset.add_transform(
+    transform=transform["reg"],
+    transform_inv=transform["inv"],
+    transform_enrich=enrich,
+    bypass_test=False,
+)
+
+all_samples = np.array([sample.numpy() for sample in dataset]) #dataset is an iterable that yields tensors tranformed
+plt.hist(all_samples.flatten());
+
+```
+
+
+```{python}
+dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=True)
+losses = ddpm.train(dataloader, mlflow_logging=True)
+```
+
