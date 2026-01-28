@@ -1,0 +1,62 @@
+#!/bin/bash
+#SBATCH -N 1
+#SBATCH -n 1
+#SBATCH -p jlessler
+#SBATCH --mem=64G
+#SBATCH -t 10:00:00
+#SBATCH --gres=gpu:1
+#SBATCH --array=0-35
+#SBATCH --nodelist=g1803jles02
+
+module purge
+
+# === EDIT THESE ===
+SCENARIO_ID=868
+FORECAST_DATE="2026-01-17"
+CONFIG_NAME="celebahq_noTTJ5"
+EXPERIMENT_NAME="paper-2025-07-22_training"
+METROCAST_NC="training_datasets/MetrocastTS_100M_2026-01-16.nc"
+CALIB_OUTPUT_ROOT="output/metrocast_calib"
+
+# Finetune grid (edit to taste)
+FINETUNE_MODES=("adapters" "adapters_time" "adapters_time_ups2")
+FINETUNE_LRS=(1e-3 1e-4 5e-5 2e-5)
+FINETUNE_EPOCHS=(30 50 100)
+
+NUM_MODES=${#FINETUNE_MODES[@]}
+NUM_LRS=${#FINETUNE_LRS[@]}
+NUM_EPOCHS=${#FINETUNE_EPOCHS[@]}
+GRID_SIZE=$((NUM_MODES * NUM_LRS * NUM_EPOCHS))
+
+TASK_ID=${SLURM_ARRAY_TASK_ID}
+if [ ${TASK_ID} -ge ${GRID_SIZE} ]; then
+  echo "SLURM_ARRAY_TASK_ID ${TASK_ID} exceeds grid size ${GRID_SIZE}. Exiting."
+  exit 1
+fi
+
+MODE_INDEX=$((TASK_ID / (NUM_LRS * NUM_EPOCHS)))
+REM=$((TASK_ID % (NUM_LRS * NUM_EPOCHS)))
+LR_INDEX=$((REM / NUM_EPOCHS))
+EPOCH_INDEX=$((REM % NUM_EPOCHS))
+
+FINETUNE_MODE=${FINETUNE_MODES[$MODE_INDEX]}
+FINETUNE_LR=${FINETUNE_LRS[$LR_INDEX]}
+FINETUNE_EPOCHS=${FINETUNE_EPOCHS[$EPOCH_INDEX]}
+
+RUN_TAG="${SCENARIO_ID}::${FINETUNE_MODE}::${FINETUNE_EPOCHS}e::${FINETUNE_LR}"
+OUT_LOG="out_metrocast_calib_${RUN_TAG}.out"
+
+echo "Running MetroCast calib: mode=${FINETUNE_MODE}, lr=${FINETUNE_LR}, epochs=${FINETUNE_EPOCHS}"
+
+echo "Log: ${OUT_LOG}"
+/nas/longleaf/home/chadi/.conda/envs/diffusion_torch6/bin/python -u influpaint_metrocast_calib.py \
+  --scenario_id ${SCENARIO_ID} \
+  --forecast_date "${FORECAST_DATE}" \
+  --config_name "${CONFIG_NAME}" \
+  --experiment_name "${EXPERIMENT_NAME}" \
+  --finetune_mode "${FINETUNE_MODE}" \
+  --finetune_lr ${FINETUNE_LR} \
+  --finetune_epochs ${FINETUNE_EPOCHS} \
+  --metrocast_nc_path "${METROCAST_NC}" \
+  --calib_output_root "${CALIB_OUTPUT_ROOT}" \
+  > ${OUT_LOG} 2>&1
