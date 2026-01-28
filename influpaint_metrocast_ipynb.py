@@ -75,9 +75,6 @@ sns.set_style("whitegrid")
 # - **model_source**: Either auto-find from experiment, MLflow run_id, or filesystem path
 # - **device**: 'cuda' or 'cpu'
 
-# %% [markdown]
-#
-
 # %%
 # === USER CONFIGURATION ===
 scenario_id = 868  # Choose your training scenario
@@ -85,7 +82,6 @@ forecast_date = "2026-01-17"  # YYYY-MM-DD format
 config_name = "celebahq_noTTJ5"  # CoPaint config name
 batch_size = 256
 image_size = 128
-image_size = 64
 channels = 1
 # Fine-tune controls: enable if you want to adapt weights before inpainting.
 train_finetune = True
@@ -94,8 +90,8 @@ train_finetune = True
 # - "adapters_time": adapters + time_mlp
 # - "adapters_time_ups2": adapters + time_mlp + last 2 up blocks
 # - "full": full model fine-tune (not recommended with small data)
-finetune_mode = "adapters"
-finetune_epochs = 30
+finetune_mode = "adapters_time_ups2"
+finetune_epochs = 50
 finetune_lr = 1e-4
 finetune_output_dir = Path("output/metrocast_finetune")
 metrocast_nc_path = Path("training_datasets/MetrocastTS_100M_2026-01-16.nc")
@@ -262,7 +258,7 @@ dataset = training_datasets.FluDataset.from_xarray(
     str(metrocast_nc_path),
     channels=channels,
 )
-scaling_per_channel = np.array(dataset.max_per_feature)
+#scaling_per_channel = np.array(dataset.max_per_feature)
 scaling_per_channel = 80 # overwrite it was way too low
 data_mean = dataset.flu_dyn.mean()
 data_sd = dataset.flu_dyn.std()
@@ -379,16 +375,12 @@ ddpm.model.eval()
 ddpm.model.to(device)
 print("✓ Reloaded fine-tuned checkpoint for inpainting")
 
+# %%
+
 # %% [markdown]
 # ## Unconditional Preview (Fine-Tuned) vs History
 #
 # Compare fine-tuned unconditional samples against historical MetroCast frames.
-
-# %%
-ft_samples[0].shape
-
-# %%
-len(ft_samples)
 
 # %%
 ddpm.model.eval()
@@ -401,8 +393,8 @@ if do_uncond_preview:
     ddpm.batch_size = prev_batch_size
 
     n_show = min(uncond_batch_size, 10)
-    fig, axes = plt.subplots(2, 2, figsize=(2.8 * n_show, 5.5), dpi=300)
-    for k, loc in enumerate([None, 0, 5,100]):
+    fig, axes = plt.subplots(5, 2, figsize=(8.8, 10.5))
+    for k, loc in enumerate([None, 0, 5, 20, 30, 60, 70, 77, 100, 120]):
         ax = axes.flat[k]
         for i in np.arange(3):
             hist_img = dataset.get_sample_raw(i)
@@ -501,7 +493,7 @@ plt.show()
 gt1.gt_keep_mask[0][20,70]
 
 # %%
-gt1.gt_keep_mask[0][:,76:] = 0
+#gt1.gt_keep_mask[0][:,76:] = 0
 
 # %%
 gt1.plot_mask()
@@ -679,9 +671,9 @@ print(f"  This will be included in the forecast CSV files")
 fluforecasts_ti.shape
 
 # %%
-fig, axes = plt.subplots(nrows=2, ncols=2, figsize=(10, 6))
+fig, axes = plt.subplots(5, 2, figsize=(8.8, 10.5))
 axes = axes.flatten()
-for idx, loc_id in enumerate([0, 5, 70, 100]):
+for idx, loc_id in enumerate([0, 5, 10, 20, 35, 60, 70, 78, 100, 120]):
     axes[idx].plot(gt1.gt_xarr.data[0,:53,loc_id], lw=4, label="Ground Truth", color='r', alpha=.9, ls='', marker='o');
     axes[idx].plot(fluforecasts_ti[:10,0,:53,loc_id].T, lw=0.6, label=f"Loc {loc_id}", color='k', alpha=0.7);
 

@@ -10,7 +10,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.2
 #   kernelspec:
-#     display_name: diffusion_torch
+#     display_name: diffusion_torch6
 #     language: python
 #     name: python3
 # ---
@@ -75,7 +75,7 @@ sns.set_style("whitegrid")
 # %%
 # === USER CONFIGURATION ===
 scenario_id = 868  # Choose your training scenario
-forecast_date = "2026-01-17"  # YYYY-MM-DD format
+forecast_date = "2026-01-24"  # YYYY-MM-DD format
 config_name = "celebahq_noTTJ5"  # CoPaint config name
 batch_size = 512
 image_size = 64
@@ -517,6 +517,12 @@ gt1.export_forecasts_2023(
 print(f"✓ Forecasts exported to: {output_dir}")
 print(f"  - CSV files: {len(list(output_dir.glob('*.csv')))} files")
 print(f"  - Plots: {len(list(output_dir.glob('*.png')))} + {len(list(output_dir.glob('*.pdf')))} files")
+
+# %%
+len(np.zeros(len(gt1.season_setup.locations)+1))
+
+# %%
+gt1.season_setup.locations
 
 # %% [markdown]
 # ## Optional: Save Raw Arrays
