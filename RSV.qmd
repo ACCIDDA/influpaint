@@ -680,9 +680,16 @@ season_setup = SeasonAxis.for_flusight(remove_us=True, remove_territories=True)
 image_size = 64
 channels = 1
 batch_size=512
-epochs=50
+epochs=3000
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print(f"Using device: {device}")
+
+if device == "cuda":
+    from influpaint.utils.helpers import cuda_mem_info
+    print(cuda_mem_info())
+    torch.cuda.empty_cache()
+    print(cuda_mem_info())
+
 ```
 
 
@@ -726,3 +733,34 @@ dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, drop_last=
 losses = ddpm.train(dataloader, mlflow_logging=True)
 ```
 
+
+
+```{python}
+checkpoint_path = f"rsv.pth"
+ddpm.write_train_checkpoint(save_path=checkpoint_path)
+ddpm.load_model_checkpoint(checkpoint_path)
+
+ddpm.model.eval()
+ddpm.model.to(device)
+
+ft_samples = ddpm.sample() # list of size n_diff_step.
+ft_samples[0].shape
+np.save(f"rsvgen.npy", dataset.apply_transform_inv(ft_samples[-1]))
+ft_samples = np.load("rsvgen.npy")
+n_show = min(batch_size, 10)
+
+fig, axes = plt.subplots(2, 2, figsize=(2.8 * n_show, 7.5), dpi=100)
+for k, loc in enumerate([ 0, 5, 10, 15]):
+    ax = axes.flat[k]
+    for i in np.arange(3):
+        hist_img = dataset.get_sample_raw(i)
+        idplots.show_tensor_image(hist_img, ax=ax, place=loc, multi=False) # thicker curve are historical data
+        for i in range(n_show):
+          gen_img = ft_samples[i]
+          idplots.show_tensor_image(gen_img, ax=ax, place=loc, multi=True)
+        
+    ax.set_title(f"FT gen vs Hist, loc={loc}")
+    ax.grid(visible=True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+```
