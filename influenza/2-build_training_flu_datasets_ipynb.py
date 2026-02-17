@@ -76,25 +76,6 @@ def build_dataset_from_framelist(frame_list):
 
 
 # %%
-import numpy as np
-output = np.load('inverse_transformed_samples.npy')
-full_payload_array = season_setup.add_axis_to_numpy_array(output, truncate=True)
-
-# %%
-full_payload_array
-
-# %%
-idx_tp = 50
-fig, ax = idplots.plot_us_grid(
-    data=full_payload_array,
-    season_axis=season_setup,
-    sample_idx=list(np.arange(idx_tp, idx_tp+5)),
-    multi_line=True,
-    sharey=False,
-    past_ground_truth=True,
-)
-
-# %%
 all_datasets_df = pd.read_parquet("Flusight/flu-datasets/all_datasets.parquet")
 for dH1 in all_datasets_df['datasetH1'].unique():
     h1df= all_datasets_df[all_datasets_df['datasetH1'] == dH1]
@@ -105,10 +86,32 @@ for dH1 in all_datasets_df['datasetH1'].unique():
 
 
 # %% [markdown]
-# * 1080 Frame SMH
-# * 160 FlepiR1
+# Frames per datasetH1:
 # * 1240 total synthetic
-# * 20 for the sum of all surveilalnce dataset
+#  * 1080 Frame SMH
+#  * 160 FlepiR1
+# * 20 for the sum of all surveillance dataset
+#
+# ```    
+# "30S70M": {
+#         "fluview":     {"proportion": 0.15, "total": 3000, "to_scale": True},
+#         "flusurv":     {"proportion": 0.15, "total": 3000},
+#         "flepiR1":     {"proportion": 0.05, "total": 3000},
+#         "SMH_R4-R5":   {"proportion": 0.65, "total": 3000}
+#     },
+# ```
+# .7 * total = 1240  -> total is 1771
+# 1771*.15>7
+#
+# total > 512
+#
+# ````
+#     "100S": {
+#         "fluview":   {"multiplier": 40}, #13
+#         "flusurv":   {"multiplier": 40} # 7
+#         "SMH_R4-R5": {"multiplier": 1} # 1240
+#     },
+#
 #
 #
 
