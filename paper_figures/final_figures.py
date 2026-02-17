@@ -9,6 +9,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from prepare_dataset_for_scoringutils import Config as ScoringConfig
 
 from influpaint.utils import SeasonAxis
 
@@ -75,6 +76,7 @@ def figure1_unconditional_with_correlation(season_axis, uncond_samples):
         compute_quantile_curves, compute_median
     )
     from .helpers import state_to_code
+    import subprocess
     import pandas as pd
     import seaborn as sns
     from .unconditional_figures import add_trajectory_inset
@@ -408,16 +410,399 @@ def figure3_npy_forecasts_two_seasons(season_axis):
     return save_path
 
 
-def figure4_mask_experiments(season_axis):
-    """Figure 4: Mask experiments.
+def figure3_ratio_flusight_over_influpaint(season_axis):
+    """Figure 3 companion analysis: WIS ratio (FluSight / Influpaint) for 1-4 week ahead.
 
-    Panel A: CA, Kentucky, MD from missing_nc_season2023
-    Panel B: CA, KY, MD from missing_half_subpop_season2024
-    Panel C (top): missing_nc_season2023
-    Panel C (bottom): missing_il_season2023
+    Uses the same two seasons, states, and reference-date selection logic as Figure 3.
 
     Args:
         season_axis: SeasonAxis object
+
+    Returns:
+        Path to saved ratio plot
+    """
+    print("Generating Figure 3 ratio analysis: FluSight vs Influpaint...")
+
+    import datetime as dt
+    import pandas as pd
+    import seaborn as sns
+    from .csv_forecasts import FLUSIGHT_BASES
+    from .helpers import (
+        list_inpainting_dirs,
+        parse_date_from_folder,
+        state_to_code,
+        forecast_week_saturdays,
+    )
+
+    target_name = ScoringConfig.TARGET_NAME
+    seasons = ["2023-2024", "2024-2025"]
+    states = ["US", "CA", "NY", "TX"]
+    per_season_pick = 4
+    horizons = [0, 1, 2, 3]
+    required_quantiles = np.array(ScoringConfig.REQUIRED_QUANTILES, dtype=float)
+    required_quantiles_rounded = sorted(np.round(required_quantiles, 6).tolist())
+
+    out_combined = os.path.join(
+        FIG_DIR,
+        f"{_MODEL_NUM}_figure3_ratio_rescore_combined_forecast_truth.csv",
+    )
+    out_scores = os.path.join(
+        FIG_DIR,
+        f"{_MODEL_NUM}_figure3_ratio_rescore_scoringutils_scores.csv",
+    )
+    out_plot = os.path.join(FIG_DIR, f"{_MODEL_NUM}_figure3_ratio_flusight_over_influpaint.png")
+    out_table = os.path.join(FIG_DIR, f"{_MODEL_NUM}_figure3_ratio_flusight_over_influpaint.csv")
+    out_panel = os.path.join(FIG_DIR, f"{_MODEL_NUM}_figure3_ratio_panel_summary.csv")
+    out_overall = os.path.join(FIG_DIR, f"{_MODEL_NUM}_figure3_ratio_overall_summary.csv")
+
+    dirs = list_inpainting_dirs(INPAINTING_BASE, BEST_MODEL_ID, BEST_CONFIG)
+    picked_rows = []
+    picked_paths = []
+    for season in seasons:
+        season_year = int(season.split("-")[0])
+        dated_dirs = []
+        for d in dirs:
+            ref_date = parse_date_from_folder(os.path.basename(d))
+            if ref_date is None:
+                raise ValueError(f"Could not parse reference date from inpainting directory: {d}")
+            if season_axis.get_fluseason_year(pd.to_datetime(ref_date)) == season_year:
+                dated_dirs.append((ref_date, d))
+        dated_dirs = sorted(dated_dirs)[1:]
+        step = max(1, len(dated_dirs) // per_season_pick)
+        picked = dated_dirs[::step][:per_season_pick]
+        if len(picked) != per_season_pick:
+            raise ValueError(f"Expected {per_season_pick} picked dates for {season}, found {len(picked)}")
+        for ref_date, dpath in picked:
+            ref_date_str = pd.to_datetime(ref_date).strftime("%Y-%m-%d")
+            picked_rows.append((season, ref_date_str))
+            picked_paths.append((season, ref_date, dpath))
+
+    picked_dates = pd.DataFrame(picked_rows, columns=["season", "reference_date"])
+    if len(picked_dates) != len(seasons) * per_season_pick:
+        raise ValueError("Figure 3 reference-date selection did not return expected date count")
+
+    loc_map = {state: state_to_code(state, season_axis) for state in states}
+    inv_loc_map = {code: state for state, code in loc_map.items()}
+
+    influpaint_model_names = []
+    influpaint_rows = []
+    for season, ref_date, dpath in picked_paths:
+        base_name = os.path.basename(dpath)
+        parts = base_name.split("::")
+        if len(parts) < 3:
+            raise ValueError(f"Unexpected inpainting directory format: {base_name}")
+        run_model_name = "::".join(parts[:-1]).replace("::conf_", "::")
+        influpaint_model_names.append(run_model_name)
+
+        arr = np.load(os.path.join(dpath, "fluforecasts_ti.npy"))
+        forecast_dates = pd.to_datetime(
+            forecast_week_saturdays(season, season_axis, arr.shape[2])
+        ).dt.date
+        date_to_idx = {d: i for i, d in enumerate(forecast_dates)}
+
+        for state in states:
+            loc_code = loc_map[state]
+            if loc_code == "US":
+                ts = arr[:, 0, :, :len(season_axis.locations)].sum(axis=-1)
+            else:
+                state_idx = season_axis.locations.index(loc_code)
+                ts = arr[:, 0, :, state_idx]
+
+            for horizon in horizons:
+                target_date = ref_date + dt.timedelta(days=7 * horizon)
+                if target_date not in date_to_idx:
+                    raise ValueError(
+                        f"Target date {target_date} (season={season}, ref={ref_date}, horizon={horizon}) not in NPY week grid"
+                    )
+                target_idx = date_to_idx[target_date]
+                quantile_values = np.quantile(ts[:, target_idx], required_quantiles)
+                for q, pred in zip(required_quantiles, quantile_values):
+                    influpaint_rows.append(
+                        {
+                            "model": run_model_name,
+                            "group": "influpaint",
+                            "season": season,
+                            "reference_date": str(ref_date),
+                            "forecast_date": str(ref_date),
+                            "target_end_date": str(target_date),
+                            "location": loc_code,
+                            "horizon": int(horizon),
+                            "quantile": float(q),
+                            "predicted": float(pred),
+                            "target": target_name,
+                            "output_type": "quantile",
+                        }
+                    )
+
+    influpaint_model_names = sorted(set(influpaint_model_names))
+    if len(influpaint_model_names) != 1:
+        raise ValueError(f"Expected one Influpaint model in picked directories, found {influpaint_model_names}")
+    influpaint_model = influpaint_model_names[0]
+
+    expected_per_model_rows = (
+        len(seasons) * per_season_pick * len(states) * len(horizons) * len(required_quantiles)
+    )
+    if len(influpaint_rows) != expected_per_model_rows:
+        raise ValueError(
+            f"Influpaint row count mismatch: expected {expected_per_model_rows}, found {len(influpaint_rows)}"
+        )
+    influpaint_df = pd.DataFrame(influpaint_rows)
+
+    flusight_rows = []
+    for season, ref_date, _ in picked_paths:
+        fs_path = os.path.join(
+            FLUSIGHT_BASES[season],
+            "model-output",
+            "FluSight-ensemble",
+            f"{ref_date}-FluSight-ensemble.csv",
+        )
+        if not os.path.exists(fs_path):
+            raise FileNotFoundError(f"Missing FluSight ensemble file: {fs_path}")
+        fs = pd.read_csv(fs_path, dtype={"location": str})
+        fs["target_end_date"] = pd.to_datetime(fs["target_end_date"]).dt.date
+        fs["horizon"] = pd.to_numeric(fs["horizon"], errors="coerce")
+        fs["output_type_id"] = pd.to_numeric(fs["output_type_id"], errors="coerce")
+
+        for state in states:
+            loc_code = loc_map[state]
+            sub = fs[
+                (fs["location"] == loc_code)
+                & (fs["target"] == target_name)
+                & (fs["output_type"] == "quantile")
+                & (fs["horizon"].isin(horizons))
+            ].copy()
+            if sub.empty:
+                raise ValueError(
+                    f"No FluSight quantile rows for season={season}, ref={ref_date}, location={loc_code}"
+                )
+            sub["quantile"] = sub["output_type_id"].astype(float)
+            # Snap to canonical quantile grid to avoid floating-representation drift.
+            snapped = []
+            for q in sub["quantile"].to_numpy(dtype=float):
+                nearest = float(required_quantiles[np.argmin(np.abs(required_quantiles - q))])
+                if abs(nearest - q) > 1e-6:
+                    raise ValueError(
+                        f"FluSight quantile {q} is not on required grid (season={season}, ref={ref_date}, location={loc_code})"
+                    )
+                snapped.append(nearest)
+            sub["quantile"] = snapped
+            have = sorted(np.round(sub["quantile"].unique(), 6).tolist())
+            if have != required_quantiles_rounded:
+                raise ValueError(
+                    f"Quantiles mismatch for season={season}, ref={ref_date}, location={loc_code}: have {have}"
+                )
+            for horizon in horizons:
+                sub_h = sub[sub["horizon"] == horizon]
+                if len(sub_h) != len(required_quantiles):
+                    raise ValueError(
+                        f"Expected {len(required_quantiles)} FluSight quantiles for season={season}, ref={ref_date}, location={loc_code}, horizon={horizon}; found {len(sub_h)}"
+                    )
+                expected_target_date = ref_date + dt.timedelta(days=7 * horizon)
+                unique_target_dates = sorted(sub_h["target_end_date"].unique().tolist())
+                if unique_target_dates != [expected_target_date]:
+                    raise ValueError(
+                        f"Unexpected FluSight target date for season={season}, ref={ref_date}, location={loc_code}, horizon={horizon}: {unique_target_dates}"
+                    )
+            for _, row in sub.iterrows():
+                flusight_rows.append(
+                    {
+                        "model": "FluSight-ensemble",
+                        "group": "flusight",
+                        "season": season,
+                        "reference_date": str(ref_date),
+                        "forecast_date": str(ref_date),
+                        "target_end_date": str(row["target_end_date"]),
+                        "location": loc_code,
+                        "horizon": int(row["horizon"]),
+                        "quantile": float(row["quantile"]),
+                        "predicted": float(row["value"]),
+                        "target": target_name,
+                        "output_type": "quantile",
+                    }
+                )
+
+    if len(flusight_rows) != expected_per_model_rows:
+        raise ValueError(
+            f"FluSight row count mismatch: expected {expected_per_model_rows}, found {len(flusight_rows)}"
+        )
+    flusight_df = pd.DataFrame(flusight_rows)
+
+    forecasts = pd.concat([influpaint_df, flusight_df], ignore_index=True)
+    forecasts["season"] = forecasts["season"].astype(str)
+    forecasts["location"] = forecasts["location"].astype(str)
+    forecasts["target_end_date"] = pd.to_datetime(forecasts["target_end_date"]).dt.strftime("%Y-%m-%d")
+
+    truth_rows = []
+    for season in seasons:
+        truth_path = os.path.join(
+            FLUSIGHT_BASES[season], "target-data", "target-hospital-admissions.csv"
+        )
+        if not os.path.exists(truth_path):
+            raise FileNotFoundError(f"Missing truth file: {truth_path}")
+        truth = pd.read_csv(truth_path, dtype={"location": str})
+        truth["target_end_date"] = pd.to_datetime(truth["date"]).dt.date
+        truth["observed"] = truth["value"].astype(float)
+        truth_rows.append(truth[["target_end_date", "location", "observed"]].assign(season=season))
+    truth_all = pd.concat(truth_rows, ignore_index=True)
+    truth_all["season"] = truth_all["season"].astype(str)
+    truth_all["location"] = truth_all["location"].astype(str)
+    truth_all["target_end_date"] = pd.to_datetime(truth_all["target_end_date"]).dt.strftime("%Y-%m-%d")
+
+    combined = forecasts.merge(
+        truth_all,
+        on=["season", "target_end_date", "location"],
+        how="inner",
+    )
+    if len(combined) != len(forecasts):
+        raise ValueError(
+            f"Merge lost forecast rows: forecasts={len(forecasts)}, merged={len(combined)}"
+        )
+    combined.to_csv(out_combined, index=False)
+
+    score_script = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "score_with_scoringutils.R"))
+    score_cmd = ["Rscript", score_script, out_combined, out_scores]
+    proc = subprocess.run(score_cmd, check=False, capture_output=True, text=True)
+    if proc.returncode != 0:
+        raise RuntimeError(
+            "Exact scoringutils scoring failed.\n"
+            f"Command: {' '.join(score_cmd)}\n"
+            f"STDOUT:\n{proc.stdout}\nSTDERR:\n{proc.stderr}"
+        )
+    if proc.stdout.strip():
+        print(proc.stdout.strip())
+    if proc.stderr.strip():
+        print(proc.stderr.strip())
+
+    scores = pd.read_csv(out_scores, dtype={"location": str})
+    required_score_cols = {"model", "group", "season", "reference_date", "location", "horizon", "wis"}
+    missing_cols = required_score_cols.difference(scores.columns)
+    if missing_cols:
+        raise ValueError(
+            "scoringutils output is missing required columns. "
+            f"Missing: {sorted(missing_cols)}. "
+            "This usually means scoring failed due malformed quantile groups."
+        )
+    scores["reference_date"] = pd.to_datetime(scores["reference_date"]).dt.strftime("%Y-%m-%d")
+    scores["location"] = scores["location"].astype(str)
+
+    influpaint = scores[
+        (scores["model"] == influpaint_model) & (scores["horizon"].isin(horizons))
+    ].rename(columns={"wis": "wis_influpaint"})
+    influpaint = influpaint[["season", "reference_date", "location", "horizon", "wis_influpaint"]]
+
+    flusight = scores[
+        (scores["model"] == "FluSight-ensemble") & (scores["horizon"].isin(horizons))
+    ].rename(columns={"wis": "wis_flusight"})
+    flusight = flusight[["season", "reference_date", "location", "horizon", "wis_flusight"]]
+
+    merged = influpaint.merge(
+        flusight, on=["season", "reference_date", "location", "horizon"], how="inner"
+    )
+    merged = merged[merged["location"].isin(loc_map.values())].copy()
+    merged["location_name"] = merged["location"].map(inv_loc_map)
+    merged["week_ahead"] = merged["horizon"] + 1
+    merged["ratio_flusight_over_influpaint"] = merged["wis_flusight"] / merged["wis_influpaint"]
+    merged = merged.sort_values(["season", "location_name", "reference_date", "week_ahead"])
+
+    expected_rows = len(seasons) * len(states) * per_season_pick * len(horizons)
+    if len(merged) != expected_rows:
+        raise ValueError(f"Expected {expected_rows} ratio rows, found {len(merged)}")
+
+    merged.to_csv(out_table, index=False)
+    panel_summary = merged.groupby(["season", "location_name"])["ratio_flusight_over_influpaint"].agg(
+        ["mean", "median", "min", "max"]
+    )
+    panel_summary.reset_index().to_csv(out_panel, index=False)
+    overall_summary = pd.DataFrame(
+        [
+            {
+                "overall_mean_ratio": merged["ratio_flusight_over_influpaint"].mean(),
+                "overall_median_ratio": merged["ratio_flusight_over_influpaint"].median(),
+                "ratio_q1": merged["ratio_flusight_over_influpaint"].quantile(0.25),
+                "ratio_q3": merged["ratio_flusight_over_influpaint"].quantile(0.75),
+                "influpaint_better_count": int((merged["ratio_flusight_over_influpaint"] > 1).sum()),
+                "flusight_better_count": int((merged["ratio_flusight_over_influpaint"] < 1).sum()),
+                "n_total": int(len(merged)),
+            }
+        ]
+    )
+    overall_summary.to_csv(out_overall, index=False)
+
+    panel_order = []
+    for season in seasons:
+        for state in states:
+            panel_order.append(f"{season} | {state}")
+    merged["panel"] = merged["season"].astype(str) + " | " + merged["location_name"].astype(str)
+    merged["panel"] = pd.Categorical(merged["panel"], categories=panel_order, ordered=True)
+
+    date_order = sorted(merged["reference_date"].unique())
+    palette = sns.color_palette("Dark2", n_colors=len(date_order))
+    color_map = {date: palette[i] for i, date in enumerate(date_order)}
+
+    fig, axes = plt.subplots(2, 4, figsize=(18, 8), dpi=250, sharex=True, sharey=True)
+    flat_axes = axes.flatten()
+    for idx, panel in enumerate(panel_order):
+        ax = flat_axes[idx]
+        panel_df = merged[merged["panel"] == panel]
+        for ref_date in sorted(panel_df["reference_date"].unique()):
+            series = panel_df[panel_df["reference_date"] == ref_date].sort_values("week_ahead")
+            ax.plot(
+                series["week_ahead"],
+                series["ratio_flusight_over_influpaint"],
+                marker="o",
+                lw=1.5,
+                color=color_map[ref_date],
+            )
+        ax.axhline(1.0, color="black", lw=1.0, ls="--", alpha=0.7)
+        ax.set_title(panel, fontsize=10)
+        ax.set_xticks([1, 2, 3, 4])
+        ax.grid(True, alpha=0.25)
+
+    for ax in flat_axes[4:]:
+        ax.set_xlabel("Week ahead")
+    flat_axes[0].set_ylabel("WIS ratio (FluSight / Influpaint)")
+    flat_axes[4].set_ylabel("WIS ratio (FluSight / Influpaint)")
+
+    legend_handles = []
+    legend_labels = []
+    for ref_date in date_order:
+        line, = flat_axes[0].plot([], [], color=color_map[ref_date], marker="o", lw=1.5)
+        legend_handles.append(line)
+        legend_labels.append(ref_date)
+    fig.legend(
+        legend_handles,
+        legend_labels,
+        title="Reference date",
+        loc="upper center",
+        ncol=4,
+        frameon=False,
+        bbox_to_anchor=(0.5, 1.02),
+    )
+
+    plt.tight_layout(rect=[0, 0, 1, 0.94])
+    fig.savefig(out_plot, bbox_inches="tight")
+    plt.close(fig)
+
+    print(f"Figure 3 ratio plot saved to {out_plot}")
+    print(f"Figure 3 ratio table saved to {out_table}")
+    print(f"Figure 3 ratio panel summary saved to {out_panel}")
+    print(f"Figure 3 ratio overall summary saved to {out_overall}")
+    print(f"Figure 3 rescoring combined file saved to {out_combined}")
+    print(f"Figure 3 rescoring score file saved to {out_scores}")
+    return out_plot
+
+
+def figure4_mask_experiments(season_axis, season_first_year='2024', output_suffix=''):
+    """Figure 4: Mask experiments.
+
+    Top row: CA/FL/MD from missing_half_subpop + NC from missing_nc
+    Bottom row: CA from checkerboard_4x4, FL from missing_past,
+    MD from midseason_biggap, IL from missing_il.
+
+    Args:
+        season_axis: SeasonAxis object
+        season_first_year: Season first year as string (e.g. '2024', '2023')
+        output_suffix: Optional suffix appended to output filename
 
     Returns:
         Path to saved figure
@@ -430,12 +815,8 @@ def figure4_mask_experiments(season_axis):
         print(f"Mask results directory not found: {MASK_RESULTS_DIR}")
         return None
 
-    # Create figure with custom layout
-    # 2 rows, 5 columns
-    # Top row: 3 states (A) | missing_nc (C top)
-    # Bottom row: 3 states (B) | missing_il (C bottom)
-    fig = plt.figure(figsize=(25, 10), dpi=200)
-    gs = gridspec.GridSpec(2, 5, figure=fig, wspace=0.25, hspace=0.3)
+    # Create figure with uniform layout and shared x-axis.
+    fig, axes = plt.subplots(2, 4, figsize=(20, 10), dpi=200, sharex=True, sharey=False)
 
     # We'll manually plot the mask experiments using the same logic as mask_experiments.py
     from .mask_experiments import add_mask_heatmap_inset
@@ -448,7 +829,7 @@ def figure4_mask_experiments(season_axis):
     import datetime as dt
 
     # Helper to plot a single mask experiment state
-    def plot_mask_state(ax, arr, mk, gt, dates, state_idx, state_name, color):
+    def plot_mask_state(ax, arr, mk, gt, dates, state_idx, state_name, color, show_ylabel=False):
         # Add mask heatmap inset
         p_len = len(gt.season_setup.locations)
         add_mask_heatmap_inset(ax, gt.gt_xarr.data[0], mk[0], state_idx, p_len)
@@ -489,10 +870,13 @@ def figure4_mask_experiments(season_axis):
         ax.plot(dates[:len(med_masked)], med_masked, color=color, lw=1.8)
 
         # Styling
-        ax.set_title(state_name, fontsize=12, fontweight='bold', pad=10)
+        ax.text(0.02, 0.98, state_name, transform=ax.transAxes, va='top', ha='left',
+                fontsize=12, fontweight='bold',
+                bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
         ax.set_ylim(bottom=0)
         ax.grid(True, alpha=0.3)
-        ax.set_ylabel('Incident flu hospitalizations')
+        if show_ylabel:
+            ax.set_ylabel('Incident flu hospitalizations')
 
         month_labels = ['Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul']
         month_positions_weeks = [1, 5, 9, 13, 17, 22, 26, 31, 35, 40, 44, 48]
@@ -505,93 +889,204 @@ def figure4_mask_experiments(season_axis):
                 tick_labels_to_show.append(month_labels[k])
         ax.set_xticks(tick_dates)
         ax.set_xticklabels(tick_labels_to_show, rotation=0, ha='center')
-        ax.set_xlabel('Month')
         sns.despine(ax=ax, trim=True)
 
-    # Panel A: missing_nc_season2023 - CA, KY, MD
-    mask_name_a = 'missing_nc_season2023'
-    subdir_a = os.path.join(MASK_RESULTS_DIR, mask_name_a)
-    arr_a = np.load(os.path.join(subdir_a, 'fluforecasts_ti.npy'))
-    mk_a = np.load(os.path.join(subdir_a, 'mask.npy'))
+    def _masked_series(ts, mk, state_idx, n_weeks):
+        masked_idx = np.where(mk[0, :n_weeks, state_idx] == 0)[0]
+        return ts[:, masked_idx], masked_idx
 
-    gt_a = ground_truth.GroundTruth.for_flusight(
-        season_first_year='2023',
+    def _bootstrap_median_ci(values, n_boot=2000, alpha=0.05):
+        n = values.shape[0]
+        boot = np.empty(n_boot)
+        for b in range(n_boot):
+            idx = np.random.randint(0, n, size=n)
+            boot[b] = np.median(values[idx])
+        lo = np.percentile(boot, 100 * (alpha / 2))
+        hi = np.percentile(boot, 100 * (1 - alpha / 2))
+        return lo, hi
+
+    def compute_panel_metrics(arr, mk, gt, state_idx):
+        ts = arr[:, 0, :, state_idx]
+        n_weeks = min(ts.shape[1], gt.shape[0])
+        gt_use = gt[:n_weeks]
+        ts_use = ts[:, :n_weeks]
+        ts_masked, masked_idx = _masked_series(ts_use, mk, state_idx, n_weeks)
+        gt_masked = gt_use[masked_idx]
+
+        q25 = np.quantile(ts_masked, 0.25, axis=0)
+        q75 = np.quantile(ts_masked, 0.75, axis=0)
+        cov50 = np.mean((gt_masked >= q25) & (gt_masked <= q75))
+
+        actual_peak_local = int(np.argmax(gt_masked))
+        actual_peak_week = int(masked_idx[actual_peak_local])
+        actual_peak_size = float(gt_masked[actual_peak_local])
+
+        pred_peak_local = np.argmax(ts_masked, axis=1)
+        pred_peak_week = masked_idx[pred_peak_local]
+        pred_peak_size = np.max(ts_masked, axis=1)
+
+        timing_err = pred_peak_week - actual_peak_week
+        size_err = pred_peak_size - actual_peak_size
+        timing_err_pct = 100.0 * timing_err / max(actual_peak_week, 1)
+        size_err_pct = 100.0 * size_err / max(actual_peak_size, 1e-8)
+
+        timing_med = float(np.median(timing_err))
+        timing_lo, timing_hi = _bootstrap_median_ci(timing_err)
+        timing_pct_med = float(np.median(timing_err_pct))
+        timing_pct_lo, timing_pct_hi = _bootstrap_median_ci(timing_err_pct)
+        size_med = float(np.median(size_err))
+        size_lo, size_hi = _bootstrap_median_ci(size_err)
+        size_pct_med = float(np.median(size_err_pct))
+        size_pct_lo, size_pct_hi = _bootstrap_median_ci(size_err_pct)
+        pred_peak_week_med = float(np.median(pred_peak_week))
+        pred_peak_size_med = float(np.median(pred_peak_size))
+
+        return {
+            "cov50": float(cov50),
+            "actual_peak_week_idx": int(actual_peak_week),
+            "pred_peak_week_idx_median": pred_peak_week_med,
+            "timing_med": timing_med,
+            "timing_ci": (float(timing_lo), float(timing_hi)),
+            "timing_pct_med": timing_pct_med,
+            "timing_pct_ci": (float(timing_pct_lo), float(timing_pct_hi)),
+            "actual_peak_size": actual_peak_size,
+            "pred_peak_size_median": pred_peak_size_med,
+            "size_med": size_med,
+            "size_ci": (float(size_lo), float(size_hi)),
+            "size_pct_med": size_pct_med,
+            "size_pct_ci": (float(size_pct_lo), float(size_pct_hi)),
+        }
+
+    gt = ground_truth.GroundTruth.for_flusight(
+        season_first_year=str(season_first_year),
         data_date=dt.datetime.today(),
-        mask_date=pd.to_datetime('2025-05-14'),
+        mask_date=pd.to_datetime(f"{int(season_first_year) + 1}-05-14"),
         channels=CHANNELS,
         image_size=IMAGE_SIZE,
         nogit=True,
     )
-    dates_a = pd.to_datetime(gt_a.gt_xarr['date'].values)
+    dates = pd.to_datetime(gt.gt_xarr['date'].values)
 
-    states_a = ['CA', 'KY', 'MD']
-    palette_a = sns.color_palette('Set1', n_colors=3)
+    def load_mask(mask_name):
+        subdir = os.path.join(MASK_RESULTS_DIR, mask_name)
+        arr = np.load(os.path.join(subdir, 'fluforecasts_ti.npy'))
+        mk = np.load(os.path.join(subdir, 'mask.npy'))
+        return arr, mk
 
-    for i, st in enumerate(states_a):
-        ax = fig.add_subplot(gs[0, i])
-        code = state_to_code(st, gt_a.season_setup)
-        idx = gt_a.season_setup.locations.index(code)
-        state_name = gt_a.season_setup.get_location_name(code)
-        plot_mask_state(ax, arr_a, mk_a, gt_a, dates_a, idx, state_name, palette_a[i])
+    # Fixed one-color-per-state palette across the whole figure.
+    state_colors = {
+        'CA': '#1b9e77',
+        'FL': '#d95f02',
+        'MD': '#7570b3',
+        'NC': '#e7298a',
+        'IL': '#66a61e',
+    }
 
-    # Add panel label A
-    ax_a0 = fig.axes[0]
-    add_panel_label(ax_a0, 'A', x=-0.15, y=1.05)
+    # Top row: CA/FL/MD from half-subpop mask, then NC from NC-missing mask
+    arr_half, mk_half = load_mask(f'missing_half_subpop_season{season_first_year}')
+    arr_nc, mk_nc = load_mask(f'missing_nc_season{season_first_year}')
+    top_specs = [
+        ('CA', arr_half, mk_half, state_colors['CA']),
+        ('FL', arr_half, mk_half, state_colors['FL']),
+        ('MD', arr_half, mk_half, state_colors['MD']),
+        ('NC', arr_nc, mk_nc, state_colors['NC']),
+    ]
 
-    # Panel B: missing_half_subpop_season2024 - CA, KY, MD
-    mask_name_b = 'missing_half_subpop_season2024'
-    subdir_b = os.path.join(MASK_RESULTS_DIR, mask_name_b)
-    arr_b = np.load(os.path.join(subdir_b, 'fluforecasts_ti.npy'))
-    mk_b = np.load(os.path.join(subdir_b, 'mask.npy'))
+    for col, (st, arr, mk, color) in enumerate(top_specs):
+        ax = axes[0, col]
+        code = state_to_code(st, gt.season_setup)
+        idx = gt.season_setup.locations.index(code)
+        state_name = gt.season_setup.get_location_name(code)
+        plot_mask_state(ax, arr, mk, gt, dates, idx, state_name, color, show_ylabel=(col == 0))
 
-    gt_b = ground_truth.GroundTruth.for_flusight(
-        season_first_year='2024',
-        data_date=dt.datetime.today(),
-        mask_date=pd.to_datetime('2025-05-14'),
-        channels=CHANNELS,
-        image_size=IMAGE_SIZE,
-        nogit=True,
-    )
-    dates_b = pd.to_datetime(gt_b.gt_xarr['date'].values)
+    # Bottom row: CA checkerboard, FL past-missing, MD biggap, IL missing
+    arr_checker, mk_checker = load_mask(f'missing_checkerboard_4x4_season{season_first_year}')
+    arr_past, mk_past = load_mask(f'missing_past_season{season_first_year}')
+    arr_biggap, mk_biggap = load_mask(f'missing_midseason_biggap_season{season_first_year}')
+    arr_il, mk_il = load_mask(f'missing_il_season{season_first_year}')
+    bottom_specs = [
+        ('CA', arr_checker, mk_checker, state_colors['CA']),
+        ('FL', arr_past, mk_past, state_colors['FL']),
+        ('MD', arr_biggap, mk_biggap, state_colors['MD']),
+        ('IL', arr_il, mk_il, state_colors['IL']),
+    ]
 
-    states_b = ['CA', 'KY', 'MD']
-    palette_b = sns.color_palette('Set1', n_colors=3)
+    for col, (st, arr, mk, color) in enumerate(bottom_specs):
+        ax = axes[1, col]
+        code = state_to_code(st, gt.season_setup)
+        idx = gt.season_setup.locations.index(code)
+        state_name = gt.season_setup.get_location_name(code)
+        plot_mask_state(ax, arr, mk, gt, dates, idx, state_name, color)
 
-    for i, st in enumerate(states_b):
-        ax = fig.add_subplot(gs[1, i])
-        code = state_to_code(st, gt_b.season_setup)
-        idx = gt_b.season_setup.locations.index(code)
-        state_name = gt_b.season_setup.get_location_name(code)
-        plot_mask_state(ax, arr_b, mk_b, gt_b, dates_b, idx, state_name, palette_b[i])
+    x_axis_year = int(season_first_year)
+    for col in range(4):
+        axes[1, col].set_xlabel(f'{x_axis_year}-{x_axis_year + 1}')
 
-    # Add panel label B
-    ax_b0 = fig.axes[3]
-    add_panel_label(ax_b0, 'B', x=-0.15, y=1.05)
+    # Panel labels in reading order:
+    # top row: A.1, A.2, A.3, B
+    # bottom row: C, D, E, F
+    panel_labels = ['A.1', 'A.2', 'A.3', 'B', 'C', 'D', 'E', 'F']
+    panel_axes = [axes[0, 0], axes[0, 1], axes[0, 2], axes[0, 3],
+                  axes[1, 0], axes[1, 1], axes[1, 2], axes[1, 3]]
+    for lbl, ax in zip(panel_labels, panel_axes):
+        add_panel_label(ax, lbl, x=-0.15, y=1.05)
 
-    # Panel C top: missing_nc_season2023 - NC
-    ax_c_top = fig.add_subplot(gs[0, 3:])
-    code_nc = state_to_code('NC', gt_a.season_setup)
-    idx_nc = gt_a.season_setup.locations.index(code_nc)
-    state_name_nc = gt_a.season_setup.get_location_name(code_nc)
-    plot_mask_state(ax_c_top, arr_a, mk_a, gt_a, dates_a, idx_nc, state_name_nc, 'purple')
+    # Quantitative results printed under Figure 4 generation.
+    panel_specs = [
+        ('A.1', top_specs[0]),
+        ('A.2', top_specs[1]),
+        ('A.3', top_specs[2]),
+        ('B', top_specs[3]),
+        ('C', bottom_specs[0]),
+        ('D', bottom_specs[1]),
+        ('E', bottom_specs[2]),
+        ('F', bottom_specs[3]),
+    ]
+    panel_metrics = {}
+    for lbl, (st, arr, mk, _) in panel_specs:
+        code = state_to_code(st, gt.season_setup)
+        idx = gt.season_setup.locations.index(code)
+        gt_series = gt.gt_xarr.data[0, :, idx]
+        panel_metrics[lbl] = compute_panel_metrics(arr, mk, gt_series, idx)
 
-    # Panel C bottom: missing_il_season2023 - IL
-    mask_name_c = 'missing_il_season2023'
-    subdir_c = os.path.join(MASK_RESULTS_DIR, mask_name_c)
-    arr_c = np.load(os.path.join(subdir_c, 'fluforecasts_ti.npy'))
-    mk_c = np.load(os.path.join(subdir_c, 'mask.npy'))
-
-    ax_c_bottom = fig.add_subplot(gs[1, 3:])
-    code_il = state_to_code('IL', gt_a.season_setup)
-    idx_il = gt_a.season_setup.locations.index(code_il)
-    state_name_il = gt_a.season_setup.get_location_name(code_il)
-    plot_mask_state(ax_c_bottom, arr_c, mk_c, gt_a, dates_a, idx_il, state_name_il, 'orange')
-
-    # Add panel label C to top right
-    add_panel_label(ax_c_top, 'C', x=-0.08, y=1.05)
+    print("\nFigure 4 results:")
+    for lbl in ['A.1', 'A.2', 'A.3']:
+        m = panel_metrics[lbl]
+        print(
+            f"  {lbl}: peak timing idx actual={m['actual_peak_week_idx']}, "
+            f"pred_median={m['pred_peak_week_idx_median']:.2f}; "
+            f"median peak timing error (weeks)={m['timing_med']:.2f} "
+            f"[95% CI {m['timing_ci'][0]:.2f}, {m['timing_ci'][1]:.2f}], "
+            f"median peak timing error (%)={m['timing_pct_med']:.2f} "
+            f"[95% CI {m['timing_pct_ci'][0]:.2f}, {m['timing_pct_ci'][1]:.2f}], "
+            f"peak size actual={m['actual_peak_size']:.2f}, pred_median={m['pred_peak_size_median']:.2f}; "
+            f"median peak size error={m['size_med']:.2f} "
+            f"[95% CI {m['size_ci'][0]:.2f}, {m['size_ci'][1]:.2f}], "
+            f"median peak size error (%)={m['size_pct_med']:.2f} "
+            f"[95% CI {m['size_pct_ci'][0]:.2f}, {m['size_pct_ci'][1]:.2f}], "
+            f"50% coverage={m['cov50']:.3f}"
+        )
+    for lbl in ['B', 'F']:
+        m = panel_metrics[lbl]
+        print(f"  {lbl}: 50% coverage={m['cov50']:.3f}")
+    for lbl in ['C', 'E']:
+        m = panel_metrics[lbl]
+        print(
+            f"  {lbl}: peak timing idx actual={m['actual_peak_week_idx']}, "
+            f"pred_median={m['pred_peak_week_idx_median']:.2f}; "
+            f"median peak timing error (weeks)={m['timing_med']:.2f} "
+            f"[95% CI {m['timing_ci'][0]:.2f}, {m['timing_ci'][1]:.2f}], "
+            f"median peak timing error (%)={m['timing_pct_med']:.2f} "
+            f"[95% CI {m['timing_pct_ci'][0]:.2f}, {m['timing_pct_ci'][1]:.2f}], "
+            f"peak size actual={m['actual_peak_size']:.2f}, pred_median={m['pred_peak_size_median']:.2f}; "
+            f"median peak size error={m['size_med']:.2f} "
+            f"[95% CI {m['size_ci'][0]:.2f}, {m['size_ci'][1]:.2f}]"
+            f", median peak size error (%)={m['size_pct_med']:.2f} "
+            f"[95% CI {m['size_pct_ci'][0]:.2f}, {m['size_pct_ci'][1]:.2f}]"
+        )
 
     # Save figure
-    save_path = os.path.join(FIG_DIR, f"{_MODEL_NUM}_figure4_mask_experiments.png")
+    save_path = os.path.join(FIG_DIR, f"{_MODEL_NUM}_figure4_mask_experiments{output_suffix}.png")
     plt.subplots_adjust(hspace=0.3, wspace=0.25)
     fig.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.close(fig)
@@ -630,7 +1125,8 @@ def main():
     figure1_unconditional_with_correlation(season_axis, uncond_samples_filtered)
     figure2_csv_forecasts_two_seasons(season_axis)
     figure3_npy_forecasts_two_seasons(season_axis)
-    figure4_mask_experiments(season_axis)
+    figure3_ratio_flusight_over_influpaint(season_axis)
+    figure4_mask_experiments(season_axis, season_first_year='2023')
 
     print("\n" + "="*60)
     print("Final figures generation complete!")
