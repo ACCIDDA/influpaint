@@ -68,9 +68,18 @@ epidemiological structure and realistic intensity distributions.
 
 import pandas as pd
 import numpy as np
-from ..utils.season_axis import SeasonAxis
+# from ..utils.season_axis import SeasonAxis
 from tqdm import tqdm
 
+# --- PATCHED: most functions in this file have been patched to accommodate my data ---
+AGE_COLUMNS = [
+        '0-130',
+        '0-4',
+        '18-49',
+        '5-17',
+        '50-64',
+        '65-130'
+    ]
 
 def _validate_required_columns(df: pd.DataFrame, required_columns: list, 
                               context: str) -> None:
@@ -100,7 +109,7 @@ def _validate_config_consistency(config: dict) -> tuple[bool, bool]:
     
     return has_proportions, has_multipliers
 
-def build_frames(all_datasets_df: pd.DataFrame, config: dict, season_axis: SeasonAxis, 
+def build_frames(all_datasets_df: pd.DataFrame, config: dict, season_axis: set[str], 
                  fill_missing_locations: str = "error", scaling_distribution: np.ndarray = None) -> list:
     """
     Build complete epidemic frames from hierarchical dataset structure.
@@ -121,7 +130,7 @@ def build_frames(all_datasets_df: pd.DataFrame, config: dict, season_axis: Seaso
             - Values: Either {"multiplier": int} or {"proportion": float, "total": int}
             - Optional: {"to_scale": bool} to enable frame scaling
             
-        season_axis (SeasonAxis): Season axis object providing location definitions
+        season_axis (SeasonAxis): Season axis object providing location definitions (MODIFIED TO BE A set[str] OF LOCATIONS)
         
         fill_missing_locations (str): Strategy for handling missing locations:
             - "error": Fail if any expected location is missing (default)
@@ -155,8 +164,8 @@ def build_frames(all_datasets_df: pd.DataFrame, config: dict, season_axis: Seaso
     """
     # Validate input dataframe
     required_columns = ['datasetH1', 'datasetH2', 'fluseason', 'sample', 
-                       'location_code', 'season_week', 'value', 'week_enddate']
-    _validate_required_columns(all_datasets_df, required_columns, "Input dataframe")
+                       'location_code', 'season_week', 'week_enddate'] + AGE_COLUMNS
+    _validate_required_columns(all_datasets_df, required_columns, "Input WIDE dataframe")
     
     # Validate config references existing H1 datasets
     available_h1 = set(all_datasets_df['datasetH1'].unique())
@@ -227,7 +236,7 @@ def build_frames(all_datasets_df: pd.DataFrame, config: dict, season_axis: Seaso
     
     # Clean up frames by removing unnecessary metadata columns
     cleaned_frames = []
-    essential_columns = ['location_code', 'season_week', 'value', 'week_enddate', 'origin']
+    essential_columns = ['location_code', 'season_week', 'week_enddate', 'origin'] + AGE_COLUMNS
     
     for frame in all_frames:
         # Keep only essential columns that have actual data
@@ -294,7 +303,7 @@ def _calculate_explicit_multipliers(config: dict) -> dict:
 
 
 def _build_h1_frames(h1_data: pd.DataFrame, h1_name: str, multiplier: int, 
-                    season_axis: SeasonAxis, fill_missing_locations: str, 
+                    season_axis: set[str], fill_missing_locations: str, 
                     all_datasets_df: pd.DataFrame = None, global_lookup: dict = None,
                     should_scale: bool = False, scaling_distribution: np.ndarray = None) -> list:
     """Build frames for a single H1 dataset with replication."""
@@ -342,11 +351,11 @@ def _build_h1_frames(h1_data: pd.DataFrame, h1_name: str, multiplier: int,
     return frames
 
 
-def _pad_frame_complete(frame: pd.DataFrame, season_axis: SeasonAxis, 
+def _pad_frame_complete(frame: pd.DataFrame, season_axis: set[str], 
                        fill_missing_locations: str, all_datasets_df: pd.DataFrame = None, 
                        global_lookup: dict = None) -> pd.DataFrame:
     """Ensure frame has complete weekly and location coverage."""
-    expected_locations = set(season_axis.locations)
+    expected_locations = season_axis # CHANGE: expected locations is just the set i passed in
     actual_locations = set(frame['location_code'].unique())
     missing_locations = expected_locations - actual_locations
     
@@ -431,10 +440,11 @@ def _fill_missing_with_zeros(frame: pd.DataFrame, missing_locations: set) -> pd.
             missing_row = {
                 'location_code': location,
                 'season_week': week,
-                'value': 0.0,
                 'origin': origin,
                 **metadata
             }
+            for col in AGE_COLUMNS:
+                missing_row[col] = 0.0
             
             # Add week_enddate if it exists in original frame
             if ref_enddate is not None:
@@ -541,7 +551,7 @@ def _build_global_lookup_table(all_datasets_df: pd.DataFrame) -> dict:
                         (year_data['sample'] == first_combo['sample'])
                     ]
                     lookup[location][h1_name]['by_year'][year] = {
-                        'data': specific_data[['season_week', 'value', 'week_enddate']].copy(),
+                        'data': specific_data[['season_week', *AGE_COLUMNS, 'week_enddate']].copy(),
                         'h2': first_combo['datasetH2'],
                         'sample': first_combo['sample']
                     }
@@ -551,7 +561,7 @@ def _build_global_lookup_table(all_datasets_df: pd.DataFrame) -> dict:
             for (year, sample), sample_data in sample_groups:
                 key = f"{year}_{sample}"
                 lookup[location][h1_name]['by_sample'][key] = {
-                    'data': sample_data[['season_week', 'value', 'week_enddate']].copy(),
+                    'data': sample_data[['season_week', *AGE_COLUMNS, 'week_enddate']].copy(),
                     'h2': sample_data['datasetH2'].iloc[0],
                     'year': year,
                     'sample': sample
@@ -683,11 +693,17 @@ def _pad_single_location(frame: pd.DataFrame, location: str) -> pd.DataFrame:
     # Handle empty input
     if frame.empty:
         # Create empty frame for all weeks - metadata will be preserved by _preserve_columns later
-        missing_data = [{
-            "season_week": week,
-            "location_code": location,
-            "value": 0
-        } for week in range(1, 54)]
+        missing_data = []
+        for week in range(1, 54):
+            row = {
+                "season_week": week,
+                "location_code": location,
+            }
+            # Add a 0.0 value for every age column
+            for col in AGE_COLUMNS:
+                row[col] = 0.0
+            
+            missing_data.append(row)
         return pd.DataFrame(missing_data)
         
     # Get min/max weeks if data exists
@@ -706,26 +722,22 @@ def _pad_single_location(frame: pd.DataFrame, location: str) -> pd.DataFrame:
     if not frame.empty:
         first_row = frame.iloc[0]
         for col in frame.columns:
-            if col not in ["season_week", "location_code", "value"]:
+            if col not in ["season_week", "location_code"] + AGE_COLUMNS:
                 metadata[col] = first_row[col]
         
     # Batch create missing rows for better performance
     missing_rows = []
     for week in missing_weeks:
-        # Determine fill value based on position
         if week < min_week or week > max_week:
-            new_value = 0  # External gaps filled with zeros
+            new_values = {col: 0.0 for col in AGE_COLUMNS}
         else:
-            # Internal gaps filled with previous week's value
             previous_week = frame[frame["season_week"] == week-1]
-            new_value = previous_week["value"].values[0] if not previous_week.empty else 0
-
-        missing_row = {
-            "season_week": week,
-            "location_code": location,
-            "value": new_value,
-            **metadata  # Include all metadata from original frame
-        }
+            if not previous_week.empty:
+                new_values = {col: previous_week[col].values[0] for col in AGE_COLUMNS}
+            else:
+                new_values = {col: 0.0 for col in AGE_COLUMNS}
+        
+        missing_row = {**new_values, "season_week": week, "location_code": location, **metadata}
         missing_rows.append(missing_row)
     
     # Single concat instead of multiple
@@ -736,7 +748,7 @@ def _pad_single_location(frame: pd.DataFrame, location: str) -> pd.DataFrame:
     return frame.sort_values("season_week").reset_index(drop=True)
 
 
-def _apply_frame_scaling(frame: pd.DataFrame, scaling_distribution: np.ndarray) -> pd.DataFrame:
+def _apply_frame_scaling(frame: pd.DataFrame, scaling_distribution: np.ndarray) -> pd.DataFrame: # did not need to modify for my wide dataset b/c i'm not scaling
     """
     Apply scaling to a frame based on US peak sum scaling distribution.
     

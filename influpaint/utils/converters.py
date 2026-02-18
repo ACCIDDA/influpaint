@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from helpers.delphi_epidata import Epidata
+from delphi_epidata import Epidata
 from ..utils.season_axis import SeasonAxis
 import xarray as xr
 
@@ -70,28 +70,48 @@ def dataframe_to_xarray(
 
     return df_xarr
 
-
+# --- PATCHED to accommodate 6 channels ---
 def dataframe_to_arraylist(
-    df: pd.DataFrame, season_setup: SeasonAxis = None, value_column="value",
-) -> np.ndarray:
-
+    df: pd.DataFrame, 
+    locations: set[str], 
+    age_columns: list[str],
+) -> list:
+    """
+    Standardizes data into a list of arrays shaped (6, 64, 64).
+    Uses pivot_table to resolve duplicates and matches the original tower pivot logic.
+    """
     samples = []
+    sorted_locs = sorted(list(locations))
+    unique_seasons = sorted(df["fluseason"].unique())
 
-    df_piv = df.pivot(
-        columns="location_code",
-        values=value_column,
-        index=["fluseason", "season_week"],
-    )
-    for season in df_piv.index.unique(level="fluseason"):
-        array = df_piv.loc[season][
-            season_setup.locations
-        ].sort_index().to_numpy()  # make sure order is right w.r.t season_setup locations and the time is right
-        # TODO: should give an error when dates are missing because it would be missaligned
+    towers = {}
+    for age_group in age_columns:
+        pivoted_tower = df.pivot_table(
+            index=["fluseason", "season_week"],
+            columns="location_code",
+            values=age_group,
+            aggfunc='mean'  
+        )
+        
+        towers[age_group] = pivoted_tower.reindex(columns=sorted_locs)
 
-        array[np.isnan(array)] = 0  # replace NaNs with 0
+    for season in unique_seasons:
+        channel_slices = []
+        
+        for age_group in age_columns:
+            try:
+                season_slice = towers[age_group].loc[season].sort_index().to_numpy()
+            except KeyError:
+                season_slice = np.zeros((53, len(sorted_locs)))
 
-        samples.append(
-            np.array([padto64x64(array)])
-        )  # pad to 64x64 and add a dimension for channel
+            season_slice = np.nan_to_num(season_slice, nan=0.0)
+            
+            # Pad from (53, 52) to (64, 64)
+            padded_array = padto64x64(season_slice)
+            
+            channel_slices.append(padded_array)
+        # channel stacking
+        # Stack 6 age groups to get (6, 64, 64) for a sample
+        samples.append(np.stack(channel_slices))
 
     return samples
