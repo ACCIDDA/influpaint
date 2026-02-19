@@ -41,3 +41,6 @@ __pycache__/
 
 RSV_files/
 *.parquet
+*.pth
+*.npy
+mlflow.db
