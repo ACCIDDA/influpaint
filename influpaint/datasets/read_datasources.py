@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
-from helpers.delphi_epidata import Epidata
+# from helpers.delphi_epidata import Epidata
+from delphi_epidata import Epidata
 from ..utils.season_axis import SeasonAxis
 import xarray as xr
 

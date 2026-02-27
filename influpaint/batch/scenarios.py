@@ -8,6 +8,7 @@ from typing import List
 import itertools
 from .config import AVAILABLE_DDPMS,AVAILABLE_UNETS, AVAILABLE_DATASETS, AVAILABLE_TRANSFORMS, AVAILABLE_ENRICHMENTS, AVAILABLE_COPAINT_CONFIGS
 from .config import CONFIG_BASELINE
+from ..datasets import loaders as training_datasets
 
 
 @dataclass(frozen=True)
@@ -164,8 +165,10 @@ def get_inpainting_scenario(scenario_id: int) -> InpaintingScenario:
     return scenarios[scenario_id]
 
 
-# Simple helper for research use
-def create_scenario_objects(scenario_spec: TrainingScenario, season_setup, image_size=64, channels=1, batch_size=512, epochs=800, device="cuda"):
+# --- PATCH ---
+# REMOVED season_axis as a required param (don't need it b/c i will overwrite `dataset` manually)
+# PATCH cascades into `config.py::get_dataset()` and `config.py::dataset_library()`
+def create_scenario_objects(scenario_spec: TrainingScenario, season_setup=None, image_size=64, channels=1, batch_size=512, epochs=800, device="cuda"):
     """Create actual objects from scenario spec - one function does everything"""
     from .config import ddpm_library, unet_library, get_dataset, transform_library
     import numpy as np
@@ -176,7 +179,8 @@ def create_scenario_objects(scenario_spec: TrainingScenario, season_setup, image
     ddpm_spec = ddpm_library(image_size, channels, epochs, device, batch_size, unet=unet)
     ddpm = ddpm_spec[scenario_spec.ddpm_name]
     
-    dataset = get_dataset(scenario_spec.dataset_name, season_setup, channels)
+    # PATCH to avoid original dataset init
+    dataset = training_datasets.FluDataset.from_xarray("/Users/emprzy/Documents/work/miscellaneous/influpaint_data/TS_30S70M_2025-07-17.nc",channels=channels,)
     
     # Create transforms
     # scaling_per_channel = np.array(max(dataset.max_per_feature, gt1.gt_xarr.max(dim=["date", "place"])))
@@ -191,7 +195,7 @@ def create_scenario_objects(scenario_spec: TrainingScenario, season_setup, image
     enrich = transform_enrich[scenario_spec.enrich_name]
     
     # Configure dataset
-    dataset.add_transform(
+    dataset.add_transform( # had to PATCH transforms.py to make this work
         transform=transform["reg"], 
         transform_inv=transform["inv"], 
         transform_enrich=enrich, 
@@ -199,6 +203,7 @@ def create_scenario_objects(scenario_spec: TrainingScenario, season_setup, image
     )
     
     return ddpm, dataset, transform, enrich, scaling_per_channel, data_mean, data_std
+# --- END PATCH ---
 
 
 def print_available_scenarios():

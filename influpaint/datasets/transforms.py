@@ -12,13 +12,17 @@ def transform_randomscale(image, max, min):
     return image * scale
 
 
-def transform_channelwisescale(
-    image, scale
-):  # TODO write for three channel like it was above
+# PATCHED to deal with 3d frames
+def transform_channelwisescale(image, scale):
+    if isinstance(scale, np.ndarray) and scale.ndim == 1:
+        scale = scale.reshape(-1, 1, 1)
     return image * scale
 
 
+# PATCHED to deal with 3d frames
 def transform_channelwisescale_inv(image, scale):
+    if isinstance(scale, np.ndarray) and scale.ndim == 1:
+        scale = scale.reshape(-1, 1, 1)
     return image / scale
 
 

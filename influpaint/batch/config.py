@@ -40,46 +40,62 @@ CONFIG_BASELINE = {
 }
 
 def unet_library(image_size, channels):
-    unet_spec = { "Rx124":
+    # unet_library() logic has been patched
+    base_width = image_size 
+    
+    unet_spec = { 
+        "Rx124":
             nn_blocks.Unet(
-                dim=image_size,
+                dim=base_width,        
+                init_dim=base_width,
                 channels=channels,
                 dim_mults=(1, 2, 4,),
+                resnet_block_groups=1, 
                 use_convnext=False
             ),
         "Cx124":
             nn_blocks.Unet(
-                dim=image_size,
+                dim=base_width,       
+                init_dim=base_width,
                 channels=channels,
                 dim_mults=(1, 2, 4,),
+                resnet_block_groups=1,  
                 use_convnext=True
             ),
         "Rx1224":
             nn_blocks.Unet(
-                dim=image_size,
+                dim=base_width,        
+                init_dim=base_width,
                 channels=channels,
                 dim_mults=(1, 2, 2, 4,),
+                resnet_block_groups=1, 
                 use_convnext=False
             ),
         "Cx1224":
             nn_blocks.Unet(
-                dim=image_size,
+                dim=base_width,        
+                init_dim=base_width,
                 channels=channels,
                 dim_mults=(1, 2, 2, 4,),
+                resnet_block_groups=1,  
                 use_convnext=True
             ),
         "Rx12448":
             nn_blocks.Unet(
-                dim=image_size,
+                dim=base_width,        
+                init_dim=base_width,
                 channels=channels,
                 dim_mults=(1, 2, 4, 4, 8,),
+                resnet_block_groups=1,  
                 use_convnext=False
             ),
         "Cx12448":
             nn_blocks.Unet(
-                dim=image_size,
+                dim=base_width,       
+                init_dim=base_width,
                 channels=channels,
                 dim_mults=(1, 2, 4, 4, 8,),
+                resnet_block_groups=1,  
                 use_convnext=True
             ),
     }
