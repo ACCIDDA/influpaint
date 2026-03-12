@@ -62,9 +62,9 @@ def add_mask_heatmap_inset(ax, gt_data, mask, location_idx, P):
         location_idx: Index of the location to highlight
         P: Number of locations
     """
-    # Create square inset axis in upper left (10% bigger: 35.75%)
-    axins = inset_axes(ax, width="35.75%", height="35.75%", loc='upper left',
-                      bbox_to_anchor=(0.02, 0.02, 1, 1), bbox_transform=ax.transAxes)
+    # Create square inset axis in upper right (kept 10% larger).
+    axins = inset_axes(ax, width="39.33%", height="39.33%", loc='upper right',
+                      bbox_to_anchor=(-0.01, 0.02, 1, 1), bbox_transform=ax.transAxes)
 
     # Crop to 52 weeks and P locations
     gt_crop = gt_data[:52, :P]

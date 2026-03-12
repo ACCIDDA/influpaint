@@ -17,6 +17,7 @@ paper_figures/
 ├── csv_forecasts.py              # CSV forecast quantile fans
 ├── npy_forecasts.py              # NPY full-horizon forecasts
 ├── mask_experiments.py           # Mask experiment visualizations
+├── figure3_ratio_analysis.py     # One-call Figure 3 scoring + comparison pipeline
 ├── main.py                       # Main orchestration script
 └── final_figures.py              # Final paneled figures for paper
 ```
@@ -85,6 +86,7 @@ Generates final paneled figures for paper publication by composing existing plot
 - `figure1_unconditional_with_correlation()` - Unconditional generation with correlation analysis
 - `figure2_csv_forecasts_two_seasons()` - CSV forecasts for two seasons in 4x2 layout
 - `figure3_npy_forecasts_two_seasons()` - NPY forecasts with A/B panel labels
+- `figure3_ratio_flusight_over_influpaint()` - Figure 3 companion ratio analysis (`WIS_FluSight / WIS_Influpaint`) for 1-4 week-ahead
 - `figure4_mask_experiments()` - Multi-panel mask experiments figure
 - `add_panel_label()` - Utility to add A, B, C labels to panels
 
@@ -107,7 +109,14 @@ This generates the final multi-panel figures for the paper:
 - **Figure 1**: Unconditional generation (excluding NC) + correlation analysis
 - **Figure 2**: CSV forecasts for 2023-2024 and 2024-2025 seasons (4 states × 2 seasons)
 - **Figure 3**: NPY forecasts for two seasons with A/B labels (excluding NC)
-- **Figure 4**: Mask experiments with multiple panels (CA/KY/MD + NC/IL)
+- **Figure 3 (Companion)**: WIS ratio plot and summary tables for FluSight vs Influpaint
+- **Figure 4**: Mask experiments with multiple panels (CA/FL/MD + NC/IL)
+
+One-call Figure 3 comparison pipeline (build both inputs, score both with `score_with_scoringutils.R`, then plot):
+
+```bash
+python -m paper_figures.figure3_ratio_analysis
+```
 
 ### Generate Specific Figure Types
 
@@ -181,4 +190,9 @@ from paper_figures.main import main
 main()
 ```
 
-All figures are generated in the same `figures/` directory as before, with identical filenames.
+Core exploratory outputs from `paper_figures.main` are generated under `figures/` as before.
+
+For final publication figures, outputs are written to `influpaint-paper/figures/generated/`.
+
+For the Figure 3 ratio companion analysis, scoring horizons `0..3` in `results_good/scoringutils_scores.csv`
+map to CDC 1-4 week-ahead targets.
