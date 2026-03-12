@@ -75,7 +75,7 @@ sns.set_style("whitegrid")
 # %%
 # === USER CONFIGURATION ===
 scenario_id = 868  # Choose your training scenario
-forecast_date = "2026-01-24"  # YYYY-MM-DD format
+forecast_date = "2026-03-07"  # YYYY-MM-DD format
 config_name = "celebahq_noTTJ5"  # CoPaint config name
 batch_size = 512
 image_size = 64
