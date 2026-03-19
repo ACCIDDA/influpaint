@@ -305,6 +305,20 @@ ax = create_elegant_forest_plot(forest_df)
 ax.set_xlim(forest_df['upper'].min()-2, forest_df['upper'].max() + 2)
 plt.show()
 
+dataset_table = param_effects[param_effects["parameter"] == "dataset_name"][["value", "wis", "wis_improvement_pct"]].copy()
+dataset_table = pd.concat([
+    pd.DataFrame([{"value": CONFIG_BASELINE["dataset_name"], "wis": baseline_wis, "wis_improvement_pct": 0.0}]),
+    dataset_table,
+], ignore_index=True)
+dataset_table["n_samples"] = dataset_table["value"].map({"100S": 20, "100M": 1240, "30S70M": 1260, "70S30M": 1260})
+dataset_table = dataset_table.set_index("value").loc[["30S70M", "70S30M", "100S", "100M"]].reset_index()
+dataset_table["wis"] = dataset_table["wis"].round().astype(int)
+
+print("\nDataset table:")
+print(dataset_table.to_string(index=False))
+print("\nDataset table latex:")
+print(dataset_table.to_latex(index=False))
+
 # Print summary table
 print("\nParameter Effects Summary:")
 print("=" * 80)
