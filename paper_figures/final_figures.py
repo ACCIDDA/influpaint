@@ -251,6 +251,17 @@ def figure2_csv_forecasts_two_seasons(season_axis):
             continue
 
     df_all = pd.concat(df_list, ignore_index=True)
+    season_reference_dates = {}
+    for season in seasons:
+        left_bound = SEASON_XLIMS.get(season, (pd.to_datetime('2023-10-07'), None))[0]
+        import datetime as dt
+        default_right = dt.datetime(int(season.split('-')[1]), 5, 31)
+        right_bound = SEASON_XLIMS.get(season, (None, default_right))[1] or default_right
+        refs = sorted(
+            r for r in df_all["ref"].unique()
+            if left_bound <= pd.to_datetime(r) <= right_bound
+        )
+        season_reference_dates[season] = refs[::2]
 
     for row_idx, season in enumerate(seasons):
         left_bound = SEASON_XLIMS.get(season, (pd.to_datetime('2023-10-07'), None))[0]
@@ -272,8 +283,7 @@ def figure2_csv_forecasts_two_seasons(season_axis):
             df = df_all[(df_all["location"].astype(str) == loc_code) &
                        (df_all["target"] == "wk inc flu hosp") &
                        (df_all["output_type"] == "quantile")]
-            refs = sorted(df["ref"].unique())
-            refs = refs[::2]  # pick_every=2
+            refs = season_reference_dates[season]
             palette = sns.color_palette("Set2", n_colors=len(refs))
 
             for j, r in enumerate(refs):
@@ -304,7 +314,7 @@ def figure2_csv_forecasts_two_seasons(season_axis):
                         ax.axvline(rdt, color=palette[j], ls='--', lw=1)
                         # Add date label near the top
                         ymax = ax.get_ylim()[1]
-                        ax.text(rdt, ymax*0.95, rdt.strftime('%b %Y'), color=palette[j], rotation=90,
+                        ax.text(rdt, ymax*0.95, rdt.strftime('%Y-%m-%d'), color=palette[j], rotation=90,
                                 ha='right', va='top', fontsize=8,
                                 bbox=dict(facecolor='white', alpha=0.6, edgecolor='none'))
 
@@ -347,6 +357,171 @@ def figure2_csv_forecasts_two_seasons(season_axis):
     plt.close(fig)
 
     print(f"Figure 2 saved to {save_path}")
+    return save_path
+
+
+def figure_relaizedforecast(season_axis):
+    """Plot submitted FluSight InfluPaint quantile fans in the Figure 2 layout."""
+    print("Generating Relaizedforecast from submitted FluSight InfluPaint forecasts...")
+
+    states = ['NC', 'NY', 'TX', 'FL']
+    fig, axes = plt.subplots(2, 4, figsize=(20, 10), dpi=200, sharex=False, sharey=False)
+
+    from .csv_forecasts import (
+        INFLUPAINT_FLUSIGHT_MODEL,
+        load_truth_for_season,
+        load_flusight_ensemble_forecast,
+        load_flusight_model_forecasts_for_season,
+        list_influpaint_csvs,
+        flusight_quantile_pairs,
+    )
+    from .helpers import state_to_code
+    from .config import SEASON_XLIMS
+    import seaborn as sns
+    import pandas as pd
+    import matplotlib.dates as mdates
+
+    seasons = ['2023-2024', '2024-2025']
+    submissions = {
+        season: load_flusight_model_forecasts_for_season(season, INFLUPAINT_FLUSIGHT_MODEL)
+        for season in seasons
+    }
+    csvs = list_influpaint_csvs(INPAINTING_BASE, BEST_MODEL_ID, BEST_CONFIG)
+    reference_df_list = []
+    for p in csvs:
+        dfi = pd.read_csv(p, dtype={"location": str})
+        if "reference_date" in dfi.columns:
+            dfi["ref"] = pd.to_datetime(dfi["reference_date"]).dt.date
+        elif "forecast_date" in dfi.columns:
+            dfi["ref"] = pd.to_datetime(dfi["forecast_date"]).dt.date
+        else:
+            continue
+        reference_df_list.append(dfi[["ref"]].copy())
+    reference_dates_df = pd.concat(reference_df_list, ignore_index=True)
+    season_reference_dates = {}
+    for season in seasons:
+        left_bound = SEASON_XLIMS[season][0]
+        default_right = pd.Timestamp(int(season.split('-')[1]), 5, 31)
+        right_bound = SEASON_XLIMS[season][1] or default_right
+        refs = sorted(
+            r for r in reference_dates_df["ref"].unique()
+            if left_bound <= pd.to_datetime(r) <= right_bound
+        )
+        season_reference_dates[season] = refs[::2]
+
+    for row_idx, season in enumerate(seasons):
+        left_bound = SEASON_XLIMS[season][0]
+        default_right = pd.Timestamp(int(season.split('-')[1]), 5, 31)
+        right_bound = SEASON_XLIMS[season][1] or default_right
+        df_season = submissions[season]
+
+        for col_idx, st in enumerate(states):
+            ax = axes[row_idx, col_idx]
+            loc_code = state_to_code(st, season_axis)
+
+            gt = load_truth_for_season(season)
+            gt = gt[gt["location"].astype(str) == loc_code].sort_values('date')
+            gt = gt[(gt['date'] >= left_bound) & (gt['date'] <= right_bound)]
+            ax.plot(gt['date'], gt['value'], color='black', lw=2)
+
+            df = df_season[
+                (df_season["location"].astype(str) == loc_code) &
+                (df_season["target"] == "wk inc flu hosp") &
+                (df_season["output_type"] == "quantile")
+            ]
+            refs = season_reference_dates[season]
+            palette = sns.color_palette("Set2", n_colors=len(refs))
+
+            for j, r in enumerate(refs):
+                sub = df[df["ref"] == r]
+                if sub.empty:
+                    continue
+
+                for lo, hi in flusight_quantile_pairs:
+                    low = sub[np.isclose(sub["q"], lo)].sort_values("target_end_date")
+                    up = sub[np.isclose(sub["q"], hi)].sort_values("target_end_date")
+                    if len(low) and len(up):
+                        x = pd.to_datetime(low["target_end_date"]).values
+                        mask = (x >= np.datetime64(left_bound)) & (x <= np.datetime64(right_bound))
+                        if np.any(mask):
+                            ax.fill_between(
+                                x[mask],
+                                low["value"].values[mask],
+                                up["value"].values[mask],
+                                color=palette[j],
+                                alpha=0.08,
+                                lw=0,
+                            )
+
+                med = sub[np.isclose(sub["q"], 0.5)].sort_values("target_end_date")
+                if len(med):
+                    x = pd.to_datetime(med["target_end_date"]).values
+                    mask = (x >= np.datetime64(left_bound)) & (x <= np.datetime64(right_bound))
+                    if np.any(mask):
+                        ax.plot(x[mask], med["value"].values[mask], color=palette[j], lw=2)
+                    rdt = pd.to_datetime(r)
+                    if left_bound <= rdt <= right_bound:
+                        ax.axvline(rdt, color=palette[j], ls='--', lw=1)
+                        ymax = ax.get_ylim()[1]
+                        ax.text(
+                            rdt,
+                            ymax * 0.95,
+                            rdt.strftime('%Y-%m-%d'),
+                            color=palette[j],
+                            rotation=90,
+                            ha='right',
+                            va='top',
+                            fontsize=8,
+                            bbox=dict(facecolor='white', alpha=0.6, edgecolor='none'),
+                        )
+
+                ensemble = load_flusight_ensemble_forecast(season, loc_code, r)
+                if not ensemble.empty:
+                    x = ensemble["target_end_date"].values
+                    mask = (x >= np.datetime64(left_bound)) & (x <= np.datetime64(right_bound))
+                    if np.any(mask):
+                        ax.plot(
+                            x[mask],
+                            ensemble["value"].values[mask],
+                            color='#333333',
+                            lw=2,
+                            ls=':',
+                            label='FluSight-ensemble' if j == 0 and row_idx == 0 else '',
+                        )
+
+            full_name = season_axis.get_location_name(loc_code)
+            ax.text(
+                0.02,
+                0.98,
+                full_name,
+                transform=ax.transAxes,
+                va='top',
+                ha='left',
+                fontsize=11,
+                fontweight='bold',
+                bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'),
+            )
+            ax.set_ylim(bottom=0)
+            if col_idx == 0:
+                ax.set_ylabel('Incident flu hospitalizations')
+            ax.grid(True, alpha=0.3)
+            sns.despine(ax=ax, trim=True)
+            ax.set_xlim(left_bound, right_bound)
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%b %y'))
+            ax.xaxis.set_major_locator(mdates.MonthLocator(interval=2))
+            for label in ax.get_xticklabels():
+                label.set_rotation(0)
+                label.set_horizontalalignment('center')
+
+    add_panel_label(axes[0, 0], 'A', x=-0.15, y=1.05)
+    add_panel_label(axes[1, 0], 'B', x=-0.15, y=1.05)
+
+    save_path = os.path.join(FIG_DIR, f"{_MODEL_NUM}_Relaizedforecast.png")
+    plt.subplots_adjust(hspace=0.3, wspace=0.25)
+    fig.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+
+    print(f"Relaizedforecast saved to {save_path}")
     return save_path
 
 
@@ -796,8 +971,8 @@ def figure4_mask_experiments(season_axis, season_first_year='2024', output_suffi
     """Figure 4: Mask experiments.
 
     Top row: CA/FL/MD from missing_half_subpop + NC from missing_nc
-    Bottom row: CA from checkerboard_4x4, FL from missing_past,
-    MD from midseason_biggap, IL from missing_il.
+    Bottom row: IL from missing_il, FL from missing_past,
+    MD from midseason_biggap, CA from checkerboard_4x4.
 
     Args:
         season_axis: SeasonAxis object
@@ -982,41 +1157,41 @@ def figure4_mask_experiments(season_axis, season_first_year='2024', output_suffi
         'IL': '#66a61e',
     }
 
-    # Top row: CA/FL/MD from half-subpop mask, then NC from NC-missing mask
-    arr_half, mk_half = load_mask(f'missing_half_subpop_season{season_first_year}')
-    arr_nc, mk_nc = load_mask(f'missing_nc_season{season_first_year}')
-    top_specs = [
-        ('CA', arr_half, mk_half, state_colors['CA']),
-        ('FL', arr_half, mk_half, state_colors['FL']),
-        ('MD', arr_half, mk_half, state_colors['MD']),
-        ('NC', arr_nc, mk_nc, state_colors['NC']),
+    # Explicit panel mapping in exact narrative order:
+    # A.1-A.3 half-map, B leave-one-state-out (NC), C leave-one-state-out (IL),
+    # D midseason gap, E past-only, F checkerboard.
+    panel_defs = [
+        {'label': 'A.1', 'row': 0, 'col': 0, 'state': 'CA',
+         'mask_name': f'missing_half_subpop_season{season_first_year}', 'color': state_colors['CA']},
+        {'label': 'A.2', 'row': 0, 'col': 1, 'state': 'FL',
+         'mask_name': f'missing_half_subpop_season{season_first_year}', 'color': state_colors['FL']},
+        {'label': 'A.3', 'row': 0, 'col': 2, 'state': 'MD',
+         'mask_name': f'missing_half_subpop_season{season_first_year}', 'color': state_colors['MD']},
+        {'label': 'B', 'row': 0, 'col': 3, 'state': 'NC',
+         'mask_name': f'missing_nc_season{season_first_year}', 'color': state_colors['NC']},
+        {'label': 'C', 'row': 1, 'col': 0, 'state': 'IL',
+         'mask_name': f'missing_il_season{season_first_year}', 'color': state_colors['IL']},
+        {'label': 'D', 'row': 1, 'col': 1, 'state': 'MD',
+         'mask_name': f'missing_midseason_biggap_season{season_first_year}', 'color': state_colors['MD']},
+        {'label': 'E', 'row': 1, 'col': 2, 'state': 'FL',
+         'mask_name': f'missing_past_season{season_first_year}', 'color': state_colors['FL']},
+        {'label': 'F', 'row': 1, 'col': 3, 'state': 'CA',
+         'mask_name': f'missing_checkerboard_4x4_season{season_first_year}', 'color': state_colors['CA']},
     ]
 
-    for col, (st, arr, mk, color) in enumerate(top_specs):
-        ax = axes[0, col]
-        code = state_to_code(st, gt.season_setup)
+    loaded_masks = {}
+    for panel in panel_defs:
+        if panel['mask_name'] not in loaded_masks:
+            loaded_masks[panel['mask_name']] = load_mask(panel['mask_name'])
+        arr, mk = loaded_masks[panel['mask_name']]
+        ax = axes[panel['row'], panel['col']]
+        code = state_to_code(panel['state'], gt.season_setup)
         idx = gt.season_setup.locations.index(code)
         state_name = gt.season_setup.get_location_name(code)
-        plot_mask_state(ax, arr, mk, gt, dates, idx, state_name, color, show_ylabel=(col == 0))
-
-    # Bottom row: CA checkerboard, FL past-missing, MD biggap, IL missing
-    arr_checker, mk_checker = load_mask(f'missing_checkerboard_4x4_season{season_first_year}')
-    arr_past, mk_past = load_mask(f'missing_past_season{season_first_year}')
-    arr_biggap, mk_biggap = load_mask(f'missing_midseason_biggap_season{season_first_year}')
-    arr_il, mk_il = load_mask(f'missing_il_season{season_first_year}')
-    bottom_specs = [
-        ('CA', arr_checker, mk_checker, state_colors['CA']),
-        ('FL', arr_past, mk_past, state_colors['FL']),
-        ('MD', arr_biggap, mk_biggap, state_colors['MD']),
-        ('IL', arr_il, mk_il, state_colors['IL']),
-    ]
-
-    for col, (st, arr, mk, color) in enumerate(bottom_specs):
-        ax = axes[1, col]
-        code = state_to_code(st, gt.season_setup)
-        idx = gt.season_setup.locations.index(code)
-        state_name = gt.season_setup.get_location_name(code)
-        plot_mask_state(ax, arr, mk, gt, dates, idx, state_name, color)
+        plot_mask_state(
+            ax, arr, mk, gt, dates, idx, state_name, panel['color'],
+            show_ylabel=(panel['row'] == 0 and panel['col'] == 0),
+        )
 
     x_axis_year = int(season_first_year)
     for col in range(4):
@@ -1025,29 +1200,17 @@ def figure4_mask_experiments(season_axis, season_first_year='2024', output_suffi
     # Panel labels in reading order:
     # top row: A.1, A.2, A.3, B
     # bottom row: C, D, E, F
-    panel_labels = ['A.1', 'A.2', 'A.3', 'B', 'C', 'D', 'E', 'F']
-    panel_axes = [axes[0, 0], axes[0, 1], axes[0, 2], axes[0, 3],
-                  axes[1, 0], axes[1, 1], axes[1, 2], axes[1, 3]]
-    for lbl, ax in zip(panel_labels, panel_axes):
-        add_panel_label(ax, lbl, x=-0.15, y=1.05)
+    for panel in panel_defs:
+        add_panel_label(axes[panel['row'], panel['col']], panel['label'], x=-0.15, y=1.05)
 
     # Quantitative results printed under Figure 4 generation.
-    panel_specs = [
-        ('A.1', top_specs[0]),
-        ('A.2', top_specs[1]),
-        ('A.3', top_specs[2]),
-        ('B', top_specs[3]),
-        ('C', bottom_specs[0]),
-        ('D', bottom_specs[1]),
-        ('E', bottom_specs[2]),
-        ('F', bottom_specs[3]),
-    ]
     panel_metrics = {}
-    for lbl, (st, arr, mk, _) in panel_specs:
-        code = state_to_code(st, gt.season_setup)
+    for panel in panel_defs:
+        arr, mk = loaded_masks[panel['mask_name']]
+        code = state_to_code(panel['state'], gt.season_setup)
         idx = gt.season_setup.locations.index(code)
         gt_series = gt.gt_xarr.data[0, :, idx]
-        panel_metrics[lbl] = compute_panel_metrics(arr, mk, gt_series, idx)
+        panel_metrics[panel['label']] = compute_panel_metrics(arr, mk, gt_series, idx)
 
     print("\nFigure 4 results:")
     for lbl in ['A.1', 'A.2', 'A.3']:
@@ -1066,10 +1229,10 @@ def figure4_mask_experiments(season_axis, season_first_year='2024', output_suffi
             f"[95% CI {m['size_pct_ci'][0]:.2f}, {m['size_pct_ci'][1]:.2f}], "
             f"50% coverage={m['cov50']:.3f}"
         )
-    for lbl in ['B', 'F']:
+    for lbl in ['B', 'C']:
         m = panel_metrics[lbl]
         print(f"  {lbl}: 50% coverage={m['cov50']:.3f}")
-    for lbl in ['C', 'E']:
+    for lbl in ['D', 'E']:
         m = panel_metrics[lbl]
         print(
             f"  {lbl}: peak timing idx actual={m['actual_peak_week_idx']}, "
@@ -1124,6 +1287,7 @@ def main():
     # Generate figures
     figure1_unconditional_with_correlation(season_axis, uncond_samples_filtered)
     figure2_csv_forecasts_two_seasons(season_axis)
+    figure_relaizedforecast(season_axis)
     figure3_npy_forecasts_two_seasons(season_axis)
     figure3_ratio_flusight_over_influpaint(season_axis)
     figure4_mask_experiments(season_axis, season_first_year='2023')
