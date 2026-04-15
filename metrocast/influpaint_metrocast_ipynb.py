@@ -38,6 +38,9 @@
 # ## Setup: Imports and Configuration
 
 # %%
+import os
+os.chdir('..')
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 from tqdm.auto import tqdm
@@ -78,7 +81,7 @@ sns.set_style("whitegrid")
 # %%
 # === USER CONFIGURATION ===
 scenario_id = 868  # Choose your training scenario
-forecast_date = "2026-02-28"  # YYYY-MM-DD format
+forecast_date = "2026-04-11"  # YYYY-MM-DD format
 config_name = "celebahq_noTTJ5"  # CoPaint config name
 batch_size = 256
 image_size = 128
@@ -631,51 +634,41 @@ print(f"Forecast weeks: {gt1.inpaintfrom_idx}-{image_size}")
 # **IMPORTANT**: Before exporting, we recreate the ground truth object to pull the latest surveillance data.
 
 # %%
-# Determine next Saturday for submission
-today = datetime.datetime.today()
-days_until_saturday = (5 - today.weekday()) % 7
-next_saturday = today + datetime.timedelta(days=days_until_saturday)
-submission_date = next_saturday.date()
-
-print(f"Next Saturday (submission date): {submission_date}")
-
-# %% [markdown]
-# ### Update Ground Truth with Latest Data
-
-# %%
-print("Updating ground truth with latest surveillance data...")
-print(f"Original gt1 created with mask_date: {forecast_date}")
-
-# Recreate ground truth with current date to get latest data
-from importlib import reload
-ground_truth = reload(ground_truth)
-
-# Determine season for submission
-submission_dt = pd.to_datetime(submission_date)
-season_first_year_submission = str(season_setup.get_fluseason_year(submission_dt))
-
-gt1 = ground_truth.GroundTruth.from_metrocast(
-    season_first_year=season_first_year_submission,
-    data_date=datetime.datetime.today(),
-    mask_date=datetime.datetime.today(),  # Use today to get all available data
-    channels=channels,
-    image_size=image_size,
-    nogit=True
-)
-
-print(f"✓ Ground truth updated for season {season_first_year_submission}-{int(season_first_year_submission)+1}")
-print(f"  Data available through week: {gt1.inpaintfrom_idx - 1}")
-print(f"  This will be included in the forecast CSV files")
+# Keep export strictly aligned with the GT/mask used for inpainting.
+# Using a different reference date or a regenerated GT here causes apparent mismatches.
+submission_date = forecast_dt.date()
+print(f"Submission date (aligned with forecast_date): {submission_date}")
 
 # %%
 fluforecasts_ti.shape
+
+# %%
+# Compatibility remap for MetroCast export:
+# GT conditioning currently reaches the model in alphabetically sorted location order.
+# Reorder forecasts back to the canonical MetroCast location order expected by hub export.
+n_locations = len(gt1.season_setup.locations)
+canonical_locations = list(gt1.season_setup.locations)
+alphabetical_locations = sorted(canonical_locations)
+alpha_index_for_canonical = np.array(
+    [alphabetical_locations.index(loc) for loc in canonical_locations],
+    dtype=int,
+)
+
+fluforecasts_ti_export = fluforecasts_ti.copy()
+fluforecasts_ti_export[:, :, :, :n_locations] = fluforecasts_ti[
+    :, :, :, alpha_index_for_canonical
+]
+print(
+    f"Applied MetroCast export remap for {n_locations} locations. "
+    f"Example: canonical[0]={canonical_locations[0]} <= alpha[{alpha_index_for_canonical[0]}]={alphabetical_locations[alpha_index_for_canonical[0]]}"
+)
 
 # %%
 fig, axes = plt.subplots(5, 2, figsize=(8.8, 10.5))
 axes = axes.flatten()
 for idx, loc_id in enumerate([0, 5, 10, 20, 35, 60, 70, 78, 100, 120]):
     axes[idx].plot(gt1.gt_xarr.data[0,:53,loc_id], lw=4, label="Ground Truth", color='r', alpha=.9, ls='', marker='o');
-    axes[idx].plot(fluforecasts_ti[:10,0,:53,loc_id].T, lw=0.6, label=f"Loc {loc_id}", color='k', alpha=0.7);
+    axes[idx].plot(fluforecasts_ti_export[:10,0,:53,loc_id].T, lw=0.6, label=f"Loc {loc_id}", color='k', alpha=0.7);
 
 # %%
 # Create output directory
@@ -685,7 +678,7 @@ output_dir.mkdir(parents=True, exist_ok=True)
 # Export using ground truth helper
 team_abbrv = "ACCIDDA-InfluPaint"
 gt1.export_forecasts_2023(
-    fluforecasts_ti=fluforecasts_ti,
+    fluforecasts_ti=fluforecasts_ti_export,
     directory=str(output_dir),
     prefix=f"{team_abbrv}",
     forecast_date=submission_date,
@@ -698,9 +691,9 @@ print(f"✓ Forecasts exported to: {output_dir}")
 print(f"  - CSV files: {len(list(output_dir.glob('*.csv')))} files")
 
 # Optional: Plot forecasts using the same path as the CLI script
-forecasts_national = fluforecasts_ti.sum(axis=-1)
+forecasts_national = fluforecasts_ti_export.sum(axis=-1)
 gt1.plot_forecasts(
-    fluforecasts_ti=fluforecasts_ti,
+    fluforecasts_ti=fluforecasts_ti_export,
     forecasts_national=forecasts_national,
     directory=str(output_dir),
     prefix=f"{team_abbrv}_metrocast",
@@ -720,6 +713,7 @@ save_raw_arrays = True  # Set to True to save
 if save_raw_arrays:
     np.save(output_dir / f"{submission_date}_fluforecasts_raw.npy", fluforecasts)
     np.save(output_dir / f"{submission_date}_fluforecasts_transformed_inv.npy", fluforecasts_ti)
+    np.save(output_dir / f"{submission_date}_fluforecasts_transformed_inv_export.npy", fluforecasts_ti_export)
     np.save(output_dir / f"{submission_date}_forecasts_national.npy", forecasts_national)
     print(f"✓ Saved raw arrays to {output_dir}")
 
