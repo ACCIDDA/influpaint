@@ -17,6 +17,7 @@ FLUSIGHT_BASES = {
     "2023-2024": "Flusight/2023-2024/FluSight-forecast-hub-official",
     "2024-2025": "Flusight/2024-2025/FluSight-forecast-hub-official",
 }
+INFLUPAINT_FLUSIGHT_MODEL = "UNC_IDD-InfluPaint"
 
 
 def load_truth_for_season(season: str) -> pd.DataFrame:
@@ -76,6 +77,74 @@ def load_flusight_ensemble_forecast(season: str, location: str, reference_date) 
     ].copy()
 
     return df_median.sort_values("target_end_date")
+
+
+def load_flusight_model_forecast(season: str, model: str, location: str, reference_date) -> pd.DataFrame:
+    """Load a FluSight model forecast for a specific reference date and location."""
+    if season not in FLUSIGHT_BASES:
+        raise ValueError(f"Season {season} not found in FLUSIGHT_BASES")
+
+    model_dir = os.path.join(FLUSIGHT_BASES[season], "model-output", model)
+    if not os.path.exists(model_dir):
+        raise FileNotFoundError(f"FluSight model directory not found: {model_dir}")
+
+    if hasattr(reference_date, 'date'):
+        ref_date_str = str(reference_date.date())
+    else:
+        ref_date_str = str(reference_date)
+
+    csv_path = os.path.join(model_dir, f"{ref_date_str}-{model}.csv")
+    if not os.path.exists(csv_path):
+        return pd.DataFrame()
+
+    df = pd.read_csv(csv_path, dtype={"location": str})
+    df["target_end_date"] = pd.to_datetime(df["target_end_date"])
+    df["output_type_id"] = pd.to_numeric(df["output_type_id"], errors="coerce")
+    df["horizon"] = pd.to_numeric(df["horizon"], errors="coerce")
+
+    df_model = df[
+        (df["location"] == location) &
+        (df["target"] == "wk inc flu hosp") &
+        (df["output_type"] == "quantile") &
+        (df["horizon"] >= 0)
+    ].copy()
+
+    return df_model.sort_values(["output_type_id", "target_end_date"])
+
+
+def load_flusight_model_forecasts_for_season(season: str, model: str) -> pd.DataFrame:
+    """Load all submitted FluSight forecasts for one model within one season window."""
+    if season not in FLUSIGHT_BASES:
+        raise ValueError(f"Season {season} not found in FLUSIGHT_BASES")
+
+    model_dir = os.path.join(FLUSIGHT_BASES[season], "model-output", model)
+    if not os.path.exists(model_dir):
+        raise FileNotFoundError(f"FluSight model directory not found: {model_dir}")
+
+    left_bound, right_bound = SEASON_XLIMS[season]
+    suffix = f"-{model}.csv"
+    files = sorted(f for f in os.listdir(model_dir) if f.endswith(suffix))
+    if not files:
+        raise FileNotFoundError(f"No FluSight submissions found for {model} in {model_dir}")
+
+    df_list = []
+    for fname in files:
+        ref = pd.to_datetime(fname[:-len(suffix)])
+        if not (left_bound <= ref <= right_bound):
+            continue
+
+        csv_path = os.path.join(model_dir, fname)
+        dfi = pd.read_csv(csv_path, dtype={"location": str})
+        dfi["ref"] = ref.date()
+        dfi["target_end_date"] = pd.to_datetime(dfi["target_end_date"]).dt.date
+        dfi["q"] = pd.to_numeric(dfi["output_type_id"], errors="coerce")
+        dfi["target"] = dfi["target"]
+        df_list.append(dfi)
+
+    if not df_list:
+        raise ValueError(f"No {model} submissions fall inside the {season} season window")
+
+    return pd.concat(df_list, ignore_index=True)
 
 
 def plot_csv_quantile_fans_for_season(season: str, base_dir: str, model_id: str, config: str,
