@@ -24,6 +24,7 @@ synthetic_dataset/*
 influpaint-paper/*
 # 
 interval_scoring/
+RSV/data/
 
 # MkDocs
 site/

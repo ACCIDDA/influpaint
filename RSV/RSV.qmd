@@ -106,7 +106,7 @@ nssp |>
   skimr::skim() |>
   as_tibble() |>
   select(skim_variable, complete_rate)
-write_parquet(nssp, "RSV_files/NSSP.parquet")
+write_parquet(nssp, "RSV/data/NSSP.parquet")
 ```
 
 ## RSV-Net
@@ -140,14 +140,13 @@ rsvnet |>
   geom_tile(aes(fill = value)) +
   scale_fill_viridis_c() +
   scale_x_continuous(breaks = seq(1, 53, by = 4)) +
-
   theme_classic()
 
 rsvnet |>
   skimr::skim() |>
   as_tibble() |>
   select(skim_variable, complete_rate)
-write_parquet(rsvnet, "RSV_files/RSV_NET.parquet")
+write_parquet(rsvnet, "RSV/data/RSV_NET.parquet")
 ```
 
 Missing values & exlcude 2020?
@@ -197,7 +196,7 @@ nhsn |>
   as_tibble() |>
   select(skim_variable, complete_rate)
 
-write_parquet(nhsn, "RSV_files/NHSN.parquet")
+write_parquet(nhsn, "RSV/data/NHSN.parquet")
 ```
 
 ## Modelling Hub
@@ -289,7 +288,7 @@ plot_data |>
   scale_x_continuous(breaks = seq(1, 53, by = 4)) +
   theme_classic()
 
-write_parquet(rsv_smh, "RSV_files/RSV_SMH.parquet")
+write_parquet(rsv_smh, "RSV/data/RSV_SMH.parquet")
 ```
 
 
@@ -300,8 +299,8 @@ We converted NSSP data, which records the percentage of emergency department vis
 library(lme4)
 
 # Predict counts and merge
-nssp <- read_parquet("RSV_files/NSSP.parquet")
-nhsn <- read_parquet("RSV_files/NHSN.parquet")
+nssp <- read_parquet("RSV/data/NSSP.parquet")
+nhsn <- read_parquet("RSV/data/NHSN.parquet")
 
 
 fit_glmm <- inner_join(
@@ -333,7 +332,7 @@ nssp_counts <- nssp |>
     by = c("location_code", "fluseason", "fluseason_week")
   )
 
-write_parquet(nssp_counts, "RSV_files/NSSP_COUNTS.parquet")
+write_parquet(nssp_counts, "RSV/data/NSSP_COUNTS.parquet")
 
 #NHSN vs NSSP Plot
 bind_rows(
@@ -369,22 +368,22 @@ However we will only take 20 samples per model and scenario for training.
 
 ```{r, all_data}
 set.seed(123)
-rsv_smh20 <- read_parquet("RSV_files/RSV_SMH.parquet") |>
+rsv_smh20 <- read_parquet("RSV/data/RSV_SMH.parquet") |>
   group_by(datasetH2) |>
   filter(sample %in% sample(unique(sample), min(length(unique(sample)), 20))) |>
   ungroup()
 
 
 rsv_all <- bind_rows(
-  read_parquet("RSV_files/NSSP_COUNTS.parquet"),
-  read_parquet("RSV_files/RSV_NET.parquet"),
-  read_parquet("RSV_files/NHSN.parquet"),
+  read_parquet("RSV/data/NSSP_COUNTS.parquet"),
+  read_parquet("RSV/data/RSV_NET.parquet"),
+  read_parquet("RSV/data/NHSN.parquet"),
   rsv_smh20
 ) |>
   #drop 2025
   filter(fluseason < 2025)
 
-write_parquet(rsv_all, "RSV_files/RSV_ALL.parquet")
+write_parquet(rsv_all, "RSV/data/RSV_ALL.parquet")
 ```
 
 
@@ -441,7 +440,7 @@ rsv_filled <- rsv_all |>
   select(-nhsn_year_value, -value_pool, -nhsn_draw)
 
 
-write_parquet(rsv_filled, "RSV_files/RSV_FILLED.parquet")
+write_parquet(rsv_filled, "RSV/data/RSV_FILLED.parquet")
 ```
 
 
@@ -449,7 +448,7 @@ write_parquet(rsv_filled, "RSV_files/RSV_FILLED.parquet")
 1- Check that RSV SMH datasetH2 has unique fluseasons
 ```{r, sanity}
 set.seed(123)
-rsv_smh <- read_parquet("RSV_files/RSV_SMH.parquet")
+rsv_smh <- read_parquet("RSV/data/RSV_SMH.parquet")
 # check that there is a unique fluseason per datasetH2
 rsv_smh |>
   group_by(datasetH2) |>
@@ -508,7 +507,7 @@ In the below, we compute the scaling distribution from RSV_SMH dataset to be use
 For example, if the peak value for a season in the RSV_SMH dataset is 1000, and the peak value for the same season in the NSSP dataset is 100, then the NSSP dataset will be scaled by a factor of 10 to match the RSV_SMH peak.
 
 ```{python}
-all_datasets_df = pd.read_parquet("RSV_files/RSV_FILLED.parquet")
+all_datasets_df = pd.read_parquet("RSV/data/RSV_FILLED.parquet")
 all_datasets_df = all_datasets_df.rename(columns={'fluseason_week': 'season_week'})
 all_datasets_df["week_enddate"] = pd.NaT
 
@@ -526,7 +525,7 @@ scaling_distribution = season_peaks[season_peaks['datasetH1'] == 'RSV_SMH'].valu
 ## RSV configuration
 
 ```{r}
-n_frames <- arrow::read_parquet("RSV_files/RSV_FILLED.parquet") |>
+n_frames <- arrow::read_parquet("RSV/data/RSV_FILLED.parquet") |>
   group_by(fluseason, datasetH1, sample) |>
   count() |>
   group_by(datasetH1) |>
@@ -549,6 +548,7 @@ n_frames |> pull(n_trains) |> max()
 
 
 ```{python}
+
 # need to build 512 frames per dataset for training
 RSV_CONFIG = {
     "100S": {
@@ -603,7 +603,7 @@ for ds_name, mix_cfg in RSV_CONFIG.items():
 
 ## Inspect array
 ```{python}
-arr = xr.open_dataarray("training_datasets/RSV_100S_2026-01-16.nc")
+arr = xr.open_dataarray("training_datasets/RSV_100S_2026-04-24.nc")
 
 all_origin = arr.attrs.get("main_origins", None)
 prefixes = [entry.split('/')[0] for entry in all_origin]

@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-from helpers.delphi_epidata import Epidata
 from ..utils.season_axis import SeasonAxis
 import xarray as xr
 
@@ -219,6 +218,7 @@ def get_from_epidata(
 
     if dataset == "flusurv" or dataset == "fluview":
         if download:
+            from helpers.delphi_epidata import Epidata
             import epiweeks
             # by location otherwise queries is too big
             df_list = []

@@ -1,6 +1,5 @@
 import pandas as pd
 import numpy as np
-from helpers.delphi_epidata import Epidata
 from ..utils.season_axis import SeasonAxis
 import xarray as xr
 
@@ -96,7 +95,7 @@ def dataframe_to_arraylist(
     for season in df_piv.index.unique(level="fluseason"):
         array = df_piv.loc[season][
             season_setup.locations
-        ].sort_index().to_numpy()  # make sure order is right w.r.t season_setup locations and the time is right
+        ].sort_index().to_numpy().copy()  # make sure order is right w.r.t season_setup locations and the time is right
         # TODO: should give an error when dates are missing because it would be missaligned
 
         array[np.isnan(array)] = 0  # replace NaNs with 0
