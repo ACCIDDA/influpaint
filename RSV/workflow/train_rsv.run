@@ -1,0 +1,82 @@
+#!/bin/bash
+#SBATCH -N 1
+#SBATCH -n 1
+#SBATCH -p l40-gpu
+#SBATCH --mem=32G
+#SBATCH -t 00-18:00:00
+#SBATCH --array=0-7
+#SBATCH --gres=gpu:1
+#SBATCH --qos=gpu_access
+
+# --------------------------------------------------------------------------
+# RSV training on UNC Longleaf.
+#
+# Each SLURM array task trains ONE model. The row of the RUN_TABLE picked
+# by $SLURM_ARRAY_TASK_ID decides which dataset mix and which mode
+# (scratch / finetune) to run. Add or remove rows to change the set of
+# models being trained.
+#
+# Submit with:
+#     cd /nas/longleaf/home/chadi/influpaint
+#     sbatch RSV/workflow/train_rsv.run
+# --------------------------------------------------------------------------
+
+# --- Edit these -----------------------------------------------------------
+EXPERIMENT_NAME="rsv-2026-04-24"
+DATE_TAG="2026-04-24"               # must match the --tag used in build_training_sets.py
+SCN_ID=868                          # model architecture (same for all runs so finetune weights are compatible)
+EPOCHS_SCRATCH=3000
+EPOCHS_FINETUNE=500
+FLUPAINT_CKPT="/nas/longleaf/home/chadi/influpaint_res/flupaint_scn868.pth"
+REPO_ROOT="/nas/longleaf/home/chadi/influpaint"
+PYTHON="/nas/longleaf/home/chadi/.conda/envs/diffusion_torch6/bin/python"
+# --------------------------------------------------------------------------
+
+# Each row: "<run_tag>|<mix_name>|<mode>"
+#   mix_name must match a key in RSV_CONFIG (build_training_sets.py)
+#   mode = scratch  -> train from random weights
+#   mode = finetune -> start from FLUPAINT_CKPT
+RUN_TABLE=(
+    "100A_scratch|100A|scratch"
+    "50S_scratch|50S|scratch"
+    "25S_scratch|25S|scratch"
+    "100S_scratch|100S|scratch"
+    "100M_scratch|100M|scratch"
+    "100A_finetune|100A|finetune"
+    "50S_finetune|50S|finetune"
+    "25S_finetune|25S|finetune"
+)
+
+ROW="${RUN_TABLE[$SLURM_ARRAY_TASK_ID]}"
+RUN_TAG="$(echo "$ROW" | cut -d'|' -f1)"
+MIX_NAME="$(echo "$ROW" | cut -d'|' -f2)"
+MODE="$(echo "$ROW"     | cut -d'|' -f3)"
+
+DATASET_NC="training_datasets/RSV_${MIX_NAME}_${DATE_TAG}.nc"
+LOG="out_rsv_${EXPERIMENT_NAME}_${RUN_TAG}.out"
+
+echo "=== SLURM array task ${SLURM_ARRAY_TASK_ID} ==="
+echo "RUN_TAG = ${RUN_TAG}"
+echo "DATASET = ${DATASET_NC}"
+echo "MODE    = ${MODE}"
+
+module purge
+
+cd "${REPO_ROOT}" || exit 1
+
+if [ "$MODE" = "finetune" ]; then
+    EPOCHS=${EPOCHS_FINETUNE}
+    EXTRA="--finetune-from ${FLUPAINT_CKPT}"
+else
+    EPOCHS=${EPOCHS_SCRATCH}
+    EXTRA=""
+fi
+
+"${PYTHON}" -u RSV/workflow/rsv_training.py \
+    --dataset-nc "${DATASET_NC}" \
+    --scn-id ${SCN_ID} \
+    --experiment-name "${EXPERIMENT_NAME}_training" \
+    --run-tag "${RUN_TAG}" \
+    --epochs ${EPOCHS} \
+    ${EXTRA} \
+    > "${LOG}" 2>&1

@@ -364,8 +364,6 @@ Modeling data includes:
 - RSV Scenario Modeling Hub: Projected hospitalizations under various scenarios -> `{r} nrow(rsv_smh)` rows.\ 
 However we will only take 20 samples per model and scenario for training.
 
-- 2025 is dropped.
-
 ```{r, all_data}
 set.seed(123)
 rsv_smh20 <- read_parquet("RSV/data/RSV_SMH.parquet") |>
@@ -379,9 +377,7 @@ rsv_all <- bind_rows(
   read_parquet("RSV/data/RSV_NET.parquet"),
   read_parquet("RSV/data/NHSN.parquet"),
   rsv_smh20
-) |>
-  #drop 2025
-  filter(fluseason < 2025)
+)
 
 write_parquet(rsv_all, "RSV/data/RSV_ALL.parquet")
 ```
