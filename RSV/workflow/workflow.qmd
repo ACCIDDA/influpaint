@@ -197,29 +197,49 @@ Ship the repo + built `.nc` files to Longleaf, then:
 ssh cgeisma1@longleaf.unc.edu
 srun -p jlessler --gres=gpu:1 --mem=64G --time=10:00:00 --nodelist="g1803jles01" --pty /bin/zsh
 ```
-2. Connect to remote via SSH in VSCode and run in the terminal:
+
+3. Transfer NC files and the repo to Longleaf (from your local machine):
+```bash
+rsync -avz --progress \
+  "/Users/cy/Documents/PROJECTS LOCAL/influpaint/training_datasets/RSV_"*"_2026-04-24.nc" \
+  cgeisma1@longleaf.unc.edu:/proj/jlessler/projects/influpaint_general/influpaint_RSV/influpaint/training_datasets/
+```
+Check that the files are there:
+```bash
+ls training_datasets/RSV_*_2026-04-24.nc
+```
+
+4. Connect to remote via SSH in VSCode and run in the terminal:
 ```bash
 cd /proj/jlessler/projects/influpaint_general/influpaint_RSV/influpaint
 sbatch RSV/workflow/train_rsv.run
 ```
 
 Each job logs to `out_rsv_<experiment>_<run_tag>.out` and saves its
-checkpoint under `~/influpaint_res/<git_hash>_<experiment>_<date>/`.
+checkpoint under `OUTDIR/<git_hash>_<experiment>_<date>/` (set `OUTDIR`
+in `train_rsv.run`).
 MLflow keeps loss curves and generated sample plots for every run.
 
 ### Smoke test before the real submission
 
-Before burning cluster time, do a 2-epoch dry run locally or in an
-interactive GPU job to confirm the dataset loads and the loss goes down:
+Before burning cluster time, do a 2-epoch dry run in an interactive GPU
+job to confirm the dataset loads and the loss goes down.
 
-```{bash}
+First, make the package importable (only needed once per shell session):
+```bash
+export PYTHONPATH=/proj/jlessler/projects/influpaint_general/influpaint_RSV/influpaint:$PYTHONPATH
+```
+
+Then run:
+```bash
 python RSV/workflow/rsv_training.py \
     --dataset-nc training_datasets/RSV_100A_2026-04-24.nc \
     --scn-id 868 \
     --experiment-name rsv-smoketest \
     --run-tag smoketest \
     --epochs 2 \
-    --batch-size 64
+    --batch-size 64 \
+    --outdir /proj/jlessler/projects/influpaint_general/influpaint_RSV/results/
 ```
 
 If that succeeds (a `.pth` file appears and MLflow shows a curve), the

@@ -105,7 +105,7 @@ def parse_args():
                    help="MLflow experiment name.")
     p.add_argument("--run-tag", required=True,
                    help="Short tag for this run; appears in filenames and MLflow.")
-    p.add_argument("--outdir", default="/users/c/h/chadi/influpaint_res/",
+    p.add_argument("--outdir", default="/proj/jlessler/projects/influpaint_general/influpaint_RSV/results/",
                    help="Where to write checkpoints and plots on Longleaf.")
     p.add_argument("--finetune-from", default=None,
                    help="Path to a pre-trained checkpoint. If given, load it "
