@@ -213,6 +213,9 @@ ls training_datasets/RSV_*_2026-04-24.nc
 ```bash
 cd /proj/jlessler/projects/influpaint_general/influpaint_RSV/influpaint
 sbatch RSV/workflow/train_rsv.run
+squeue -u cgeisma1
+tail -f out_rsv_rsv-2026-04-24_100A_scratch.out
+tail -f out_rsv_rsv-2026-04-24_*.out
 ```
 
 Each job logs to `out_rsv_<experiment>_<run_tag>.out` and saves its

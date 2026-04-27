@@ -28,8 +28,8 @@ SCN_ID=868                          # model architecture (same for all runs so f
 EPOCHS_SCRATCH=3000
 EPOCHS_FINETUNE=500
 FLUPAINT_CKPT="/nas/longleaf/home/chadi/influpaint_res/flupaint_scn868.pth"
-REPO_ROOT="/nas/longleaf/home/chadi/influpaint"
-PYTHON="/nas/longleaf/home/chadi/.conda/envs/diffusion_torch6/bin/python"
+REPO_ROOT="/proj/jlessler/projects/influpaint_general/influpaint_RSV/influpaint"
+PYTHON="/proj/jlessler/projects/influpaint_general/influpaint_RSV/influpaint/.venv/bin/python"
 # --------------------------------------------------------------------------
 
 # Each row: "<run_tag>|<mix_name>|<mode>"
