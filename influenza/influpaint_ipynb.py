@@ -10,7 +10,7 @@
 #       format_version: '1.3'
 #       jupytext_version: 1.11.2
 #   kernelspec:
-#     display_name: diffusion_torch6
+#     display_name: diffusion_torch
 #     language: python
 #     name: python3
 # ---
@@ -38,6 +38,8 @@
 # ## Setup: Imports and Configuration
 
 # %%
+import sys
+sys.path.append('..')  # Add parent directory to path for imports
 import matplotlib.pyplot as plt
 import seaborn as sns
 from tqdm.auto import tqdm
