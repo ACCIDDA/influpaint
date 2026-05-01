@@ -40,6 +40,7 @@
 # %%
 import sys
 sys.path.append('..')  # Add parent directory to path for imports
+
 import matplotlib.pyplot as plt
 import seaborn as sns
 from tqdm.auto import tqdm
@@ -59,6 +60,7 @@ from influpaint.utils import ground_truth
 # CoPaint imports
 sys.path.append('CoPaint4influpaint')
 from guided_diffusion import O_DDIMSampler
+import os
 
 # Configure plotting
 sns.set_style("whitegrid")
@@ -77,7 +79,7 @@ sns.set_style("whitegrid")
 # %%
 # === USER CONFIGURATION ===
 scenario_id = 868  # Choose your training scenario
-forecast_date = "2026-03-07"  # YYYY-MM-DD format
+forecast_date = "2026-04-11"  # YYYY-MM-DD format
 config_name = "celebahq_noTTJ5"  # CoPaint config name
 batch_size = 512
 image_size = 64
