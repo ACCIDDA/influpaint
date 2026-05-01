@@ -16,7 +16,7 @@ from .data_utils import (
     compute_quantile_curves, compute_median, flusight_quantile_pairs,
     get_state_labels
 )
-from .helpers import state_to_code
+from .helpers import format_count_axis, state_to_code
 
 
 def plot_unconditional_states_quantiles_and_trajs(inv_samples: np.ndarray,
@@ -80,7 +80,8 @@ def plot_unconditional_states_quantiles_and_trajs(inv_samples: np.ndarray,
         ax.set_ylim(bottom=0)
         ax.set_xlabel('Epiweek')
         if i % ncols == 0:
-            ax.set_ylabel('Incidence')
+            ax.set_ylabel('Incident flu hospitalizations')
+        format_count_axis(ax)
         ax.grid(True, alpha=0.3)
         sns.despine(ax=ax, trim=True)
 
@@ -202,10 +203,11 @@ def fig_unconditional_3d_heat_ridges(inv_samples: np.ndarray,
     ax.view_init(elev=elev, azim=azim)
     ax.set_xlabel('Epiweek')
     ax.set_ylabel('Location index')
-    ax.set_zlabel('Incidence')
+    ax.set_zlabel('Incident flu hospitalizations')
     ax.set_xlim(1, real_weeks)
     ax.set_ylim(0, P-1)
     ax.set_zlim(bottom=0)
+    format_count_axis(ax, axis='z')
     ax.grid(False)
 
     if save_path:
@@ -297,7 +299,7 @@ def fig_unconditional_3d_heat_ridges_plotly(inv_samples: np.ndarray,
         scene=dict(
             xaxis_title='Epiweek',
             yaxis_title='Location index',
-            zaxis_title='Incidence',
+            zaxis_title='Incident flu hospitalizations',
             camera=dict(eye=dict(x=camera_eye[0], y=camera_eye[1], z=camera_eye[2]))
         ),
         margin=dict(l=0, r=0, t=40, b=0),
@@ -397,7 +399,8 @@ def plot_unconditional_states_with_history(inv_samples: np.ndarray,
         ax.set_xticks([month_weeks[j] for j in range(0, len(month_weeks), 2)])
         ax.set_xticklabels([month_labels[j] for j in range(0, len(month_labels), 2)])
         if i % ncols == 0:
-            ax.set_ylabel('Incidence')
+            ax.set_ylabel('Incident flu hospitalizations')
+        format_count_axis(ax)
         ax.grid(True, alpha=0.3)
         sns.despine(ax=ax, trim=True)
 
@@ -442,7 +445,7 @@ def add_trajectory_inset(ax, weeks, trajectories, color):
     y_max = all_max * 1.1
     y_ticks = [0, y_max/2, y_max]
     axins.set_yticks(y_ticks)
-    axins.set_yticklabels([f'{int(t)}' for t in y_ticks], fontsize=8)
+    axins.set_yticklabels([f'{int(t):,}' for t in y_ticks], fontsize=8)
 
     axins.grid(True, alpha=0.3)
 
@@ -538,7 +541,8 @@ def plot_unconditional_states_with_history_inlet(inv_samples: np.ndarray,
         ax.set_xticks([month_weeks[j] for j in range(0, len(month_weeks), 2)])
         ax.set_xticklabels([month_labels[j] for j in range(0, len(month_labels), 2)])
         if i % ncols == 0:
-            ax.set_ylabel('Incidence')
+            ax.set_ylabel('Incident flu hospitalizations')
+        format_count_axis(ax)
         ax.grid(True, alpha=0.3)
         sns.despine(ax=ax, trim=True)
 
@@ -628,7 +632,8 @@ def plot_unconditional_states_with_history_alt(inv_samples: np.ndarray,
         ax.set_xticks([month_weeks[j] for j in range(0, len(month_weeks), 2)])
         ax.set_xticklabels([month_labels[j] for j in range(0, len(month_labels), 2)])
         if i % ncols == 0:
-            ax.set_ylabel('Incidence')
+            ax.set_ylabel('Incident flu hospitalizations')
+        format_count_axis(ax)
         ax.grid(True, alpha=0.3)
         sns.despine(ax=ax, trim=True)
 
@@ -682,7 +687,8 @@ def generate_mean_heatmap(inv_samples: np.ndarray, season_axis: SeasonAxis,
     ax_heat.set_xticklabels(['1', '14', '27', '40', '53'])
     ax_heat.set_yticks([0, 12, 25, 38, len(season_axis.locations)-1])
     ax_heat.set_yticklabels(['1', '13', '26', '39', str(len(season_axis.locations))])
-    plt.colorbar(im, ax=ax_heat, label='Incidence', shrink=0.5)
+    colorbar = plt.colorbar(im, ax=ax_heat, label='Incident flu hospitalizations', shrink=0.5)
+    format_count_axis(colorbar.ax)
     plt.tight_layout()
     plt.savefig(os.path.join(fig_dir, f"{model_num}_uncond_mean_heatmap.png"), dpi=300, bbox_inches='tight')
     plt.close(fig_heat)

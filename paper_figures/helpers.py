@@ -6,6 +6,7 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.dates as mdates
+from matplotlib import ticker
 from influpaint.utils import SeasonAxis
 
 
@@ -28,6 +29,31 @@ def format_date_axis(ax):
     for label in ax.get_xticklabels():
         label.set_rotation(45)
         label.set_horizontalalignment('right')
+
+
+def _count_tick_formatter(value, _position):
+    """Format count ticks with comma separators for publication figures."""
+    if not np.isfinite(value):
+        return ""
+    rounded = round(float(value))
+    if np.isclose(value, rounded):
+        return f"{int(rounded):,}"
+    return f"{value:,.2f}".rstrip("0").rstrip(".")
+
+
+def format_count_axis(ax, axis: str = "y"):
+    """Format an axis with comma-separated tick labels."""
+    formatter = ticker.FuncFormatter(_count_tick_formatter)
+    if axis == "x":
+        ax.xaxis.set_major_formatter(formatter)
+        return
+    if axis == "y":
+        ax.yaxis.set_major_formatter(formatter)
+        return
+    if axis == "z":
+        ax.zaxis.set_major_formatter(formatter)
+        return
+    raise ValueError(f"Unsupported axis '{axis}'")
 
 
 def load_unconditional_samples(path: str) -> np.ndarray:

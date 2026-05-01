@@ -6,6 +6,7 @@ Each figure corresponds to a specific figure number in the paper.
 """
 
 import os
+import subprocess
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -22,7 +23,7 @@ from .config import (
 FIG_DIR = "influpaint-paper/figures/generated"
 os.makedirs(FIG_DIR, exist_ok=True)
 
-from .helpers import load_unconditional_samples
+from .helpers import format_count_axis, load_unconditional_samples
 from .data_utils import compute_historical_peak_threshold, filter_trajectories_by_peak
 
 from . import unconditional_figures as uncond_figs
@@ -43,7 +44,7 @@ def add_panel_label(ax, label, x=-0.15, y=1.05, fontsize=16, fontweight='bold'):
         fontsize: Font size for label
         fontweight: Font weight for label
     """
-    ax.text(x, y, label, transform=ax.transAxes,
+    ax.text(x, y, str(label).lower(), transform=ax.transAxes,
             fontsize=fontsize, fontweight=fontweight, va='top', ha='right')
 
 
@@ -140,7 +141,8 @@ def figure1_unconditional_with_correlation(season_axis, uncond_samples):
         ax.set_xticks([month_weeks[j] for j in range(0, len(month_weeks), 2)])
         ax.set_xticklabels([month_labels[j] for j in range(0, len(month_labels), 2)])
         if i == 0:
-            ax.set_ylabel('Incidence')
+            ax.set_ylabel('Incident flu hospitalizations')
+        format_count_axis(ax)
         ax.grid(True, alpha=0.3)
         sns.despine(ax=ax, trim=True)
 
@@ -163,7 +165,7 @@ def figure1_unconditional_with_correlation(season_axis, uncond_samples):
 
     data = []
     for corr in random_corr:
-        data.append({'Category': 'Expected \n if random', 'Correlation': corr})
+        data.append({'Category': 'Expected\nif random', 'Correlation': corr})
     for corr in influpaint_corr:
         data.append({'Category': 'Influpaint', 'Correlation': corr})
     for corr in observed_corr:
@@ -176,11 +178,11 @@ def figure1_unconditional_with_correlation(season_axis, uncond_samples):
         x='Category',
         y='Correlation',
         ax=ax_corr,
-        order=['Expected \n if random', 'Influpaint', 'Observed'],
+        order=['Expected\nif random', 'Influpaint', 'Observed'],
         palette=['lightgray', 'skyblue', 'salmon'],
         showfliers=False,
     )
-    ax_corr.set_ylabel('Correlation across U.S. states', fontsize=13)
+    ax_corr.set_ylabel('Correlation across US states', fontsize=13)
     ax_corr.set_xlabel('')
     ax_corr.grid(True, alpha=0.3, axis='y')
     sns.despine(ax=ax_corr, trim=True)
@@ -335,6 +337,7 @@ def figure2_csv_forecasts_two_seasons(season_axis):
             ax.set_ylim(bottom=0)
             if col_idx == 0:
                 ax.set_ylabel('Incident flu hospitalizations')
+            format_count_axis(ax)
             ax.grid(True, alpha=0.3)
             sns.despine(ax=ax, trim=True)
             ax.set_xlim(left_bound, right_bound)
@@ -504,6 +507,7 @@ def figure_relaizedforecast(season_axis):
             ax.set_ylim(bottom=0)
             if col_idx == 0:
                 ax.set_ylabel('Incident flu hospitalizations')
+            format_count_axis(ax)
             ax.grid(True, alpha=0.3)
             sns.despine(ax=ax, trim=True)
             ax.set_xlim(left_bound, right_bound)
@@ -1049,6 +1053,7 @@ def figure4_mask_experiments(season_axis, season_first_year='2024', output_suffi
                 fontsize=12, fontweight='bold',
                 bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
         ax.set_ylim(bottom=0)
+        format_count_axis(ax)
         ax.grid(True, alpha=0.3)
         if show_ylabel:
             ax.set_ylabel('Incident flu hospitalizations')

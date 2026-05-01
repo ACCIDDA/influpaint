@@ -184,7 +184,7 @@ def plot_weekly_incidence_correlation(inv_samples: np.ndarray,
     # Prepare data for box plot
     data = []
     for corr in random_corr:
-        data.append({'Category': 'Expected \n if random', 'Correlation': corr})
+        data.append({'Category': 'Expected\nif random', 'Correlation': corr})
     for corr in influpaint_corr:
         data.append({'Category': 'Influpaint', 'Correlation': corr})
     for corr in observed_corr:
@@ -199,17 +199,17 @@ def plot_weekly_incidence_correlation(inv_samples: np.ndarray,
         x='Category',
         y='Correlation',
         ax=ax,
-        order=['Expected \n if random', 'Influpaint', 'Observed'],
+        order=['Expected\nif random', 'Influpaint', 'Observed'],
         palette=['lightgray', 'skyblue', 'salmon'],
         showfliers=False,
     )
-    ax.set_ylabel('Correlation across U.S. states', fontsize=13)
+    ax.set_ylabel('Correlation across US states', fontsize=13)
     ax.set_xlabel('')
     ax.grid(True, alpha=0.3, axis='y')
     sns.despine(ax=ax, trim=True)
 
     # Report summary statistics to stdout
-    for i, category in enumerate(['Expected \n if random', 'Influpaint', 'Observed']):
+    for i, category in enumerate(['Expected\nif random', 'Influpaint', 'Observed']):
         cat_data = df[df['Category'] == category]['Correlation']
         median = cat_data.median()
         mean = cat_data.mean()

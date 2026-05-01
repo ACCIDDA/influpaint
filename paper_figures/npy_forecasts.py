@@ -12,7 +12,7 @@ import seaborn as sns
 from influpaint.utils import SeasonAxis
 from .data_utils import flusight_quantile_pairs, load_ground_truth_cached as load_truth_for_season
 from .helpers import (state_to_code, list_inpainting_dirs, parse_date_from_folder,
-                      forecast_week_saturdays, format_date_axis)
+                      forecast_week_saturdays, format_count_axis, format_date_axis)
 from .config import SEASON_XLIMS, SHOW_NPY_PAST
 
 
@@ -171,6 +171,7 @@ def plot_npy_multi_date_two_seasons(base_dir: str, model_id: str, config: str,
                 ax.set_ylabel('')
             # Use fixed bounds per season
             ax.set_xlim(left_bound, right_bound)
+            format_count_axis(ax)
             format_date_axis(ax)
     fig.tight_layout()
     if save_path:
@@ -285,8 +286,9 @@ def plot_npy_two_panel_national(base_dir: str, model_id: str, config: str,
         ax.grid(True, alpha=0.3)
         sns.despine(ax=ax, trim=True)
         if iax == 0:
-            ax.set_ylabel('Incidence')
+            ax.set_ylabel('Incident flu hospitalizations')
         ax.set_xlim(left_bound, right_bound)
+        format_count_axis(ax)
         format_date_axis(ax)
     fig.tight_layout()
     if save_path:

@@ -11,7 +11,7 @@ from scipy.stats import gaussian_kde
 
 from influpaint.utils import SeasonAxis
 from .data_utils import normalize_samples_shape, get_real_weeks, get_state_timeseries
-from .helpers import state_to_code
+from .helpers import format_count_axis, state_to_code
 
 
 def plot_peak_distributions_comparison(inv_samples: np.ndarray,
@@ -114,10 +114,11 @@ def plot_peak_distributions_comparison(inv_samples: np.ndarray,
     axes[0].grid(True, alpha=0.3)
     sns.despine(ax=axes[0], trim=True)
 
-    axes[1].set_xlabel('Peak size (log incidence)')
+    axes[1].set_xlabel('Peak size')
     axes[1].set_ylabel('Density')
     axes[1].set_xscale('log')
     axes[1].set_xlim(left=10)
+    format_count_axis(axes[1], axis='x')
     axes[1].grid(True, alpha=0.3)
     sns.despine(ax=axes[1], trim=True)
 
@@ -226,7 +227,8 @@ def plot_peak_distributions_by_location(inv_samples: np.ndarray,
             ax_size.plot(10**x_size_log, kde_size(x_size_log),
                        color='black', ls='-', lw=2.5, alpha=1.0, label='Generated')
 
-        ax_timing.text(0.02, 0.98, state.upper(), transform=ax_timing.transAxes, va='top', ha='left',
+        state_name = season_axis.get_location_name(loc_code)
+        ax_timing.text(0.02, 0.98, state_name, transform=ax_timing.transAxes, va='top', ha='left',
                 fontsize=11, fontweight='bold',
                 bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
         ax_timing.set_xlabel('Peak timing (season week)')
@@ -235,13 +237,14 @@ def plot_peak_distributions_by_location(inv_samples: np.ndarray,
         ax_timing.grid(True, alpha=0.3)
         sns.despine(ax=ax_timing, trim=True)
 
-        ax_size.text(0.02, 0.98, state.upper(), transform=ax_size.transAxes, va='top', ha='left',
+        ax_size.text(0.02, 0.98, state_name, transform=ax_size.transAxes, va='top', ha='left',
                 fontsize=11, fontweight='bold',
                 bbox=dict(facecolor='white', alpha=0.7, edgecolor='none'))
-        ax_size.set_xlabel('Peak size (log incidence)')
+        ax_size.set_xlabel('Peak size')
         ax_size.set_ylabel('Density')
         ax_size.set_xscale('log')
         ax_size.set_xlim(left=10)
+        format_count_axis(ax_size, axis='x')
         ax_size.grid(True, alpha=0.3)
         sns.despine(ax=ax_size, trim=True)
 
@@ -372,7 +375,8 @@ def plot_peak_distributions_by_metric(inv_samples: np.ndarray,
             ax.set_xticks([])
             ax.set_yscale('log')
             ax.set_ylim(bottom=10)
-            ax.set_ylabel('Log incidence' if state_idx == 0 else '')
+            ax.set_ylabel('Peak size' if state_idx == 0 else '')
+            format_count_axis(ax)
             ax.grid(True, alpha=0.3)
             sns.despine(ax=ax, trim=True, bottom=True)
 

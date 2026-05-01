@@ -14,7 +14,7 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 from influpaint.utils import ground_truth
 from influpaint.utils.helpers import flusight_quantile_pairs
-from .helpers import state_to_code
+from .helpers import format_count_axis, state_to_code
 from .config import IMAGE_SIZE, CHANNELS
 
 
@@ -241,6 +241,7 @@ def plot_mask_experiments(mask_dir: str, forecast_date: str,
             ax.set_title(lab, fontsize=12, fontweight='bold', pad=10)
 
             ax.set_ylim(bottom=0)
+            format_count_axis(ax)
             ax.grid(True, alpha=0.3)
 
             if j == 0:
