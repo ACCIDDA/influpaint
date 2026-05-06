@@ -682,7 +682,7 @@ gt1.export_forecasts_2023(
     directory=str(output_dir),
     prefix=f"{team_abbrv}",
     forecast_date=submission_date,
-    save_plot=True,
+    save_plot=False,
     nochecks=True,
     mode="metrocast"
 )
@@ -691,9 +691,9 @@ print(f"✓ Forecasts exported to: {output_dir}")
 print(f"  - CSV files: {len(list(output_dir.glob('*.csv')))} files")
 
 # Optional: Plot forecasts using the same path as the CLI script
-forecasts_national = fluforecasts_ti_export.sum(axis=-1)
+forecasts_national = fluforecasts_ti.sum(axis=-1)
 gt1.plot_forecasts(
-    fluforecasts_ti=fluforecasts_ti_export,
+    fluforecasts_ti=fluforecasts_ti,
     forecasts_national=forecasts_national,
     directory=str(output_dir),
     prefix=f"{team_abbrv}_metrocast",
