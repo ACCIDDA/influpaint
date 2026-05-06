@@ -702,8 +702,12 @@ class GroundTruth():
         target_dates = pd.to_datetime(target_dates)
         horizon_map = {pd.to_datetime(d): h for h, d in enumerate(target_dates)}
 
+        quantiles = myutils.flusight_quantiles
+        if mode == "metrocast":
+            quantiles = np.array([0.025, 0.05, 0.1, 0.25, 0.5, 0.75, 0.9, 0.95, 0.975])
+
         df_list = []
-        for qt in myutils.flusight_quantiles:
+        for qt in quantiles:
             a = pd.DataFrame(
                 np.quantile(
                     fluforecasts_ti[:, :, :, : len(self.season_setup.locations)], qt, axis=0
