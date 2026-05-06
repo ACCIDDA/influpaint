@@ -50,6 +50,7 @@ import numpy as np
 import pandas as pd
 import datetime
 import sys
+import copy
 from pathlib import Path
 from torch.utils.data import DataLoader
 from torch.optim import Adam
@@ -658,6 +659,10 @@ fluforecasts_ti_export = fluforecasts_ti.copy()
 fluforecasts_ti_export[:, :, :, :n_locations] = fluforecasts_ti[
     :, :, :, alpha_index_for_canonical
 ]
+gt1_plot = copy.deepcopy(gt1)
+gt1_plot.gt_xarr.data[:, :, :n_locations] = gt1.gt_xarr.data[
+    :, :, alpha_index_for_canonical
+]
 print(
     f"Applied MetroCast export remap for {n_locations} locations. "
     f"Example: canonical[0]={canonical_locations[0]} <= alpha[{alpha_index_for_canonical[0]}]={alphabetical_locations[alpha_index_for_canonical[0]]}"
@@ -667,7 +672,7 @@ print(
 fig, axes = plt.subplots(5, 2, figsize=(8.8, 10.5))
 axes = axes.flatten()
 for idx, loc_id in enumerate([0, 5, 10, 20, 35, 60, 70, 78, 100, 120]):
-    axes[idx].plot(gt1.gt_xarr.data[0,:53,loc_id], lw=4, label="Ground Truth", color='r', alpha=.9, ls='', marker='o');
+    axes[idx].plot(gt1_plot.gt_xarr.data[0,:53,loc_id], lw=4, label="Ground Truth", color='r', alpha=.9, ls='', marker='o');
     axes[idx].plot(fluforecasts_ti_export[:10,0,:53,loc_id].T, lw=0.6, label=f"Loc {loc_id}", color='k', alpha=0.7);
 
 # %%
@@ -691,9 +696,9 @@ print(f"✓ Forecasts exported to: {output_dir}")
 print(f"  - CSV files: {len(list(output_dir.glob('*.csv')))} files")
 
 # Optional: Plot forecasts using the same path as the CLI script
-forecasts_national = fluforecasts_ti.sum(axis=-1)
-gt1.plot_forecasts(
-    fluforecasts_ti=fluforecasts_ti,
+forecasts_national = fluforecasts_ti_export.sum(axis=-1)
+gt1_plot.plot_forecasts(
+    fluforecasts_ti=fluforecasts_ti_export,
     forecasts_national=forecasts_national,
     directory=str(output_dir),
     prefix=f"{team_abbrv}_metrocast",
