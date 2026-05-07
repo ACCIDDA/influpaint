@@ -36,28 +36,34 @@ from influpaint.datasets import mixer as dataset_mixer
 # composition. The mix name ends up in the output filename and is also the
 # name you pass to the SLURM job.
 #
-#   100S  = 100% surveillance (NSSP + RSV-Net + NHSN), each x20
-#   50S   = half-size surveillance pool (x10 instead of x20)
-#   25S   = quarter-size surveillance pool (x5)
+#   100S  = 100% surveillance (NSSP + RSV-Net + NHSN), each x200
+#   50S   = half-size surveillance pool (x100, half of 100S)
+#   25S   = quarter-size surveillance pool (x50, quarter of 100S)
 #   100M  = 100% synthetic (RSV Scenario Modelling Hub only)
 #   100A  = balanced "all RSV data": 30% surveillance + 70% synthetic,
 #           matches what the flu paper calls "30S70M"
+#
+# Multipliers were bumped 10x relative to the original (20/10/5) so every mix
+# has >= 512 samples (the DDPM batch size). The 4:2:1 ratio between 100S, 50S
+# and 25S is preserved, so the experimental design is unchanged. Epochs in
+# train_rsv.run are divided by 10 for these runs to match (per-sample exposure
+# stays constant; see Joseph's rule: N x more data -> N x fewer epochs).
 # ---------------------------------------------------------------------------
 RSV_CONFIG = {
     "100S": {
-        "NSSP":    {"multiplier": 20},
-        "RSV-Net": {"multiplier": 20},
-        "NHSN":    {"multiplier": 20},
+        "NSSP":    {"multiplier": 200},
+        "RSV-Net": {"multiplier": 200},
+        "NHSN":    {"multiplier": 200},
     },
     "50S": {
-        "NSSP":    {"multiplier": 10},
-        "RSV-Net": {"multiplier": 10},
-        "NHSN":    {"multiplier": 10},
+        "NSSP":    {"multiplier": 100},
+        "RSV-Net": {"multiplier": 100},
+        "NHSN":    {"multiplier": 100},
     },
     "25S": {
-        "NSSP":    {"multiplier": 5},
-        "RSV-Net": {"multiplier": 5},
-        "NHSN":    {"multiplier": 5},
+        "NSSP":    {"multiplier": 50},
+        "RSV-Net": {"multiplier": 50},
+        "NHSN":    {"multiplier": 50},
     },
     "100M": {
         "RSV_SMH": {"multiplier": 1},
