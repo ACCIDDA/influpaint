@@ -34,14 +34,15 @@ PYTHON="/proj/jlessler/projects/influpaint_general/influpaint_RSV/influpaint/.ve
 #   mix_name must match a key in RSV_CONFIG (build_training_sets.py)
 #   mode = scratch  -> train from random weights
 #   mode = finetune -> start from FLUPAINT_CKPT
-#   epochs: 100S/50S/25S use 300 (their datasets were 10x oversampled to clear
-#           the 512 batch size, so we divide epochs by 10 to keep per-sample
-#           exposure constant). 100A and 100M keep 3000. Finetune keeps 500.
+#   epochs: scratch runs all use 3000 (a previous attempt at 300 for the
+#           small surveillance mixes did not converge - 1-4 batches/epoch
+#           x 300 epochs = far too few gradient steps). Finetune keeps 500
+#           because it starts from already-trained weights.
 RUN_TABLE=(
     "100A_scratch|100A|scratch|3000"
-    "50S_scratch|50S|scratch|300"
-    "25S_scratch|25S|scratch|300"
-    "100S_scratch|100S|scratch|300"
+    "50S_scratch|50S|scratch|3000"
+    "25S_scratch|25S|scratch|3000"
+    "100S_scratch|100S|scratch|3000"
     "100M_scratch|100M|scratch|3000"
     "100A_finetune|100A|finetune|500"
     "50S_finetune|50S|finetune|500"

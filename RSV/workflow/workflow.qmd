@@ -168,16 +168,23 @@ There are two pieces:
 architectures match. That is what makes the fine-tune step legal -- you
 can only load InfluPaint weights into a model with the same shape.
 
-The default `RUN_TABLE` trains 8 models. Epochs differ on purpose: the
-surveillance mixes were oversampled 10x more than originally, so we
-divide their epochs by 10 to keep per-sample exposure constant.
+The default `RUN_TABLE` trains 8 models. All scratch runs use 3000 epochs;
+finetune uses 500 because it starts from already-trained flu weights.
+
+An earlier attempt set the small surveillance scratch runs to 300 epochs
+(applying the "10x oversampling -> /10 epochs" rule). That did not work:
+those datasets only have 1-4 batches per epoch, so 300 epochs gave
+300-1200 total gradient steps vs ~15000 for 100A. The models did not
+converge and produced garbage samples. Lesson: that rule keeps per-sample
+exposure constant but only when the absolute number of gradient steps is
+already plenty.
 
 | Tag | Dataset | Mode | Epochs |
 |-----|---------|------|--------|
 | `100A_scratch`  | `RSV_100A` | scratch  | 3000 |
-| `50S_scratch`   | `RSV_50S`  | scratch  | 300 |
-| `25S_scratch`   | `RSV_25S`  | scratch  | 300 |
-| `100S_scratch`  | `RSV_100S` | scratch  | 300 |
+| `50S_scratch`   | `RSV_50S`  | scratch  | 3000 |
+| `25S_scratch`   | `RSV_25S`  | scratch  | 3000 |
+| `100S_scratch`  | `RSV_100S` | scratch  | 3000 |
 | `100M_scratch`  | `RSV_100M` | scratch  | 3000 |
 | `100A_finetune` | `RSV_100A` | finetune | 500 |
 | `50S_finetune`  | `RSV_50S`  | finetune | 500 |
