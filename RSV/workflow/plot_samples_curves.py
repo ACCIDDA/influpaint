@@ -69,7 +69,8 @@ def build_dataset_for_mix(mix_name):
 
 
 def load_ground_truth(season_setup, source=GT_SOURCE):
-    """Return the held-out RSV season (1, 1, 64, 64), in raw incidence units."""
+    """Return the held-out RSV season (1, 1, 64, 64), in raw incidence units.
+    Locations missing from `source` are filled with NaN so the line just stops."""
     df = pd.read_parquet(VALIDATION_PARQUET)
     df = df.rename(columns={"fluseason_week": "season_week"})
     df = df[df["datasetH2"] == source]
@@ -78,6 +79,16 @@ def load_ground_truth(season_setup, source=GT_SOURCE):
         .mean()
         .reset_index()
     )
+    # Inject any missing locations as NaN so dataframe_to_arraylist sees them.
+    missing = [loc for loc in season_setup.locations if loc not in df["location_code"].unique()]
+    if missing:
+        print(f"  note: {source} has no data for {len(missing)} locations: {missing}")
+        seasons = df["fluseason"].unique()
+        filler = pd.DataFrame(
+            [(s, w, loc, np.nan) for s in seasons for w in range(1, 54) for loc in missing],
+            columns=["fluseason", "season_week", "location_code", "value"],
+        )
+        df = pd.concat([df, filler], ignore_index=True)
     arrs = converters.dataframe_to_arraylist(df, season_setup=season_setup)
     return np.array(arrs)  # (n_seasons, 1, 64, 64)
 
