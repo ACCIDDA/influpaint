@@ -213,14 +213,39 @@ ls training_datasets/RSV_*_2026-04-24.nc
 ```bash
 cd /proj/jlessler/projects/influpaint_general/influpaint_RSV/influpaint
 sbatch RSV/workflow/train_rsv.run
-squeue -u cgeisma1
-tail -f out_rsv_rsv-2026-04-24_100A_scratch.out
-tail -f out_rsv_rsv-2026-04-24_*.out
+# resubmit only specific tasks (e.g. after a failure):
+# sbatch --array=1-7 RSV/workflow/train_rsv.run
 ```
 
-Each job logs to `out_rsv_<experiment>_<run_tag>.out` and saves its
-checkpoint under `OUTDIR/<git_hash>_<experiment>_<date>/` (set `OUTDIR`
-in `train_rsv.run`).
+### Monitor jobs
+
+There are two log files per task:
+
+- `slurm-<jobid>_<task>.out` — bash output (the `=== SLURM array task N ===`
+  header). If a job fails before Python starts (e.g. wrong `cd`) the error
+  is here.
+- `out_rsv_<experiment>_<run_tag>.out` — Python stdout/stderr. Loss curves,
+  tracebacks, the final `Done. Checkpoint: ...` line.
+
+```bash
+# Active jobs (PD = pending, R = running)
+squeue -u cgeisma1
+
+# History of a finished batch (success / fail / timeout)
+sacct -u cgeisma1 -j <jobid> --format=JobID,JobName,State,ExitCode,Elapsed
+
+# Watch a specific run's training output
+tail -f out_rsv_rsv-2026-04-24_100A_scratch.out
+
+# Cancel specific tasks (e.g. before they start)
+scancel <jobid>_5 <jobid>_6 <jobid>_7
+
+# Quick scan for completed runs
+grep "Done. Checkpoint" out_rsv_rsv-2026-04-24_*.out
+```
+
+Each job saves its checkpoint under
+`OUTDIR/<git_hash>_<experiment>_<date>/` (set `OUTDIR` in `train_rsv.run`).
 MLflow keeps loss curves and generated sample plots for every run.
 
 ### Smoke test before the real submission
@@ -248,6 +273,14 @@ python RSV/workflow/rsv_training.py \
 If that succeeds (a `.pth` file appears and MLflow shows a curve), the
 full SLURM submission is safe.
 
+```
+/proj/jlessler/projects/influpaint_general/influpaint_RSV/results/<git_hash>_<experiment>_<date>/
+```
+
+```
+ls -lh /proj/jlessler/projects/influpaint_general/influpaint_RSV/results/*/
+
+```
 ---
 
 # Step 5 - What comes next (after training)

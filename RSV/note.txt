@@ -1,0 +1,16 @@
+# 1. Locally: rebuild the small .nc files
+PYTHONPATH=. python RSV/workflow/build_training_sets.py --tag 2026-04-24 --only 100S 50S 25S
+
+# 2. rsync them to Longleaf (overwrites old ones)
+rsync -avz --progress \
+  "/Users/cy/Documents/PROJECTS LOCAL/influpaint/training_datasets/RSV_"{100S,50S,25S}"_2026-04-24.nc" \
+  cgeisma1@longleaf.unc.edu:/proj/jlessler/projects/influpaint_general/influpaint_RSV/influpaint/training_datasets/
+
+# 3. Commit + push the script changes
+git add RSV/workflow/build_training_sets.py RSV/workflow/train_rsv.run
+git commit -m "Bump small-dataset multipliers to clear batch size; per-row epochs; new FLUPAINT_CKPT"
+git push
+
+# 4. On Longleaf
+git pull
+sbatch --array=1-7 RSV/workflow/train_rsv.run

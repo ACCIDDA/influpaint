@@ -270,6 +270,11 @@ class DDPM:
         # necessary ????
         self.model.train()
         self.model.to(self.device)
+        # Optimizer state tensors load on CPU; move them to match the model.
+        for state in self.optimizer.state.values():
+            for k, v in state.items():
+                if isinstance(v, torch.Tensor):
+                    state[k] = v.to(self.device)
 
     def p_losses(self, denoise_model, x_start, t, noise=None, loss_type="l1"):
         if noise is None:
