@@ -80,18 +80,19 @@ grid where rows are weeks (1-53, padded to 64) and columns are locations
 The mix recipes live at the top of `build_training_sets.py` in a dict
 called `RSV_CONFIG`:
 
-| Mix | What goes in | Role in the experiment |
-|-----|--------------|------------------------|
-| `100S` | surveillance only (NSSP + RSV-Net + NHSN), each oversampled 20x | "only surveillance" arm |
-| `50S`  | same sources, each oversampled 10x (~half the data) | "50% of RSV data" |
-| `25S`  | same sources, each oversampled 5x (~quarter of the data) | "25% of RSV data" |
-| `100M` | RSV Scenario Modelling Hub only | "only synthetic" arm |
-| `100A` | 30% surveillance + 70% synthetic, balanced to ~2229 frames | "all RSV data" |
+| Mix | What goes in | Final size | Role |
+|-----|--------------|-----------|------|
+| `100S` | surveillance only (NSSP + RSV-Net + NHSN), each oversampled 200x | ~2400 | "only surveillance" arm |
+| `50S`  | same sources, each oversampled 100x (half of 100S) | ~1200 | "50% of RSV data" |
+| `25S`  | same sources, each oversampled 50x (quarter of 100S) | ~600 | "25% of RSV data" |
+| `100M` | RSV Scenario Modelling Hub only | ~2300 | "only synthetic" arm |
+| `100A` | 30% surveillance + 70% synthetic | ~2968 | "all RSV data" |
 
 The oversampling matters because a DDPM batch needs 512 images. With only
-a handful of real seasons we need to multiply them up; the on-the-fly
-augmentation (Poisson noise, time shifts, rescaling) makes each repeat
-look different to the model.
+a handful of real seasons we multiply them up; the on-the-fly augmentation
+(Poisson noise, time shifts, rescaling) makes each repeat look different
+to the model. The 4:2:1 ratio between 100S, 50S and 25S is the experimental
+variable - relative amount of surveillance "emphasis" during training.
 
 Run:
 
@@ -167,26 +168,34 @@ There are two pieces:
 architectures match. That is what makes the fine-tune step legal -- you
 can only load InfluPaint weights into a model with the same shape.
 
-The default `RUN_TABLE` trains 8 models:
+The default `RUN_TABLE` trains 8 models. Epochs differ on purpose: the
+surveillance mixes were oversampled 10x more than originally, so we
+divide their epochs by 10 to keep per-sample exposure constant.
 
-| Tag | Dataset | Mode |
-|-----|---------|------|
-| `100A_scratch` | `RSV_100A` | scratch |
-| `50S_scratch`  | `RSV_50S`  | scratch |
-| `25S_scratch`  | `RSV_25S`  | scratch |
-| `100S_scratch` | `RSV_100S` | scratch |
-| `100M_scratch` | `RSV_100M` | scratch |
-| `100A_finetune` | `RSV_100A` | finetune |
-| `50S_finetune`  | `RSV_50S`  | finetune |
-| `25S_finetune`  | `RSV_25S`  | finetune |
+| Tag | Dataset | Mode | Epochs |
+|-----|---------|------|--------|
+| `100A_scratch`  | `RSV_100A` | scratch  | 3000 |
+| `50S_scratch`   | `RSV_50S`  | scratch  | 300 |
+| `25S_scratch`   | `RSV_25S`  | scratch  | 300 |
+| `100S_scratch`  | `RSV_100S` | scratch  | 300 |
+| `100M_scratch`  | `RSV_100M` | scratch  | 3000 |
+| `100A_finetune` | `RSV_100A` | finetune | 500 |
+| `50S_finetune`  | `RSV_50S`  | finetune | 500 |
+| `25S_finetune`  | `RSV_25S`  | finetune | 500 |
+
+Finetune mode loads only the model weights from `FLUPAINT_CKPT` (not the
+optimizer state). Loading the optimizer state from a different task makes
+the loss blow up to the millions; a fresh optimizer is essential. This is
+controlled by `weights_only=True` in `rsv_training.py`.
 
 Before you submit, edit `train_rsv.run`:
 
 - `DATE_TAG` must match what you used in step 2.
-- `FLUPAINT_CKPT` must point to an existing InfluPaint checkpoint on
+- `FLUPAINT_CKPT` must point to a readable InfluPaint checkpoint on
   Longleaf (same scenario ID as `SCN_ID`).
-- `EXPERIMENT_NAME` is the MLflow experiment; change it when you start a
-  new round of runs.
+- `REPO_ROOT`, `PYTHON` must match your account on Longleaf (the script
+  exports `PYTHONPATH=$REPO_ROOT` before running so the package imports).
+- `EXPERIMENT_NAME` is the MLflow experiment; change it for a new round.
 
 Ship the repo + built `.nc` files to Longleaf, then:
 
@@ -273,30 +282,43 @@ python RSV/workflow/rsv_training.py \
 If that succeeds (a `.pth` file appears and MLflow shows a curve), the
 full SLURM submission is safe.
 
-```
-/proj/jlessler/projects/influpaint_general/influpaint_RSV/results/<git_hash>_<experiment>_<date>/
+### After all runs finish
+
+Each successful run writes its checkpoint to
+`/proj/jlessler/projects/influpaint_general/influpaint_RSV/results/<git_hash>_<experiment>_<date>/`.
+Because the git hash changes between submissions, the 8 final checkpoints
+end up scattered across a few folders. Consolidate them into one place:
+
+```bash
+mkdir -p /proj/jlessler/projects/influpaint_general/influpaint_RSV/checkpoints/
+cp /proj/jlessler/projects/influpaint_general/influpaint_RSV/results/*/{scratch,finetune}_*_scn868_ep*.pth \
+   /proj/jlessler/projects/influpaint_general/influpaint_RSV/checkpoints/
+ls -lh /proj/jlessler/projects/influpaint_general/influpaint_RSV/checkpoints/
 ```
 
-```
-ls -lh /proj/jlessler/projects/influpaint_general/influpaint_RSV/results/*/
+You should end up with 8 `.pth` files - the inputs to step 5.
 
+### Inspect training quality
+
+Two helper scripts read the per-run `out_rsv_*.out` and `samples_*.npy`
+artifacts and write PNGs you can preview in VSCode:
+
+```bash
+# Loss curves for every run (log y-axis)
+python RSV/workflow/plot_losses.py
+# -> rsv_training_losses.png
+
+# 12 sanity samples per run as 64x64 heatmaps
+python RSV/workflow/plot_samples.py \
+  /proj/jlessler/projects/influpaint_general/influpaint_RSV/results/*/samples_*.npy
+# -> one .png per .npy, next to it
 ```
+
 ---
 
 # Step 5 - What comes next (after training)
 
-Training only produces checkpoints. To turn checkpoints into forecasts
-on the held-out seasons you use the existing inpainting pipeline
-(`RSV/rsv_inpaint.py` / `influpaint/batch/inpainting.py`). That step:
-
-1. Loads a trained checkpoint.
-2. Loads the held-out season's observed weeks as "ground truth".
-3. Runs CoPaint-guided reverse diffusion to draw many full-season
-   forecasts consistent with the observed weeks.
-4. Exports FluSight-format quantile forecasts + raw arrays.
-
-Scoring those forecasts against `RSV_VALIDATION.parquet` (what Yue also
-has) is what produces the final model-vs-model comparison.
-
-That part is not in this workflow folder yet -- it's the natural follow-
-up once we have the 8 checkpoints in hand.
+Training only produces checkpoints. Turning those into forecasts on the
+held-out seasons (and scoring them against `RSV_VALIDATION.parquet`) is
+the next milestone, but the pipeline does not exist yet for RSV. It is
+the natural follow-up now that the 8 checkpoints are in hand.
