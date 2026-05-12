@@ -155,7 +155,7 @@ def main():
     # ---- Optionally load pre-trained weights ------------------------------
     if args.finetune_from:
         print(f"Loading weights for fine-tuning: {args.finetune_from}")
-        ddpm.load_model_checkpoint(args.finetune_from)
+        ddpm.load_model_checkpoint(args.finetune_from, weights_only=True)
         mode = "finetune"
     else:
         mode = "scratch"

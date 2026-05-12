@@ -260,21 +260,27 @@ class DDPM:
         )
         return save_path
 
-    def load_model_checkpoint(self, checkpoint_path):
+    def load_model_checkpoint(self, checkpoint_path, weights_only=False):
+        """
+        weights_only=True: only model weights (use for finetuning - keeps a
+        fresh optimizer and LR schedule, otherwise the source-task Adam
+        moments and epoch counter blow up the loss).
+        weights_only=False: full resume (model + optimizer + epoch + loss).
+        """
         checkpoint = torch.load(checkpoint_path, map_location=torch.device("cpu"))
         self.model.load_state_dict(checkpoint["model_state_dict"])
-        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
-        self.epochs = checkpoint["epochs"]
-        self.loss_type = checkpoint["loss_type"]
-        self.model.eval()
-        # necessary ????
+        if not weights_only:
+            self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+            self.epochs = checkpoint["epochs"]
+            self.loss_type = checkpoint["loss_type"]
         self.model.train()
         self.model.to(self.device)
-        # Optimizer state tensors load on CPU; move them to match the model.
-        for state in self.optimizer.state.values():
-            for k, v in state.items():
-                if isinstance(v, torch.Tensor):
-                    state[k] = v.to(self.device)
+        if not weights_only:
+            # Optimizer state tensors load on CPU; move to match the model.
+            for state in self.optimizer.state.values():
+                for k, v in state.items():
+                    if isinstance(v, torch.Tensor):
+                        state[k] = v.to(self.device)
 
     def p_losses(self, denoise_model, x_start, t, noise=None, loss_type="l1"):
         if noise is None:
