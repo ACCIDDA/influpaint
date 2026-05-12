@@ -22,6 +22,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.backends.backend_pdf import PdfPages
 
 from influpaint.utils import SeasonAxis, converters
 from influpaint.batch.scenarios import get_training_scenario
@@ -117,11 +118,12 @@ def inverse_transform_batch(dataset, samples):
     return np.stack(out, axis=0)
 
 
-def plot_one(ckpt_path, dataset, gt_array, season_setup):
+def make_figure(ckpt_path, dataset, gt_array, season_setup):
+    """Returns the matplotlib Figure, or None if samples can't be found."""
     samples_path = find_samples_npy(ckpt_path.name)
     if samples_path is None:
         print(f"  skip - no samples .npy found")
-        return
+        return None, None
     samples = np.load(samples_path)        # (N, 1, 64, 64) in [-1, 1]-ish space
     samples_ti = inverse_transform_batch(dataset, samples)  # back to counts
 
@@ -143,10 +145,7 @@ def plot_one(ckpt_path, dataset, gt_array, season_setup):
     axes[0, 0].legend(fontsize=8, loc="upper right")
     fig.suptitle(ckpt_path.stem, fontsize=11)
     fig.tight_layout()
-    out_png = samples_path.with_name(ckpt_path.stem + "_curves.png")
-    fig.savefig(out_png, dpi=120)
-    plt.close(fig)
-    print(f"  saved {out_png}")
+    return fig, samples_path
 
 
 def main():
@@ -154,13 +153,23 @@ def main():
     print(f"Loading ground truth from {VALIDATION_PARQUET} (source={GT_SOURCE})...")
     gt = load_ground_truth(season_setup)
 
-    for ckpt in sorted(Path(CHECKPOINTS_DIR).glob("*.pth")):
-        mix = mix_from_filename(ckpt.name)
-        if not mix:
-            continue
-        print(f"\n{ckpt.name}  (mix={mix})")
-        dataset = build_dataset_for_mix(mix)
-        plot_one(ckpt, dataset, gt, season_setup)
+    pdf_path = Path(CHECKPOINTS_DIR) / "rsv_samples_curves.pdf"
+    with PdfPages(pdf_path) as pdf:
+        for ckpt in sorted(Path(CHECKPOINTS_DIR).glob("*.pth")):
+            mix = mix_from_filename(ckpt.name)
+            if not mix:
+                continue
+            print(f"\n{ckpt.name}  (mix={mix})")
+            dataset = build_dataset_for_mix(mix)
+            fig, samples_path = make_figure(ckpt, dataset, gt, season_setup)
+            if fig is None:
+                continue
+            out_png = samples_path.with_name(ckpt.stem + "_curves.png")
+            fig.savefig(out_png, dpi=120)
+            pdf.savefig(fig)
+            plt.close(fig)
+            print(f"  saved {out_png}")
+    print(f"\nCombined PDF: {pdf_path}")
 
 
 if __name__ == "__main__":
