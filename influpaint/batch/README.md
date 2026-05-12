@@ -8,7 +8,7 @@ Parallel training and inpainting for InfluPaint experiments.
 - `scenarios.py` - Scenario generation and object creation
 - `training.py` - Train diffusion models
 - `inpainting.py` - Generate forecasts
-- `jobs.py` - Generate SLURM array jobs
+- `generate_inpainting_jobs.py` - Generate SLURM array jobs
 - `mlflow_utils.py` - MLflow utilities
 - `aggregation.py` - Result aggregation
 
