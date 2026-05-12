@@ -124,9 +124,13 @@ def main(scn_id, run_id, model_path, experiment_name, outdir, forecast_date, con
         print(f"Inpainting completed for scenario {scn_id}, date {forecast_date}, config {config_name}")
 
 
-def load_model(ddpm, run_id=None, model_path=None):
-    """Load model from MLflow or filesystem. Note that mlflow run_id are unique and thus
-    we don't need to know the training run experiment name here."""
+def load_model(ddpm, run_id=None, model_path=None, load_optimizer=True):
+    """Load a checkpoint from MLflow or filesystem.
+
+    Keep ``load_optimizer=True`` when resuming the original training state.
+    Set ``load_optimizer=False`` for fine-tuning workflows that should reuse
+    weights but start Adam from a clean state.
+    """
     if run_id:
         try:
             # Load model from MLflow run
@@ -149,7 +153,7 @@ def load_model(ddpm, run_id=None, model_path=None):
                 if file.endswith('.pth'):
                     full_checkpoint_path = os.path.join(checkpoint_path, file)
                     print(f"Loading additional checkpoint state from: {full_checkpoint_path}")
-                    ddpm.load_model_checkpoint(full_checkpoint_path)
+                    ddpm.load_model_checkpoint(full_checkpoint_path, load_optimizer=load_optimizer)
                     break
         
             return f"mlflow_run:{run_id}"
@@ -160,7 +164,7 @@ def load_model(ddpm, run_id=None, model_path=None):
     elif model_path:
         try:
             print(f"Loading model checkpoint from filesystem: {model_path}")
-            ddpm.load_model_checkpoint(model_path)
+            ddpm.load_model_checkpoint(model_path, load_optimizer=load_optimizer)
             return f"filesystem:{model_path}"
         except Exception as e:
             raise click.ClickException(f"Failed to load model from {model_path}: {e}")

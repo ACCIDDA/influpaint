@@ -260,10 +260,16 @@ class DDPM:
         )
         return save_path
 
-    def load_model_checkpoint(self, checkpoint_path):
+    def load_model_checkpoint(self, checkpoint_path, load_optimizer=True):
+        """Load a training checkpoint.
+
+        Set ``load_optimizer=False`` for fine-tuning so only the model weights
+        are restored and Adam state is rebuilt on the new gradients.
+        """
         checkpoint = torch.load(checkpoint_path, map_location=torch.device("cpu"))
         self.model.load_state_dict(checkpoint["model_state_dict"])
-        self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+        if load_optimizer:
+            self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         self.epochs = checkpoint["epochs"]
         self.loss_type = checkpoint["loss_type"]
         self.model.eval()

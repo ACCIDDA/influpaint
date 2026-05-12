@@ -266,7 +266,7 @@ else:
 
 # Load the model using the unified load_model function
 print("Loading model checkpoint...")
-load_model(ddpm, run_id=run_id, model_path=model_path)
+load_model(ddpm, run_id=run_id, model_path=model_path, load_optimizer=False)
 print(f"✓ Model loaded from: {model_source}")
 
 # %% [markdown]
