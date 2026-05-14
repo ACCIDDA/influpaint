@@ -32,11 +32,7 @@ from influpaint.datasets import loaders as training_datasets
 
 # ---------------------------------------------------------------------------
 CHECKPOINTS_DIR = "/proj/jlessler/projects/influpaint_general/influpaint_RSV/checkpoints/"
-RESULTS_DIRS = [
-    "/proj/jlessler/projects/influpaint_general/influpaint_RSV/results/65dc759_rsv-2026-04-24_training_2026-05-07/",
-    "/proj/jlessler/projects/influpaint_general/influpaint_RSV/results/f11c335_rsv-2026-04-24_training_2026-04-27/",
-    "/proj/jlessler/projects/influpaint_general/influpaint_RSV/results/d34878b_rsv-2026-04-24_training_2026-05-12/",
-]
+RESULTS_ROOT = "/proj/jlessler/projects/influpaint_general/influpaint_RSV/results/"
 DATASET_DIR = "training_datasets"
 DATE_TAG = "2026-04-24"
 SCN_ID = 868
@@ -95,14 +91,15 @@ def load_ground_truth(season_setup, source=GT_SOURCE):
 
 
 def find_samples_npy(ckpt_filename):
-    """Map scratch_100A_scratch_scn868_ep3000.pth -> samples_scratch_100A_scratch_scn868.npy"""
+    """Map scratch_100A_scratch_scn868_ep3000.pth -> samples_scratch_100A_scratch_scn868.npy.
+    Searches every results/*/ folder; if multiple match (e.g. a run was redone),
+    returns the most recently modified one."""
     stem = ckpt_filename.rsplit("_ep", 1)[0]
     target = f"samples_{stem}.npy"
-    for d in RESULTS_DIRS:
-        p = Path(d) / target
-        if p.exists():
-            return p
-    return None
+    matches = list(Path(RESULTS_ROOT).glob(f"*/{target}"))
+    if not matches:
+        return None
+    return max(matches, key=lambda p: p.stat().st_mtime)
 
 
 def mix_from_filename(name):
