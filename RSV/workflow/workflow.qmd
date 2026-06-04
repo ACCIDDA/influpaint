@@ -32,6 +32,7 @@ Every step below maps to one script in this `RSV/workflow/` folder.
 | 2 | `build_training_sets.py` | Builds one `.nc` training file per mix (100S, 50S, 25S, 100M, 100A). |
 | 3 | `workflow.qmd` (this file) | Quick inspection plots. |
 | 4 | `train_rsv.run` + `rsv_training.py` | SLURM submits one training job per (mix, mode) pair. |
+| 5 | `rsv_inpaint.py` | Inpaints one checkpoint into a Hubverse forecast CSV for the held-out season. |
 
 The code below assumes you are running **from the repo root**
 (`/Users/cy/.../influpaint/`).
@@ -323,9 +324,74 @@ python RSV/workflow/plot_samples.py \
 
 ---
 
-# Step 5 - What comes next (after training)
+# Step 5 - Inpaint the held-out season (forecasting)
 
-Training only produces checkpoints. Turning those into forecasts on the
-held-out seasons (and scoring them against `RSV_VALIDATION.parquet`) is
-the next milestone, but the pipeline does not exist yet for RSV. It is
-the natural follow-up now that the 8 checkpoints are in hand.
+**What it does, in one sentence:** take ONE trained checkpoint and fill in
+the unobserved weeks of the held-out season, then write the result as a
+Hubverse CSV (exactly the shape you would submit to the CDC RSV Forecast
+Hub).
+
+How inpainting works here, in plain terms: the model learned to draw a whole
+RSV season as a 64x64 image (rows = weeks, columns = states). We paint in the
+weeks we have already observed, lock those pixels, and let the model fill in
+the rest of the season. The filled-in part is the forecast. We draw
+`batch_size` independent fills, so the spread across draws gives the forecast
+quantiles.
+
+The script is `RSV/workflow/rsv_inpaint.py`. Two things make it RSV-specific
+(this is why we do not just reuse the flu notebook as-is):
+
+1. **Scaling must match training.** A diffusion model works on normalised
+   numbers; to read its output back as real RSV values you must undo that
+   normalisation with the *same* scaling used in training. That scaling comes
+   from the training `.nc` file, so you pass the **same-mix** `.nc` the
+   checkpoint was trained on (`finetune_100A_*.pth` -> `RSV_100A_<tag>.nc`).
+   Passing a different mix's `.nc` silently rescales every forecast.
+2. **Ground truth is the held-out parquet, not a flu hub.** It is built with
+   `GroundTruth.from_rsv(...)` from one surveillance signal (default `NHSN`,
+   hospital admission counts, which reports all states) for the held-out
+   season (2024). Whatever signal you choose is used *both* as the weeks you
+   condition on and as the weeks you score against, so the forecast comes out
+   in that signal's units.
+
+**Mask / horizon convention:** `--reference-date` is a Saturday. Weeks ending
+*before* it are treated as known; horizon 0 is the reference week itself, and
+the Hubverse horizons `-1, 0, 1, 2, 3` are emitted. `target_end_date =
+reference_date + 7 x horizon`. The target is `wk inc rsv hosp` (RSV-Net
+hospitalizations).
+
+**Why NHSN and not RSV-Net:** the ground-truth signal is used both to
+condition on and to score against, so coverage matters. NHSN reports all 51
+states, giving a complete conditioning image. RSV-Net reports only ~14
+states, which would force the other ~37 to zero in the known weeks and lie to
+the model about where RSV is. `NSSP` (target `wk inc rsv prop ed visits`) is
+the other full-coverage option if you want ED-visit proportion instead of
+hospitalizations.
+
+### Smoke test (one checkpoint, one date)
+
+On Longleaf, in an interactive GPU job, from the repo root:
+
+```bash
+export PYTHONPATH=$PWD
+python RSV/workflow/rsv_inpaint.py \
+    --checkpoint /proj/jlessler/projects/influpaint_general/influpaint_RSV/checkpoints/finetune_100A_scn868_ep500.pth \
+    --dataset-nc training_datasets/RSV_100A_2026-04-24.nc \
+    --reference-date 2024-12-21 \
+    --signal RSV-Net \
+    --season 2024 \
+    --outdir RSV/forecasts_validation
+```
+
+This writes `RSV/forecasts_validation/2024-12-21-UNC_IDD-InfluPaint-RSV.csv`
+(plus a national sanity plot and the raw draws). Open the plot first: the
+median should track the observed RSV-Net curve up to the reference date and
+fan out afterwards. If the scale looks wrong (forecasts orders of magnitude
+off the observed line), the most likely cause is a `--dataset-nc` that does
+not match the checkpoint's mix.
+
+### Scaling up
+
+Once the smoke test looks right, loop over the 8 checkpoints and a handful of
+reference dates through the season (e.g. one per month), then hand the CSVs to
+Yue for scoring against `RSV_VALIDATION.parquet`.

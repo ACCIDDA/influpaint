@@ -320,6 +320,96 @@ class GroundTruth():
             dataset_coords=dataset_coords,
         )
 
+    @classmethod
+    def from_rsv(
+        cls,
+        validation_parquet: str,
+        signal: str,
+        season_first_year: str,
+        mask_date: datetime.datetime,
+        channels=1,
+        image_size=64,
+        season_setup: SeasonAxis = None,
+        dataset_coords: xr.core.coordinates.DataArrayCoordinates = None,
+    ):
+        """
+        Build a GroundTruth from a held-out RSV validation parquet.
+
+        Unlike `for_flusight` (which downloads flu surveillance from a hub),
+        this reads the already-saved RSV held-out season straight from disk.
+        It keeps a single surveillance `signal` (e.g. "RSV-Net", "NSSP",
+        "NHSN") for one season, turns the (location, season-week) values into
+        a week_enddate/location_code/value table, and reindexes onto the FULL
+        modelled location grid so the resulting image columns line up with the
+        model's training images.
+
+        Notes / caveats:
+        - There is no data-revision history here, so `gt_df == gt_df_final`.
+        - `signal` like "RSV-Net" only covers a subset of states. Locations
+          the signal does not report get NaN -> 0 in the known region, which
+          tells the model those states had ~0 RSV. That is a spatial-coverage
+          artefact of using a partial signal as ground truth, not a bug.
+        """
+        if season_setup is None:
+            season_setup = SeasonAxis.for_flusight(remove_territories=True, remove_us=True)
+
+        df = pd.read_parquet(validation_parquet)
+
+        # --- keep one signal + one season --------------------------------
+        df = df[df["datasetH1"].astype(str) == str(signal)].copy()
+        df = df[df["fluseason"].astype(float) == float(season_first_year)].copy()
+        if df.empty:
+            raise ValueError(
+                f"No rows for signal={signal!r}, season={season_first_year} "
+                f"in {validation_parquet}"
+            )
+
+        df["location_code"] = df["location_code"].astype(str).str.zfill(2)
+        df["fluseason_week"] = df["fluseason_week"].astype(int)
+
+        # If the signal has several samples (synthetic), average them; real
+        # surveillance has a single sample so this is a no-op there.
+        df = (
+            df.groupby(["location_code", "fluseason_week"], as_index=False)["value"]
+            .mean()
+        )
+
+        # --- reindex onto the full modelled location grid ----------------
+        # This guarantees the gt image has every state column (in the same
+        # sorted order the model was trained on), with NaN for unreported ones.
+        all_locs = list(season_setup.locations)
+        # Always span weeks 1..52 so the image is anchored at season week 1
+        # (row 0), matching how the model's training images are built.
+        weeks = list(range(1, 53))
+        full_grid = pd.MultiIndex.from_product(
+            [all_locs, weeks], names=["location_code", "fluseason_week"]
+        ).to_frame(index=False)
+        df = full_grid.merge(df, on=["location_code", "fluseason_week"], how="left")
+
+        # --- season-week -> Saturday (week_enddate) ----------------------
+        calendar = season_setup.get_season_calendar(int(season_first_year))[
+            ["season_week", "saturday"]
+        ]
+        df = df.merge(
+            calendar, left_on="fluseason_week", right_on="season_week", how="left"
+        )
+        df["week_enddate"] = pd.to_datetime(df["saturday"])
+
+        gt_df = df[["week_enddate", "location_code", "value"]].copy()
+        gt_df_final = gt_df.copy()
+
+        return cls(
+            season_first_year=str(season_first_year),
+            gt_df=gt_df,
+            gt_df_final=gt_df_final,
+            mask_date=mask_date,
+            season_setup=season_setup,
+            channels=channels,
+            image_size=image_size,
+            previous_data=[],
+            dataset_coords=dataset_coords,
+        )
+
     def plot(self):
         season_start_date = datetime.date(int(self.season_first_year), self.season_setup.season_start_month, self.season_setup.season_start_day)
         n_locations = len(self.season_setup.locations)
