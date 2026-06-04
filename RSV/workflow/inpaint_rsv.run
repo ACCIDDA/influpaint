@@ -1,0 +1,94 @@
+#!/bin/bash
+#SBATCH -N 1
+#SBATCH -n 1
+#SBATCH -p l40-gpu
+#SBATCH --mem=32G
+#SBATCH -t 00-01:30:00
+#SBATCH --array=0-143
+#SBATCH --gres=gpu:1
+#SBATCH --qos=gpu_access
+
+# --------------------------------------------------------------------------
+# Retrospective RSV inpainting sweep on UNC Longleaf.
+#
+# One SLURM array task = ONE (model x reference-week) forecast. We forecast
+# every 3 weeks across the held-out season, each forecast looking up to 3
+# weeks ahead (Hubverse horizons -1..3), so the 3-week forecasts tile the
+# whole season. With 8 checkpoints x 18 reference weeks = 144 tasks
+# (array 0-143). Each task writes one Hubverse CSV + a sanity plot.
+#
+# Submit:
+#     cd /proj/jlessler/projects/influpaint_general/influpaint_RSV/influpaint
+#     sbatch RSV/workflow/inpaint_rsv.run
+#
+# Resubmit specific tasks after failures (contiguous range or comma list):
+#     sbatch --array=37,52,90 RSV/workflow/inpaint_rsv.run
+# To drop the near-zero August origins for ALL models, change range(18) below
+# to e.g. range(2, 18) and set --array=0-127 (8 x 16).
+# --------------------------------------------------------------------------
+
+# --- Edit these -----------------------------------------------------------
+DATE_TAG="2026-04-24"      # must match the .nc tag from build_training_sets.py
+SEASON="2024"              # held-out season (fluseason start year)
+SIGNAL="NHSN"              # ground-truth signal: all states, hospitalizations
+REPO_ROOT="/proj/jlessler/projects/influpaint_general/influpaint_RSV/influpaint"
+PYTHON="/proj/jlessler/projects/influpaint_general/influpaint_RSV/influpaint/.venv/bin/python"
+CKPT_DIR="/proj/jlessler/projects/influpaint_general/influpaint_RSV/checkpoints"
+OUTROOT="RSV/forecasts_validation"
+# --------------------------------------------------------------------------
+
+# Each row: "<checkpoint_basename>|<mix>|<hub_model_id>"
+#   <mix> selects the matching training .nc (RSV_<mix>_<DATE_TAG>.nc), which
+#   sets the un-normalisation scaling. It MUST match the mix the checkpoint
+#   was trained on, or every forecast comes out on the wrong scale.
+#   <hub_model_id> goes in the output filename so models stay distinguishable;
+#   it also labels the experimental arm (InfluPaint-ft = finetuned from flu,
+#   RSVpaint = trained from scratch on RSV).
+MODEL_TABLE=(
+    "finetune_100A_finetune_scn868_ep500|100A|InfluPaint-ft-100A"
+    "finetune_50S_finetune_scn868_ep500|50S|InfluPaint-ft-50S"
+    "finetune_25S_finetune_scn868_ep500|25S|InfluPaint-ft-25S"
+    "scratch_100A_scratch_scn868_ep3000|100A|RSVpaint-100A"
+    "scratch_100M_scratch_scn868_ep3000|100M|RSVpaint-100M"
+    "scratch_100S_scratch_scn868_ep3000|100S|RSVpaint-100S"
+    "scratch_50S_scratch_scn868_ep3000|50S|RSVpaint-50S"
+    "scratch_25S_scratch_scn868_ep3000|25S|RSVpaint-25S"
+)
+
+# Reference dates: every 3 weeks (21 days) starting at RSV season week 1
+# (first Saturday on/after Aug 1) across the whole season -> 18 origins.
+DATES=( $("${PYTHON}" -c "import datetime; d=datetime.date(${SEASON},8,3); print(' '.join((d+datetime.timedelta(days=21*i)).isoformat() for i in range(18)))") )
+NDATES=${#DATES[@]}
+
+I=${SLURM_ARRAY_TASK_ID}
+C=$(( I / NDATES ))    # which model
+K=$(( I % NDATES ))    # which reference date
+
+ROW="${MODEL_TABLE[$C]}"
+CKPT="$(echo "$ROW"     | cut -d'|' -f1)"
+MIX="$(echo "$ROW"      | cut -d'|' -f2)"
+MODEL_ID="$(echo "$ROW" | cut -d'|' -f3)"
+REF_DATE="${DATES[$K]}"
+
+DATASET_NC="training_datasets/RSV_${MIX}_${DATE_TAG}.nc"
+OUTDIR="${OUTROOT}/${MODEL_ID}"
+LOG="out_inpaint_${MODEL_ID}_${REF_DATE}.out"
+
+echo "=== SLURM array task ${I} ==="
+echo "MODEL = ${MODEL_ID}  (${CKPT})"
+echo "NC    = ${DATASET_NC}"
+echo "REF   = ${REF_DATE}"
+
+module purge
+cd "${REPO_ROOT}" || exit 1
+export PYTHONPATH="${REPO_ROOT}:${PYTHONPATH}"
+
+"${PYTHON}" -u RSV/workflow/rsv_inpaint.py \
+    --checkpoint "${CKPT_DIR}/${CKPT}.pth" \
+    --dataset-nc "${DATASET_NC}" \
+    --reference-date "${REF_DATE}" \
+    --signal "${SIGNAL}" \
+    --season "${SEASON}" \
+    --model "${MODEL_ID}" \
+    --outdir "${OUTDIR}" \
+    > "${LOG}" 2>&1

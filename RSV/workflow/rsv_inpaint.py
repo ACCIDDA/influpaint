@@ -82,6 +82,7 @@ def export_hubverse_rsv(
     directory,
     team,
     model,
+    signal="NHSN",
     horizons=(-1, 0, 1, 2, 3),
     save_plot=True,
 ):
@@ -151,31 +152,52 @@ def export_hubverse_rsv(
     print(f"Hubverse CSV written: {out_csv}  ({len(df)} rows)")
 
     if save_plot:
-        _plot_national(fluforecasts_ti, gt1, season_setup, base_index, ref, directory, team, model)
+        _plot_national(fluforecasts_ti, gt1, season_setup, base_index, ref, directory, team, model, signal)
 
     return out_csv, df
 
 
-def _plot_national(fluforecasts_ti, gt1, season_setup, base_index, ref, directory, team, model):
+def _plot_national(fluforecasts_ti, gt1, season_setup, base_index, ref, directory, team, model, signal):
+    """Two panels: the full season the model fills (context, NOT submitted) and
+    a zoom on the -1..3 week window we actually submit, with the held-out truth
+    overlaid so you can see forecast vs reality."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
     n_locs = len(season_setup.locations)
     national = fluforecasts_ti[:, :, :, :n_locs].sum(axis=-1)  # (n,1,weeks)
-    fig, ax = plt.subplots(figsize=(10, 4), dpi=120)
-    x = base_index
-    for iqt in range(flusight_quantile_pairs.shape[0]):
-        lo = np.quantile(national, flusight_quantile_pairs[iqt, 0], axis=0)[0]
-        hi = np.quantile(national, flusight_quantile_pairs[iqt, 1], axis=0)[0]
-        ax.fill_between(x, lo, hi, alpha=0.1, color="darkred")
-    ax.plot(x, np.quantile(national, 0.5, axis=0)[0], color="r", lw=2, label="median forecast")
-    obs = gt1.gt_xarr.data[0, : gt1.inpaintfrom_idx].sum(axis=1)
-    ax.plot(base_index[: gt1.inpaintfrom_idx], obs, "k.", label="observed (RSV-Net)")
-    ax.axvline(ref, c="k", ls="--", lw=1.2, alpha=0.6)
-    ax.set_ylim(bottom=0)
-    ax.set_title(f"National RSV forecast — ref {ref.date()} — {model}")
-    ax.legend()
+    med = np.quantile(national, 0.5, axis=0)[0]
+    nweeks = med.shape[0]
+    x = base_index[:nweeks]
+    idx = gt1.inpaintfrom_idx
+
+    # Full-season national truth (the held-out parquet has all weeks, even the
+    # ones we masked), so we can show what actually happened after `ref`.
+    truth = np.nan_to_num(gt1.gt_xarr.data[0].sum(axis=1), nan=0.0)[:nweeks]
+
+    fig, axes = plt.subplots(1, 2, figsize=(13, 4.2), dpi=120)
+    for panel, ax in enumerate(axes):
+        for iqt in range(flusight_quantile_pairs.shape[0]):
+            lo = np.quantile(national, flusight_quantile_pairs[iqt, 0], axis=0)[0]
+            hi = np.quantile(national, flusight_quantile_pairs[iqt, 1], axis=0)[0]
+            ax.fill_between(x, lo[:nweeks], hi[:nweeks], alpha=0.1, color="darkred")
+        ax.plot(x, med, color="r", lw=2, label="median forecast")
+        ax.plot(x[:idx], truth[:idx], "k.", ms=7, label=f"observed ({signal})")
+        ax.plot(x[idx:52], truth[idx:52], ".", color="tab:blue", ms=6, label="held-out truth")
+        ax.axvline(ref, c="k", ls="--", lw=1.2, alpha=0.6)
+        ax.set_ylim(bottom=0)
+        if panel == 0:
+            ax.set_title("Full season the model fills (context, not submitted)")
+        else:
+            lo_w, hi_w = max(0, idx - 6), min(nweeks, idx + 4)
+            ax.set_xlim(ref - pd.Timedelta(weeks=6), ref + pd.Timedelta(weeks=4))
+            band_hi = np.quantile(national, 0.95, axis=0)[0][lo_w:hi_w]
+            ymax = max(band_hi.max(), truth[lo_w:hi_w].max(), 1.0)
+            ax.set_ylim(0, ymax * 1.15)
+            ax.set_title("Submitted window: horizons -1..3 (3 weeks ahead)")
+        ax.legend(fontsize=8)
+    fig.suptitle(f"National RSV ({signal}) — ref {ref.date()} — {model}")
     fig.tight_layout()
     out_png = directory / f"{ref.date().isoformat()}-{team}-{model}-national.png"
     fig.savefig(out_png)
@@ -302,6 +324,7 @@ def main():
         directory=args.outdir,
         team=args.team,
         model=args.model,
+        signal=args.signal,
     )
 
     # Raw draws, for re-scoring / debugging.
