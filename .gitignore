@@ -25,6 +25,7 @@ influpaint-paper/*
 # 
 interval_scoring/
 RSV/data/
+RSV/forecasts_validation/
 
 # MkDocs
 site/

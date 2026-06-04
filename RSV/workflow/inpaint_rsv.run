@@ -13,7 +13,7 @@
 #
 # One SLURM array task = ONE (model x reference-week) forecast. We forecast
 # every 3 weeks across the held-out season, each forecast looking up to 3
-# weeks ahead (Hubverse horizons -1..3), so the 3-week forecasts tile the
+# weeks ahead (Hubverse horizons 0..3), so the 3-week forecasts tile the
 # whole season. With 8 checkpoints x 18 reference weeks = 144 tasks
 # (array 0-143). Each task writes one Hubverse CSV + a sanity plot.
 #

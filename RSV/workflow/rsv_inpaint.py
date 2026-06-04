@@ -83,7 +83,7 @@ def export_hubverse_rsv(
     team,
     model,
     signal="NHSN",
-    horizons=(-1, 0, 1, 2, 3),
+    horizons=(0, 1, 2, 3),
     save_plot=True,
 ):
     """
@@ -195,7 +195,7 @@ def _plot_national(fluforecasts_ti, gt1, season_setup, base_index, ref, director
             band_hi = np.quantile(national, 0.95, axis=0)[0][lo_w:hi_w]
             ymax = max(band_hi.max(), truth[lo_w:hi_w].max(), 1.0)
             ax.set_ylim(0, ymax * 1.15)
-            ax.set_title("Submitted window: horizons -1..3 (3 weeks ahead)")
+            ax.set_title("Submitted window: horizons 0..3 (3 weeks ahead)")
         ax.legend(fontsize=8)
     fig.suptitle(f"National RSV ({signal}) — ref {ref.date()} — {model}")
     fig.tight_layout()

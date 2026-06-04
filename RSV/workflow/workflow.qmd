@@ -355,10 +355,12 @@ The script is `RSV/workflow/rsv_inpaint.py`. Two things make it RSV-specific
    in that signal's units.
 
 **Mask / horizon convention:** `--reference-date` is a Saturday. Weeks ending
-*before* it are treated as known; horizon 0 is the reference week itself, and
-the Hubverse horizons `-1, 0, 1, 2, 3` are emitted. `target_end_date =
-reference_date + 7 x horizon`. The target is `wk inc rsv hosp` (RSV-Net
-hospitalizations).
+*before* it are treated as known; horizon 0 is the reference week itself (the
+first unobserved week), and the Hubverse horizons `0, 1, 2, 3` are emitted.
+`target_end_date = reference_date + 7 x horizon`. The target is
+`wk inc rsv hosp` (NHSN hospitalizations). We drop the hub's `-1` backcast: on
+final held-out data it is just a week we already observed and locked into the
+model, so it carries no forecast information.
 
 **Why NHSN and not RSV-Net:** the ground-truth signal is used both to
 condition on and to score against, so coverage matters. NHSN reports all 51
