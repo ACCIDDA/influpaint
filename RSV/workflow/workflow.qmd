@@ -407,6 +407,12 @@ track the observed curve up to the reference date and fan out afterwards.
 Forecasts orders of magnitude off the observed line usually mean a `--dataset-nc`
 that does not match the checkpoint's mix.
 
+Sanity check the resulting file with:
+
+```bash
+ python -c "import pandas as pd; d=pd.read_csv('RSV/forecasts_validation/2025-12-20-UNC_IDD-InfluPaint-RSV.csv', dtype={'output_type_id':str}); print('has US row:', 'US' in set(d.location)); print(d[(d.location=='US')&(d.output_type_id.isin(['0.025','0.5','0.975']))].pivot(index='horizon',columns='output_type_id',values='value').round(1))"
+```
+
 ### Scale up
 
 Once the smoke-test looks right, forecast the whole season for every model. On
@@ -418,7 +424,7 @@ cd /proj/jlessler/projects/influpaint_general/influpaint_RSV/influpaint
 sbatch RSV/workflow/inpaint_rsv.run
 ```
 
-Hand the CSVs to Yue for scoring against `RSV_VALIDATION.parquet`.
+Hand the CSVs to Emily/Yue for scoring against `RSV_VALIDATION.parquet`.
 
 ---
 
