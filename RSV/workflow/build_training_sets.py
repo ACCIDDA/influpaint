@@ -13,7 +13,7 @@ Usage (from repo root):
     python RSV/workflow/build_training_sets.py \
         --input RSV/data/RSV_TRAIN.parquet \
         --outdir training_datasets \
-        --tag 2026-04-24
+        --tag 2026-06-23
 """
 
 import argparse
@@ -31,50 +31,54 @@ from influpaint.datasets import mixer as dataset_mixer
 # ---------------------------------------------------------------------------
 # Mix configurations
 # ---------------------------------------------------------------------------
-# Each entry is a name -> "how to mix the sources" recipe. `multiplier` just
-# oversamples each season N times. `proportion` + `total` target an exact
-# composition. The mix name ends up in the output filename and is also the
-# name you pass to the SLURM job.
+# We build six training pools. The experimental variable is HOW MUCH and WHICH
+# RSV data a model sees; the architecture, batch size and epochs are held fixed.
 #
-#   100S  = 100% surveillance (NSSP + RSV-Net + NHSN), each x200
-#   50S   = half-size surveillance pool (x100, half of 100S)
-#   25S   = quarter-size surveillance pool (x50, quarter of 100S)
-#   100M  = 100% synthetic (RSV Scenario Modelling Hub only)
-#   100A  = balanced "all RSV data": 30% surveillance + 70% synthetic,
-#           matches what the flu paper calls "30S70M"
+# Surveillance ladder (100S / 50S / 25S) -- 100%, 50%, 25% of the real RSV
+# surveillance frames. After the validation season is removed there are 12
+# surveillance frames (NHSN 2, NSSP 3, RSV-Net 7). The ladder keeps the source
+# ratio as even as integers allow and never drops a source (NHSN must stay in:
+# it is the signal we condition on / score against at inference):
 #
-# Multipliers were bumped 10x relative to the original (20/10/5) so every mix
-# has >= 512 samples (the DDPM batch size). The 4:2:1 ratio between 100S, 50S
-# and 25S is preserved, so the experimental design is unchanged. Epochs in
-# train_rsv.run are divided by 10 for these runs to match (per-sample exposure
-# stays constant; see Joseph's rule: N x more data -> N x fewer epochs).
+#       mix    NHSN  NSSP  RSV-Net   frames
+#       100S     2     3      7        12
+#       50S      1     2      3         6
+#       25S      1     1      1         3
+#
+# For 50S/25S we keep the most-RECENT seasons of each source (closest to the
+# held-out season). Every frame is then replicated MULTIPLIER (=180) times, so
+# the pools are 2160 / 1080 / 540 samples -- all >= the 512 DDPM batch size.
+# Because the multiplier is identical for all three, the ONLY thing that
+# changes down the ladder is the number of UNIQUE frames: 50S is literally 100S
+# with half its frames removed. Missing states are filled from surveillance only,
+# so the surveillance arms stay free of synthetic data.
+#
+# Reference pools:
+#   100M = synthetic only (RSV Scenario Modelling Hub).
+#   100A = "all RSV data": 30% surveillance + 70% synthetic (the flu paper's
+#          "30S70M"), source ratio fixed by proportions.
 # ---------------------------------------------------------------------------
-RSV_CONFIG = {
-    "100S": {
-        "NSSP":    {"multiplier": 200},
-        "RSV-Net": {"multiplier": 200},
-        "NHSN":    {"multiplier": 200},
-    },
-    "50S": {
-        "NSSP":    {"multiplier": 100},
-        "RSV-Net": {"multiplier": 100},
-        "NHSN":    {"multiplier": 100},
-    },
-    "25S": {
-        "NSSP":    {"multiplier": 50},
-        "RSV-Net": {"multiplier": 50},
-        "NHSN":    {"multiplier": 50},
-    },
-    "100M": {
-        "RSV_SMH": {"multiplier": 1},
-    },
+MULTIPLIER = 180  # frames per surveillance season; clears the 512 batch size
+
+# Surveillance ladder: how many of the most-recent seasons to keep per source.
+SURVEILLANCE_LADDER = {
+    "100S": {"NHSN": 2, "NSSP": 3, "RSV-Net": 7},   # 12 frames -> 2160 samples
+    "50S":  {"NHSN": 1, "NSSP": 2, "RSV-Net": 3},   #  6 frames -> 1080 samples
+    "25S":  {"NHSN": 1, "NSSP": 1, "RSV-Net": 1},   #  3 frames ->  540 samples
+}
+
+# Reference pools built directly from a mixer config (no frame subsampling).
+REFERENCE_POOLS = {
+    "100M": {"RSV_SMH": {"multiplier": 1}},
     "100A": {
-        "NSSP":    {"proportion": 0.10, "total": 2229},
-        "RSV-Net": {"proportion": 0.10, "total": 2229},
-        "NHSN":    {"proportion": 0.10, "total": 2229},
-        "RSV_SMH": {"proportion": 0.70, "total": 2229},
+        "NSSP":    {"proportion": 0.10, "total": 2160},
+        "RSV-Net": {"proportion": 0.10, "total": 2160},
+        "NHSN":    {"proportion": 0.10, "total": 2160},
+        "RSV_SMH": {"proportion": 0.70, "total": 2160},
     },
 }
+
+ALL_MIXES = list(SURVEILLANCE_LADDER) + list(REFERENCE_POOLS)
 
 
 def build_dataset_from_framelist(frame_list, season_setup):
@@ -124,6 +128,23 @@ def compute_scaling_distribution(df):
     return season_peaks["value"].values
 
 
+def select_recent_seasons(df, per_source_counts):
+    """
+    Keep only the N most-recent seasons of each surveillance source.
+
+    This is how the 50S / 25S rungs are built: 50S keeps fewer seasons than
+    100S, so it is literally 100S with some of its unique frames removed.
+    """
+    kept = []
+    for source, n in per_source_counts.items():
+        sub = df[df["datasetH1"] == source]
+        seasons = sorted(sub["fluseason"].dropna().unique())
+        recent = seasons[-n:]
+        print(f"  {source}: keep {n} most-recent season(s) {[int(s) for s in recent]}")
+        kept.append(sub[sub["fluseason"].isin(recent)])
+    return pd.concat(kept, ignore_index=True)
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument(
@@ -145,7 +166,7 @@ def main():
         "--only",
         nargs="*",
         default=None,
-        help="Build only these mix names (default: all mixes in RSV_CONFIG).",
+        help="Build only these mix names (default: all mixes in ALL_MIXES).",
     )
     args = p.parse_args()
 
@@ -160,12 +181,23 @@ def main():
 
     scaling_dist = compute_scaling_distribution(df)
 
-    configs = RSV_CONFIG if args.only is None else {k: RSV_CONFIG[k] for k in args.only}
+    mixes = ALL_MIXES if args.only is None else args.only
 
-    for mix_name, mix_cfg in configs.items():
+    for mix_name in mixes:
         print(f"\n=== Building RSV_{mix_name} ===")
+        if mix_name in SURVEILLANCE_LADDER:
+            # Subsample frames to the chosen seasons, then replicate every
+            # frame MULTIPLIER times. Same multiplier across 100S/50S/25S, so
+            # the only difference is how many unique frames survive.
+            counts = SURVEILLANCE_LADDER[mix_name]
+            frame_df = select_recent_seasons(df, counts)
+            mix_cfg = {src: {"multiplier": MULTIPLIER} for src in counts}
+        else:
+            frame_df = df
+            mix_cfg = REFERENCE_POOLS[mix_name]
+
         frame_list = dataset_mixer.build_frames(
-            df,
+            frame_df,
             mix_cfg,
             season_axis=season_setup,
             fill_missing_locations="random",

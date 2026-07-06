@@ -12,8 +12,11 @@
 # including through synthetic trajectories that were produced for those years.
 #
 # Pick 1-2 seasons. A few things to keep in mind when choosing:
-#   - NHSN only starts at season 2023, so holding out 2023 leaves NHSN with
-#     a single season (2024) in training.
+#   - We hold out the latest season (2025 = the 2025-26 season): train on the
+#     past, forecast the most recent season. After this split the training set
+#     has 12 surveillance frames (NHSN 2, NSSP 3, RSV-Net 7).
+#   - NHSN only starts at season 2023, so holding out 2025 leaves NHSN with two
+#     training seasons (2023, 2024).
 #   - RSV-Net has many seasons (2018+), so dropping any single one is cheap.
 #   - Evaluation needs surveillance data for the held-out season, which lives
 #     in RSV_VALIDATION.parquet after this split.
@@ -23,7 +26,7 @@ library(arrow)
 library(dplyr)
 
 # ---- Configuration --------------------------------------------------------
-VALIDATION_SEASONS <- c(2024) # fluseason start years to hold out
+VALIDATION_SEASONS <- c(2025) # fluseason start years to hold out (2025-26 season)
 
 INPUT_PATH <- "RSV/data/RSV_FILLED.parquet"
 TRAIN_OUT <- "RSV/data/RSV_TRAIN.parquet"

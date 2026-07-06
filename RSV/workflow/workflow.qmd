@@ -6,115 +6,191 @@ format: pdf
 # Goal
 
 We want to test whether **fine-tuning InfluPaint on RSV** beats **training a
-DDPM from scratch on RSV** ("RSVpaint"). Both models treat an epidemic
-season as an image (time x location) and use a diffusion model to generate
-plausible season trajectories. Inpainting then conditions those generated
-images on the partial season we have already observed, which gives us
-forecasts.
+DDPM from scratch on RSV** ("RSVpaint"), and how much that depends on **how much
+RSV data** the model sees. Both models treat an epidemic season as an image
+(time x location) and use a diffusion model to generate plausible season
+trajectories. Inpainting then conditions those generated images on the partial
+season we have already observed, which gives us forecasts.
 
-To do that fairly we need to:
+To do that fairly we:
 
-1. Hold out 1-2 RSV seasons so neither model sees them during training
-   (this held-out slice is also what we send to @bestill3 (Yue) for evaluation).
-2. Build several RSV training datasets with different amounts / mixes of
-   data: 100% / 50% / 25% of the surveillance data, surveillance-only,
-   synthetic-only, and a balanced surveillance+synthetic mix.
-3. Train two versions of the model on each mix:
-   * `scratch`  - fresh DDPM trained only on RSV (RSVpaint baseline).
+1. Hold out the latest RSV season (2025-26) so no model sees it during training.
+   This held-out slice is also what we send to @bestill3 (Yue) for evaluation.
+2. Build training pools that vary **one thing at a time**: the amount of real
+   surveillance data (100% / 50% / 25%), plus a synthetic-only and an
+   all-data reference. Source ratios are kept consistent across the amounts.
+3. Train two versions on the surveillance pools:
+   * `scratch`  - fresh DDPM trained only on RSV ("RSVpaint").
    * `finetune` - pre-trained InfluPaint checkpoint, further trained on RSV.
-4. Compare them on the held-out seasons.
-
-Every step below maps to one script in this `RSV/workflow/` folder.
-
-| Step | Script | What it does |
-|------|--------|--------------|
-| 1 | `validation_split.R` | Drops the chosen season(s) from the training data and saves them as a separate file. |
-| 2 | `build_training_sets.py` | Builds one `.nc` training file per mix (100S, 50S, 25S, 100M, 100A). |
-| 3 | `workflow.qmd` (this file) | Quick inspection plots. |
-| 4 | `train_rsv.run` + `rsv_training.py` | SLURM submits one training job per (mix, mode) pair. |
-| 5 | `rsv_inpaint.py` | Inpaints one checkpoint into a Hubverse forecast CSV for the held-out season. |
-
-The code below assumes you are running **from the repo root**
-(`/Users/cy/.../influpaint/`).
+4. Compare them on the held-out season.
 
 ---
 
-# Step 1 - Hold out a validation season
+# Training data at a glance
 
-**What it does, in one sentence:** split `RSV_FILLED.parquet` into a
-training file (with the chosen seasons removed) and a validation file
-(only the chosen seasons).
+A **frame** is one season-image: 53 weeks x states for one
+(source, season, trajectory). Surveillance sources give one frame per season;
+the Scenario Modelling Hub gives many synthetic trajectories per season.
 
-Pick the season(s) you want to hold out by editing `VALIDATION_SEASONS`
-at the top of `validation_split.R`. Things to keep in mind:
+**All RSV data available** (`RSV_FILLED.parquet`):
 
-- Values are flu-season start years: `2023` means the 2023-24 RSV season.
-- NHSN only starts at season 2023, so holding out 2023 leaves NHSN with a
-  single training season (2024). Holding out 2022 keeps more NHSN data.
-- The split filters **all data sources** (NSSP, RSV-Net, NHSN, RSV_SMH) by
-  season. That is the conservative choice: even synthetic trajectories for
-  that year are excluded from training so nothing leaks.
+| Source    | Kind                                        | Seasons present              | Frames |
+|-----------|---------------------------------------------|------------------------------|-------:|
+| NHSN      | surveillance - hosp. admissions, all 51 states | 2023, 2024, 2025          | 3      |
+| NSSP      | surveillance - ED-visit proportion, all states | 2022, 2023, 2024, 2025    | 4      |
+| RSV-Net   | surveillance - lab-confirmed hosp., ~14 states | 2018-2025 (8 seasons)     | 8      |
+| RSV_SMH   | synthetic - Scenario Modelling Hub          | 2023 (1600), 2024 (1500), 2025 (700) | 3800 |
 
-```{r}
-# Explore seasons to exclude here
-#shiny::runApp("RSV/workflow/explore_seasons.R")
-```
+Totals: **15 surveillance frames + 3800 synthetic frames**. (Seasons are named
+by start year: 2025 = the 2025-26 season.)
+
+**After holding out the validation season** (fluseason 2025, all sources),
+training sees:
+
+| Source              | Training seasons   | Frames |
+|---------------------|--------------------|-------:|
+| NHSN                | 2023, 2024         | 2      |
+| NSSP                | 2022, 2023, 2024   | 3      |
+| RSV-Net             | 2018-2024          | 7      |
+| **Surveillance**    |                    | **12** |
+| RSV_SMH (synthetic) | 2023, 2024         | 3100   |
+
+So the **real surveillance pool the experiment varies is exactly 12 frames**.
+
+---
+
+# The models we train
+
+Eight models. Everything is held fixed (architecture `scn868`, 64x64 images,
+batch size 512) except the training pool and the initialisation.
+
+| Model              | Init     | Training pool                       | Unique frames | Samples | Epochs |
+|--------------------|----------|-------------------------------------|--------------:|--------:|-------:|
+| RSVpaint-100S      | scratch  | surveillance 100%                   | 12            | 2160    | 3000   |
+| RSVpaint-50S       | scratch  | surveillance 50%                    | 6             | 1080    | 3000   |
+| RSVpaint-25S       | scratch  | surveillance 25%                    | 3             | 540     | 3000   |
+| RSVpaint-100M      | scratch  | synthetic only                      | 3100          | 3100    | 3000   |
+| RSVpaint-100A      | scratch  | all data (30% surv + 70% synthetic) | mixed         | ~2160   | 3000   |
+| InfluPaint-ft-100S | finetune | surveillance 100%                   | 12            | 2160    | 500    |
+| InfluPaint-ft-50S  | finetune | surveillance 50%                    | 6             | 1080    | 500    |
+| InfluPaint-ft-25S  | finetune | surveillance 25%                    | 3             | 540     | 500    |
+
+For the surveillance ladder, samples = unique frames x180 (see below). Synthetic
+frames are plentiful so `100M` is used as-is (no oversampling); `100A` mixes the
+two to a fixed total by proportion.
+
+**The surveillance ladder (100S / 50S / 25S).** This is the core experiment.
+We take the 12 surveillance frames and keep 100%, 50%, 25% of them, holding the
+source ratio as even as integers allow and never dropping a source (NHSN must
+stay in - it is the signal we condition on and score against at inference). For
+50S/25S we keep the **most-recent** seasons of each source (closest to the
+held-out season):
+
+| Mix  | NHSN | NSSP | RSV-Net | Frames | x180 |
+|------|-----:|-----:|--------:|-------:|-----:|
+| 100S | 2    | 3    | 7       | 12     | 2160 |
+| 50S  | 1    | 2    | 3       | 6      | 1080 |
+| 25S  | 1    | 1    | 1       | 3      | 540  |
+
+Every frame is then replicated **x180**, so the pools are 2160 / 1080 / 540
+samples - all above the 512 batch size. Because the multiplier (180) and the
+epoch count (3000) are **identical** across the ladder, each frame gets exactly
+the same exposure regardless of pool size. The **only** difference between
+RSVpaint-100S and RSVpaint-50S is that half the unique surveillance frames are
+missing in the latter. That is what makes "how much data" a clean variable.
+
+(Replicated copies are not identical: the mixer fills each copy's missing states
+with random real surveillance data, and training adds on-the-fly augmentation -
+Poisson noise, time shifts - so the 180 copies of a season never look the same
+to the model.)
+
+**Reference pools.** `100M` = synthetic only (does synthetic data alone work?).
+`100A` = all RSV data, balanced 30% surveillance + 70% synthetic (does adding
+synthetic to surveillance help?).
+
+**Init.** `scratch` = RSVpaint (random init). `finetune` = start from a trained
+flu InfluPaint checkpoint and keep training on RSV. The finetune arms mirror the
+surveillance ladder, so finetune-vs-scratch differs only in initialisation.
+Finetune uses 500 epochs (not 3000) because it starts from already-trained
+weights.
+
+---
+
+# Scripts
+
+Every step below maps to one script in this `RSV/workflow/` folder. Run from the
+repo root (`/Users/cy/.../influpaint/`).
+
+| Step | Script | What it does |
+|------|--------|--------------|
+| 1 | `validation_split.R` | Drops the held-out season from the data; saves train + validation parquets. |
+| 2 | `build_training_sets.py` | Builds one `.nc` training file per mix (100S, 50S, 25S, 100M, 100A). |
+| 3 | `workflow.qmd` (this file) | Quick inspection plots. |
+| 4 | `train_rsv.run` + `rsv_training.py` | SLURM submits one training job per model. |
+| 5 | `rsv_inpaint.py` | Inpaints one checkpoint into a Hubverse forecast CSV (+ raw draws). |
+| 6 | `plot_forecasts_validation.py` | State-level forecast-vs-truth figure, one per model. |
+
+---
+
+# Step 1 - Hold out the validation season
+
+**In one sentence:** split `RSV_FILLED.parquet` into a training file (held-out
+season removed) and a validation file (only the held-out season).
+
+We hold out **fluseason 2025 (the 2025-26 season)**: train on the past, forecast
+the most recent season. The split filters **all sources** (NSSP, RSV-Net, NHSN,
+RSV_SMH) by season, so even synthetic trajectories for that year are excluded -
+nothing leaks. Edit `VALIDATION_SEASONS` at the top of `validation_split.R` to
+change it.
 
 ```{bash}
 Rscript RSV/workflow/validation_split.R
 ```
 
-This produces `RSV/data/RSV_TRAIN.parquet` (what the models are allowed to
-see) and `RSV/data/RSV_VALIDATION.parquet` (what Yue gets for evaluation).
+This produces `RSV/data/RSV_TRAIN.parquet` (what the models may see) and
+`RSV/data/RSV_VALIDATION.parquet` (what Yue gets for evaluation). The report it
+prints should show 12 surveillance frames in training (NHSN 2, NSSP 3,
+RSV-Net 7).
 
 ---
 
 # Step 2 - Build the training datasets
 
-**What it does, in one sentence:** turn the training parquet into one 4D
-tensor (saved as `.nc`) per mix recipe, ready for PyTorch.
+**In one sentence:** turn `RSV_TRAIN.parquet` into one 4D tensor (saved as
+`.nc`) per mix, ready for PyTorch.
 
-Each `.nc` file is a stack of "season images". A training image is a 64x64
-grid where rows are weeks (1-53, padded to 64) and columns are locations
-(US states, padded to 64). A pixel value is an incidence count.
+Each `.nc` file is a stack of season-images. An image is a 64x64 grid where rows
+are weeks (1-53, padded to 64) and columns are locations (padded to 64); a pixel
+is an incidence value. The recipes live at the top of `build_training_sets.py`:
 
-The mix recipes live at the top of `build_training_sets.py` in a dict
-called `RSV_CONFIG`:
+- `SURVEILLANCE_LADDER` - the 100S / 50S / 25S frame counts per source (see the
+  ladder table above). Each surviving frame is replicated `MULTIPLIER` (=180)
+  times.
+- `REFERENCE_POOLS` - `100M` (synthetic only) and `100A` (30% surv + 70%
+  synthetic).
 
-| Mix | What goes in | Final size | Role |
-|-----|--------------|-----------|------|
-| `100S` | surveillance only (NSSP + RSV-Net + NHSN), each oversampled 200x | ~2400 | "only surveillance" arm |
-| `50S`  | same sources, each oversampled 100x (half of 100S) | ~1200 | "50% of RSV data" |
-| `25S`  | same sources, each oversampled 50x (quarter of 100S) | ~600 | "25% of RSV data" |
-| `100M` | RSV Scenario Modelling Hub only | ~2300 | "only synthetic" arm |
-| `100A` | 30% surveillance + 70% synthetic | ~2968 | "all RSV data" |
-
-The oversampling matters because a DDPM batch needs 512 images. With only
-a handful of real seasons we multiply them up; the on-the-fly augmentation
-(Poisson noise, time shifts, rescaling) makes each repeat look different
-to the model. The 4:2:1 ratio between 100S, 50S and 25S is the experimental
-variable - relative amount of surveillance "emphasis" during training.
-
-Run:
+The 50S/25S rungs are built by `select_recent_seasons`, which drops whole
+seasons so a smaller rung is literally a larger rung with frames removed. The
+multiplier never changes, so smaller pools do fewer gradient steps per epoch
+(25S = 1 batch/epoch, 100S = 4) - an intended consequence of having less data,
+not a difference in per-frame exposure.
 
 ```{bash}
 PYTHONPATH=. python RSV/workflow/build_training_sets.py \
     --input RSV/data/RSV_TRAIN.parquet \
     --outdir training_datasets \
-    --tag 2026-04-24
+    --tag 2026-06-23
 ```
 
-This writes `training_datasets/RSV_<mix>_2026-04-24.nc` for each mix.
-The `--tag` is what the SLURM script looks for, so remember it.
-
-To rebuild just one mix while iterating: `--only 100A`.
+This writes `training_datasets/RSV_<mix>_2026-06-23.nc` for each mix. The
+`--tag` is what the SLURM scripts look for, so remember it. To rebuild one mix
+while iterating: `--only 100S`.
 
 ---
 
 # Step 3 - Quick look at a built dataset
 
-**What it does, in one sentence:** open one of the `.nc` files and sanity-
-check its contents.
+**In one sentence:** open one `.nc` file and sanity-check its contents.
 
 ```{python}
 import numpy as np
@@ -125,16 +201,16 @@ from influpaint.utils import SeasonAxis, plotting as idplots
 season_setup = SeasonAxis.for_flusight(remove_us=True, remove_territories=True)
 
 # Edit this path to whichever mix you want to inspect
-arr = xr.open_dataarray("training_datasets/RSV_100A_2026-04-24.nc")
+arr = xr.open_dataarray("training_datasets/RSV_100S_2026-06-23.nc")
 
 print("Shape (samples, features, weeks, places):", arr.shape)
 print("Mix config used:", arr.attrs["mix_cfg"])
 print("First 5 origins :", arr.attrs["main_origins"][:5])
 ```
 
-Plot a few sample trajectories on the US state grid. These should look
-like realistic RSV seasons -- a winter rise, a peak around week 20-30 of
-the season (i.e. December-February), and a decline afterwards.
+Plot a few sample trajectories on the US state grid. These should look like
+realistic RSV seasons -- a winter rise, a peak around week 20-30 of the season
+(December-February), and a decline afterwards.
 
 ```{python}
 fig, ax = idplots.plot_us_grid(
@@ -146,63 +222,53 @@ fig, ax = idplots.plot_us_grid(
 )
 ```
 
-If anything looks off here (wrong axes, all zeros, wildly different
-scales) stop and fix it before spending cluster time.
+If anything looks off (wrong axes, all zeros, wildly different scales) stop and
+fix it before spending cluster time.
 
 ---
 
 # Step 4 - Train on Longleaf
 
-**What it does, in one sentence:** submits one SLURM job per
-(mix, mode) combination; each job runs `rsv_training.py` on one L40 GPU.
+**In one sentence:** submit one SLURM job per model; each runs `rsv_training.py`
+on one L40 GPU.
 
-There are two pieces:
+Two pieces:
 
-- `rsv_training.py` is the Python entry point. Given a `.nc` file, a
-  scenario ID (which picks the U-Net + DDPM shape), and optionally a
-  pre-trained checkpoint, it trains one model and logs everything to
-  MLflow.
-- `train_rsv.run` is the SLURM script. It has a `RUN_TABLE` that lists
-  which models to train. Each row is one SLURM array task.
+- `rsv_training.py` is the Python entry point. Given a `.nc` file, a scenario ID
+  (which picks the U-Net + DDPM shape), and optionally a pre-trained checkpoint,
+  it trains one model and logs everything to MLflow.
+- `train_rsv.run` is the SLURM script. Its `RUN_TABLE` lists the 8 models; each
+  row is one SLURM array task.
 
 **Important:** the scenario ID is fixed to `868` across all runs so the
-architectures match. That is what makes the fine-tune step legal -- you
-can only load InfluPaint weights into a model with the same shape.
+architectures match. That is what makes the finetune step legal - you can only
+load InfluPaint weights into a model with the same shape.
 
-The default `RUN_TABLE` trains 8 models. All scratch runs use 3000 epochs;
-finetune uses 500 because it starts from already-trained flu weights.
+| Run tag        | Mix  | Mode     | Epochs |
+|----------------|------|----------|-------:|
+| `100S_scratch`  | 100S | scratch  | 3000 |
+| `50S_scratch`   | 50S  | scratch  | 3000 |
+| `25S_scratch`   | 25S  | scratch  | 3000 |
+| `100M_scratch`  | 100M | scratch  | 3000 |
+| `100A_scratch`  | 100A | scratch  | 3000 |
+| `100S_finetune` | 100S | finetune | 500  |
+| `50S_finetune`  | 50S  | finetune | 500  |
+| `25S_finetune`  | 25S  | finetune | 500  |
 
-An earlier attempt set the small surveillance scratch runs to 300 epochs
-(applying the "10x oversampling -> /10 epochs" rule). That did not work:
-those datasets only have 1-4 batches per epoch, so 300 epochs gave
-300-1200 total gradient steps vs ~15000 for 100A. The models did not
-converge and produced garbage samples. Lesson: that rule keeps per-sample
-exposure constant but only when the absolute number of gradient steps is
-already plenty.
-
-| Tag | Dataset | Mode | Epochs |
-|-----|---------|------|--------|
-| `100A_scratch`  | `RSV_100A` | scratch  | 3000 |
-| `50S_scratch`   | `RSV_50S`  | scratch  | 3000 |
-| `25S_scratch`   | `RSV_25S`  | scratch  | 3000 |
-| `100S_scratch`  | `RSV_100S` | scratch  | 3000 |
-| `100M_scratch`  | `RSV_100M` | scratch  | 3000 |
-| `100A_finetune` | `RSV_100A` | finetune | 500 |
-| `50S_finetune`  | `RSV_50S`  | finetune | 500 |
-| `25S_finetune`  | `RSV_25S`  | finetune | 500 |
-
-Finetune mode loads only the model weights from `FLUPAINT_CKPT` (not the
-optimizer state). Loading the optimizer state from a different task makes
-the loss blow up to the millions; a fresh optimizer is essential. This is
+All scratch runs use 3000 epochs (an earlier attempt at 300 for the small
+surveillance mixes did not converge: 1-4 batches/epoch x 300 epochs is far too
+few gradient steps). Finetune mode loads only the model weights from
+`FLUPAINT_CKPT` (not the optimizer state - loading a foreign optimizer state
+makes the loss blow up to the millions); a fresh optimizer is essential. This is
 controlled by `weights_only=True` in `rsv_training.py`.
 
 Before you submit, edit `train_rsv.run`:
 
 - `DATE_TAG` must match what you used in step 2.
-- `FLUPAINT_CKPT` must point to a readable InfluPaint checkpoint on
-  Longleaf (same scenario ID as `SCN_ID`).
-- `REPO_ROOT`, `PYTHON` must match your account on Longleaf (the script
-  exports `PYTHONPATH=$REPO_ROOT` before running so the package imports).
+- `FLUPAINT_CKPT` must point to a readable InfluPaint checkpoint on Longleaf
+  (same scenario ID as `SCN_ID`).
+- `REPO_ROOT`, `PYTHON` must match your account on Longleaf (the script exports
+  `PYTHONPATH=$REPO_ROOT` before running so the package imports).
 - `EXPERIMENT_NAME` is the MLflow experiment; change it for a new round.
 
 Ship the repo + built `.nc` files to Longleaf, then:
@@ -218,12 +284,12 @@ srun -p jlessler --gres=gpu:1 --mem=64G --time=10:00:00 --nodelist="g1803jles01"
 3. Transfer NC files and the repo to Longleaf (from your local machine):
 ```bash
 rsync -avz --progress \
-  "/Users/cy/Documents/PROJECTS LOCAL/influpaint/training_datasets/RSV_"*"_2026-04-24.nc" \
+  "/Users/cy/Documents/PROJECTS LOCAL/influpaint/training_datasets/RSV_"*"_2026-06-23.nc" \
   cgeisma1@longleaf.unc.edu:/proj/jlessler/projects/influpaint_general/influpaint_RSV/influpaint/training_datasets/
 ```
 Check that the files are there:
 ```bash
-ls training_datasets/RSV_*_2026-04-24.nc
+ls training_datasets/RSV_*_2026-06-23.nc
 ```
 
 4. Connect to remote via SSH in VSCode and run in the terminal:
@@ -252,13 +318,13 @@ squeue -u cgeisma1
 sacct -u cgeisma1 -j <jobid> --format=JobID,JobName,State,ExitCode,Elapsed
 
 # Watch a specific run's training output
-tail -f out_rsv_rsv-2026-04-24_100A_scratch.out
+tail -f out_rsv_rsv-2026-06-23_100S_scratch.out
 
 # Cancel specific tasks (e.g. before they start)
 scancel <jobid>_5 <jobid>_6 <jobid>_7
 
 # Quick scan for completed runs
-grep "Done. Checkpoint" out_rsv_rsv-2026-04-24_*.out
+grep "Done. Checkpoint" out_rsv_rsv-2026-06-23_*.out
 ```
 
 Each job saves its checkpoint under
@@ -267,8 +333,8 @@ MLflow keeps loss curves and generated sample plots for every run.
 
 ### Smoke test before the real submission
 
-Before burning cluster time, do a 2-epoch dry run in an interactive GPU
-job to confirm the dataset loads and the loss goes down.
+Before burning cluster time, do a 2-epoch dry run in an interactive GPU job to
+confirm the dataset loads and the loss goes down.
 
 First, make the package importable (only needed once per shell session):
 ```bash
@@ -278,7 +344,7 @@ export PYTHONPATH=/proj/jlessler/projects/influpaint_general/influpaint_RSV/infl
 Then run:
 ```bash
 python RSV/workflow/rsv_training.py \
-    --dataset-nc training_datasets/RSV_100A_2026-04-24.nc \
+    --dataset-nc training_datasets/RSV_100S_2026-06-23.nc \
     --scn-id 868 \
     --experiment-name rsv-smoketest \
     --run-tag smoketest \
@@ -287,8 +353,8 @@ python RSV/workflow/rsv_training.py \
     --outdir /proj/jlessler/projects/influpaint_general/influpaint_RSV/results/
 ```
 
-If that succeeds (a `.pth` file appears and MLflow shows a curve), the
-full SLURM submission is safe.
+If that succeeds (a `.pth` file appears and MLflow shows a curve), the full
+SLURM submission is safe.
 
 ### After all runs finish
 
@@ -326,17 +392,15 @@ python RSV/workflow/plot_samples.py \
 
 # Step 5 - Inpaint the held-out season (forecasting)
 
-**What it does, in one sentence:** take ONE trained checkpoint and fill in
-the unobserved weeks of the held-out season, then write the result as a
-Hubverse CSV (exactly the shape you would submit to the CDC RSV Forecast
-Hub).
+**In one sentence:** take ONE trained checkpoint and fill in the unobserved
+weeks of the held-out season, then write the result as a Hubverse CSV (exactly
+the shape you would submit to the CDC RSV Forecast Hub).
 
-How inpainting works here, in plain terms: the model learned to draw a whole
-RSV season as a 64x64 image (rows = weeks, columns = states). We paint in the
-weeks we have already observed, lock those pixels, and let the model fill in
-the rest of the season. The filled-in part is the forecast. We draw
-`batch_size` independent fills, so the spread across draws gives the forecast
-quantiles.
+How inpainting works here, in plain terms: the model learned to draw a whole RSV
+season as a 64x64 image (rows = weeks, columns = states). We paint in the weeks
+we have already observed, lock those pixels, and let the model fill in the rest
+of the season. The filled-in part is the forecast. We draw `batch_size`
+independent fills, so the spread across draws gives the forecast quantiles.
 
 The script is `RSV/workflow/rsv_inpaint.py`. Two things make it RSV-specific
 (this is why we do not just reuse the flu notebook as-is):
@@ -345,12 +409,12 @@ The script is `RSV/workflow/rsv_inpaint.py`. Two things make it RSV-specific
    numbers; to read its output back as real RSV values you must undo that
    normalisation with the *same* scaling used in training. That scaling comes
    from the training `.nc` file, so you pass the **same-mix** `.nc` the
-   checkpoint was trained on (`finetune_100A_*.pth` -> `RSV_100A_<tag>.nc`).
+   checkpoint was trained on (`finetune_100S_*.pth` -> `RSV_100S_<tag>.nc`).
    Passing a different mix's `.nc` silently rescales every forecast.
 2. **Ground truth is the held-out parquet, not a flu hub.** It is built with
    `GroundTruth.from_rsv(...)` from one surveillance signal (default `NHSN`,
    hospital admission counts, which reports all states) for the held-out
-   season (2024). Whatever signal you choose is used *both* as the weeks you
+   season (2025). Whatever signal you choose is used *both* as the weeks you
    condition on and as the weeks you score against, so the forecast comes out
    in that signal's units.
 
@@ -377,23 +441,47 @@ On Longleaf, in an interactive GPU job, from the repo root:
 ```bash
 export PYTHONPATH=$PWD
 python RSV/workflow/rsv_inpaint.py \
-    --checkpoint /proj/jlessler/projects/influpaint_general/influpaint_RSV/checkpoints/finetune_100A_scn868_ep500.pth \
-    --dataset-nc training_datasets/RSV_100A_2026-04-24.nc \
-    --reference-date 2024-12-21 \
-    --signal RSV-Net \
-    --season 2024 \
+    --checkpoint /proj/jlessler/projects/influpaint_general/influpaint_RSV/checkpoints/finetune_100S_finetune_scn868_ep500.pth \
+    --dataset-nc training_datasets/RSV_100S_2026-06-23.nc \
+    --reference-date 2025-12-20 \
+    --signal NHSN \
+    --season 2025 \
     --outdir RSV/forecasts_validation
 ```
 
-This writes `RSV/forecasts_validation/2024-12-21-UNC_IDD-InfluPaint-RSV.csv`
-(plus a national sanity plot and the raw draws). Open the plot first: the
-median should track the observed RSV-Net curve up to the reference date and
-fan out afterwards. If the scale looks wrong (forecasts orders of magnitude
-off the observed line), the most likely cause is a `--dataset-nc` that does
-not match the checkpoint's mix.
+This writes `RSV/forecasts_validation/2025-12-20-UNC_IDD-InfluPaint-RSV.csv`
+and the raw draws (`2025-12-20_draws_ti.npy`). To eyeball forecast vs reality,
+run the plotting step below: the median should track the observed curve up to
+the reference date and fan out afterwards. If the scale looks wrong (forecasts
+orders of magnitude off the observed line), the most likely cause is a
+`--dataset-nc` that does not match the checkpoint's mix.
 
 ### Scaling up
 
 Once the smoke test looks right, loop over the 8 checkpoints and a handful of
 reference dates through the season (e.g. one per month), then hand the CSVs to
-Yue for scoring against `RSV_VALIDATION.parquet`.
+Yue for scoring against `RSV_VALIDATION.parquet`. On Longleaf this is the
+`inpaint_rsv.run` array job (8 models x 18 reference weeks).
+
+### Step 6 - Plot forecast vs truth
+
+After the sweep, render one state-level summary figure per model:
+
+```bash
+export PYTHONPATH=$PWD
+python RSV/workflow/plot_forecasts_validation.py
+# -> RSV/forecasts_validation/<MODEL>/<MODEL>_forecast_validation.png  (one per model)
+```
+
+Each figure is two rows over four states (North Carolina, New York, Texas,
+Florida). The **top row** shows the 4-week-ahead forecasts (Hubverse horizons
+0..3) at several reference dates; the **bottom row** shows the full-season
+forecasts with a few example trajectories. Black is the observed NHSN truth and
+each reference date gets its own color (shared across both rows). The forecast
+quantiles and trajectories come from the 512 conditional draws in each
+`*_draws_ti.npy`; ground truth is rebuilt with `GroundTruth.from_rsv` on the
+held-out NHSN parquet, so truth and forecast are aligned by construction.
+
+Useful flags: `--model RSVpaint-100S` (one model only), `--states NC NY TX FL`,
+`--n-refs 5` (reference dates shown), `--n-traj 10` (trajectories per date), and
+`--xlim-start` / `--xlim-end` (season window).

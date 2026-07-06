@@ -34,7 +34,7 @@ from influpaint.datasets import loaders as training_datasets
 CHECKPOINTS_DIR = "/proj/jlessler/projects/influpaint_general/influpaint_RSV/checkpoints/"
 RESULTS_ROOT = "/proj/jlessler/projects/influpaint_general/influpaint_RSV/results/"
 DATASET_DIR = "training_datasets"
-DATE_TAG = "2026-04-24"
+DATE_TAG = "2026-06-23"
 SCN_ID = 868
 VALIDATION_PARQUET = "RSV/data/RSV_VALIDATION.parquet"
 GT_SOURCE = "NSSP"     # which dataset in the validation file to plot as truth

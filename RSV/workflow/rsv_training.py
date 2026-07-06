@@ -19,14 +19,14 @@ can also be called standalone:
 
     # from scratch
     python RSV/workflow/rsv_training.py \\
-        --dataset-nc training_datasets/RSV_100A_2026-04-24.nc \\
-        --scn-id 868 --experiment-name rsv-2026-04-24 \\
+        --dataset-nc training_datasets/RSV_100A_2026-06-23.nc \\
+        --scn-id 868 --experiment-name rsv-2026-06-23 \\
         --run-tag 100A_scratch --epochs 3000
 
     # fine-tune from an existing InfluPaint checkpoint
     python RSV/workflow/rsv_training.py \\
-        --dataset-nc training_datasets/RSV_100A_2026-04-24.nc \\
-        --scn-id 868 --experiment-name rsv-2026-04-24 \\
+        --dataset-nc training_datasets/RSV_100A_2026-06-23.nc \\
+        --scn-id 868 --experiment-name rsv-2026-06-23 \\
         --run-tag 100A_finetune --epochs 500 \\
         --finetune-from /path/to/flupaint.pth
 """

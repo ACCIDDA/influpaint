@@ -22,8 +22,8 @@
 # --------------------------------------------------------------------------
 
 # --- Edit these -----------------------------------------------------------
-EXPERIMENT_NAME="rsv-2026-04-24"
-DATE_TAG="2026-04-24"               # must match the --tag used in build_training_sets.py
+EXPERIMENT_NAME="rsv-2026-06-23"
+DATE_TAG="2026-06-23"               # must match the --tag used in build_training_sets.py
 SCN_ID=868                          # model architecture (same for all runs so finetune weights are compatible)
 FLUPAINT_CKPT="/proj/jlessler/projects/influpaint_general/influpaint_Flusight_PTH/i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::3000.pth"
 REPO_ROOT="/proj/jlessler/projects/influpaint_general/influpaint_RSV/influpaint"
@@ -31,20 +31,22 @@ PYTHON="/proj/jlessler/projects/influpaint_general/influpaint_RSV/influpaint/.ve
 # --------------------------------------------------------------------------
 
 # Each row: "<run_tag>|<mix_name>|<mode>|<epochs>"
-#   mix_name must match a key in RSV_CONFIG (build_training_sets.py)
-#   mode = scratch  -> train from random weights
-#   mode = finetune -> start from FLUPAINT_CKPT
-#   epochs: scratch runs all use 3000 (a previous attempt at 300 for the
-#           small surveillance mixes did not converge - 1-4 batches/epoch
-#           x 300 epochs = far too few gradient steps). Finetune keeps 500
-#           because it starts from already-trained weights.
+#   mix_name must match a key in build_training_sets.py (100S/50S/25S/100M/100A)
+#   mode = scratch  -> train from random weights ("RSVpaint")
+#   mode = finetune -> start from FLUPAINT_CKPT ("FluPaint -> RSV")
+#   epochs: every scratch run uses 3000 so each frame gets the same exposure
+#           regardless of pool size (100S/50S/25S all replicate frames x180,
+#           so one epoch = one pass over every frame). Finetune uses 500
+#           because it starts from already-trained flu weights.
+# 8 models: the surveillance ladder + two synthetic references (scratch),
+# plus the surveillance ladder again (finetune).
 RUN_TABLE=(
-    "100A_scratch|100A|scratch|3000"
+    "100S_scratch|100S|scratch|3000"
     "50S_scratch|50S|scratch|3000"
     "25S_scratch|25S|scratch|3000"
-    "100S_scratch|100S|scratch|3000"
     "100M_scratch|100M|scratch|3000"
-    "100A_finetune|100A|finetune|500"
+    "100A_scratch|100A|scratch|3000"
+    "100S_finetune|100S|finetune|500"
     "50S_finetune|50S|finetune|500"
     "25S_finetune|25S|finetune|500"
 )

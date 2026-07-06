@@ -28,8 +28,8 @@
 # --------------------------------------------------------------------------
 
 # --- Edit these -----------------------------------------------------------
-DATE_TAG="2026-04-24"      # must match the .nc tag from build_training_sets.py
-SEASON="2024"              # held-out season (fluseason start year)
+DATE_TAG="2026-06-23"      # must match the .nc tag from build_training_sets.py
+SEASON="2025"              # held-out season (fluseason start year = 2025-26 season)
 SIGNAL="NHSN"              # ground-truth signal: all states, hospitalizations
 REPO_ROOT="/proj/jlessler/projects/influpaint_general/influpaint_RSV/influpaint"
 PYTHON="/proj/jlessler/projects/influpaint_general/influpaint_RSV/influpaint/.venv/bin/python"
@@ -45,7 +45,7 @@ OUTROOT="RSV/forecasts_validation"
 #   it also labels the experimental arm (InfluPaint-ft = finetuned from flu,
 #   RSVpaint = trained from scratch on RSV).
 MODEL_TABLE=(
-    "finetune_100A_finetune_scn868_ep500|100A|InfluPaint-ft-100A"
+    "finetune_100S_finetune_scn868_ep500|100S|InfluPaint-ft-100S"
     "finetune_50S_finetune_scn868_ep500|50S|InfluPaint-ft-50S"
     "finetune_25S_finetune_scn868_ep500|25S|InfluPaint-ft-25S"
     "scratch_100A_scratch_scn868_ep3000|100A|RSVpaint-100A"
@@ -57,7 +57,7 @@ MODEL_TABLE=(
 
 # Reference dates: every 3 weeks (21 days) starting at RSV season week 1
 # (first Saturday on/after Aug 1) across the whole season -> 18 origins.
-DATES=( $("${PYTHON}" -c "import datetime; d=datetime.date(${SEASON},8,3); print(' '.join((d+datetime.timedelta(days=21*i)).isoformat() for i in range(18)))") )
+DATES=( $("${PYTHON}" -c "import datetime; d=datetime.date(${SEASON},8,1); d+=datetime.timedelta(days=(5-d.weekday())%7); print(' '.join((d+datetime.timedelta(days=21*i)).isoformat() for i in range(18)))") )
 NDATES=${#DATES[@]}
 
 I=${SLURM_ARRAY_TASK_ID}

@@ -1,16 +1,28 @@
-# 1. Locally: rebuild the small .nc files
-PYTHONPATH=. python RSV/workflow/build_training_sets.py --tag 2026-04-24 --only 100S 50S 25S
+# RSV run cheat-sheet (full detail: RSV/workflow/workflow.qmd)
+# Current round: held-out season 2025 (2025-26), dataset tag 2026-06-23.
 
-# 2. rsync them to Longleaf (overwrites old ones)
-rsync -avz --progress \
-  "/Users/cy/Documents/PROJECTS LOCAL/influpaint/training_datasets/RSV_"{100S,50S,25S}"_2026-04-24.nc" \
-  cgeisma1@longleaf.unc.edu:/proj/jlessler/projects/influpaint_general/influpaint_RSV/influpaint/training_datasets/
+# 0. (Already done Jun 23) rebuild split + datasets locally:
+#   Rscript RSV/workflow/validation_split.R
+#   PYTHONPATH=. python RSV/workflow/build_training_sets.py --tag 2026-06-23
 
-# 3. Commit + push the script changes
-git add RSV/workflow/build_training_sets.py RSV/workflow/train_rsv.run
-git commit -m "Bump small-dataset multipliers to clear batch size; per-row epochs; new FLUPAINT_CKPT"
+# 1. Commit + push the repointed scripts
+git add RSV/workflow RSV/note.txt
+git commit -m "RSV round 2026-06-23: hold out 2025, repoint scripts to new datasets"
 git push
 
-# 4. On Longleaf
+# 2. Ship datasets + repo to Longleaf
+rsync -avz --progress \
+  "/Users/cy/Documents/PROJECTS LOCAL/influpaint/training_datasets/RSV_"*"_2026-06-23.nc" \
+  cgeisma1@longleaf.unc.edu:/proj/jlessler/projects/influpaint_general/influpaint_RSV/influpaint/training_datasets/
+
+# 3. On Longleaf
+cd /proj/jlessler/projects/influpaint_general/influpaint_RSV/influpaint
 git pull
-sbatch --array=1-7 RSV/workflow/train_rsv.run
+sbatch RSV/workflow/train_rsv.run          # 8 models (array 0-7); resubmit failures with --array=<ids>
+# after all 8 finish, consolidate checkpoints (see workflow.qmd Step 4), then:
+sbatch RSV/workflow/inpaint_rsv.run        # 8 models x 18 ref-weeks = 144 forecasts (array 0-143)
+
+# Reference
+# Checkpoints:  /proj/jlessler/projects/influpaint_general/influpaint_RSV/checkpoints/
+# Validation:   RSV/data/RSV_VALIDATION.parquet  (season 2025 = 2025-26, all sources; send to Yue)
+# Ckpt naming:  <mode>_<mix>_<mode>_scn868_ep<epochs>.pth
