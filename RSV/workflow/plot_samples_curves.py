@@ -4,7 +4,7 @@ plot_samples_curves.py
 
 For each trained RSV checkpoint, load its saved sanity samples, inverse-
 transform them back to incidence-count space (the same transform used at
-training), and plot per-location curves with the held-out 2023-24 RSV
+training), and plot per-location curves with the held-out 2025-26 RSV
 season overlaid as ground truth.
 
 One PNG per checkpoint is written next to the source samples file.
@@ -135,7 +135,7 @@ def make_figure(ckpt_path, dataset, gt_array, season_setup):
             ax.plot(samples_ti[s, 0, :53, i], color="black", alpha=0.12, lw=0.6)
         ax.plot(
             gt_array[0, 0, :53, i],
-            color="red", lw=2, label=f"GT ({GT_SOURCE} 2023-24)",
+            color="red", lw=2, label=f"GT ({GT_SOURCE}, held-out season)",
         )
         ax.set_title(locs[i], fontsize=9)
         ax.set_xlabel("Season week")

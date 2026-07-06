@@ -163,7 +163,7 @@ def parse_args():
                    help="Same-mix training .nc the checkpoint was trained on (sets the scaling).")
     p.add_argument("--reference-date", required=True,
                    help="Hubverse reference_date, a Saturday (YYYY-MM-DD). Data is treated as "
-                        "known up to (not including) this date; horizons -1..3 are forecast.")
+                        "known up to (not including) this date; horizons 0..3 are emitted.")
     p.add_argument("--validation-parquet", default=str(REPO_ROOT / "RSV/data/RSV_VALIDATION.parquet"),
                    help="Held-out RSV parquet to use as ground truth.")
     p.add_argument("--signal", default="NHSN",
