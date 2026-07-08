@@ -78,7 +78,13 @@ def build_rsv_dataset(dataset_nc, channels, scenario_spec):
     random time shifts) applied during training.
     """
     dataset = training_datasets.FluDataset.from_xarray(dataset_nc, channels=channels)
-    scaling_per_channel = np.array(dataset.max_per_feature)
+    # One global scale for every model (was each mix's own max). The Sqrt transform
+    # plus the sampler's [-1, 1] clamp put the forecast ceiling at scale/4, so the
+    # old per-mix max capped the surveillance models at ~1612/4 ≈ 400. 9238 is the
+    # largest count anywhere in the training data (synthetic RSV_SMH), giving a
+    # ceiling of ~2310, above every historical peak (surveillance max 1612). Train
+    # and inpaint share this function, so retrain all checkpoints after changing it.
+    scaling_per_channel = np.full(channels, 9238.0)
     transforms_spec, enrich_spec = transform_library(
         scaling_per_channel,
         data_mean=dataset.flu_dyn.mean(),
