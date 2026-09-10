@@ -453,6 +453,8 @@ def add_trajectory_inset(ax, weeks, trajectories, color):
     for spine in axins.spines.values():
         spine.set_linewidth(0.5)
 
+    return axins
+
 
 def plot_unconditional_states_with_history_inlet(inv_samples: np.ndarray,
                                                    season_axis: SeasonAxis,

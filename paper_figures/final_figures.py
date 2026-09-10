@@ -51,8 +51,8 @@ def add_panel_label(ax, label, x=-0.15, y=1.05, fontsize=16, fontweight='bold'):
 def figure1_unconditional_with_correlation(season_axis, uncond_samples):
     """Figure 1: Unconditional generation with correlation analysis.
 
-    Top panels (A): Unconditional states with history inlet (all states except NC)
-    Bottom left (B): Weekly incidence correlation
+    Panel A: Five states with historical seasons and trajectory insets, in reading order.
+    Bottom right (B): Weekly incidence correlation.
 
     Args:
         season_axis: SeasonAxis object
@@ -66,10 +66,9 @@ def figure1_unconditional_with_correlation(season_axis, uncond_samples):
     # States excluding North Carolina
     states = ['CA', 'NY', 'TX', 'FL', 'MT']
 
-    # Recreate the plot in our figure
-    # Layout: 5 states + 1 correlation plot in a single row
-    fig = plt.figure(figsize=(30, 5), dpi=200)
-    gs = gridspec.GridSpec(1, 6, figure=fig, wspace=0.3, width_ratios=[1, 1, 1, 1, 1, 0.8])
+    # Match the canvas width of the other paper figures for consistent PDF text sizes.
+    fig = plt.figure(figsize=(20, 10), dpi=200)
+    gs = gridspec.GridSpec(2, 3, figure=fig, wspace=0.3, hspace=0.3)
 
     # Call the function again to get axes we can embed
     from .data_utils import (
@@ -101,10 +100,10 @@ def figure1_unconditional_with_correlation(season_axis, uncond_samples):
     month_labels = ['Aug', 'Sep', 'Oct', 'Nov', 'Dec', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul']
     month_weeks = [1, 5, 9, 13, 17, 22, 26, 31, 35, 40, 44, 48]
 
-    axes_top = []
+    axes_states = []
     for i, st in enumerate(states):
         ax = fig.add_subplot(gs[i])
-        axes_top.append(ax)
+        axes_states.append(ax)
 
         ts = get_state_timeseries(arr, st, season_axis)
         loc_code = state_to_code(st, season_axis)
@@ -121,7 +120,7 @@ def figure1_unconditional_with_correlation(season_axis, uncond_samples):
                 gt_series = season_data[loc_code].dropna()
                 if not gt_series.empty:
                     ls = line_styles[j % len(line_styles)]
-                    season_label = f"{season_key}-{int(season_key)+1}" if i == 0 else None
+                    season_label = f"{int(season_key) % 100:02d}-{(int(season_key) + 1) % 100:02d}" if i == 0 else None
                     ax.plot(gt_series.index, gt_series.values,
                            color='black', lw=2.0, alpha=0.9, ls=ls, zorder=10,
                            label=season_label)
@@ -130,7 +129,12 @@ def figure1_unconditional_with_correlation(season_axis, uncond_samples):
         n_trajs = min(3, ts.shape[0])
         traj_indices = np.linspace(0, ts.shape[0]-1, num=n_trajs, dtype=int)
         inset_trajectories = ts[traj_indices]
-        add_trajectory_inset(ax, weeks, inset_trajectories, color)
+        ax_inset = add_trajectory_inset(ax, weeks, inset_trajectories, color)
+        ax_inset.tick_params(axis='x', labelsize=plt.rcParams['xtick.labelsize'])
+        ax_inset.tick_params(axis='y', labelsize=plt.rcParams['ytick.labelsize'])
+        for side in ('left', 'bottom'):
+            ax_inset.spines[side].set_linewidth(ax.spines[side].get_linewidth())
+        sns.despine(ax=ax_inset, trim=True)
 
         state_name = season_axis.get_location_name(loc_code)
         ax.text(0.02, 0.98, state_name, transform=ax.transAxes, va='top', ha='left',
@@ -140,16 +144,22 @@ def figure1_unconditional_with_correlation(season_axis, uncond_samples):
         ax.set_ylim(bottom=0)
         ax.set_xticks([month_weeks[j] for j in range(0, len(month_weeks), 2)])
         ax.set_xticklabels([month_labels[j] for j in range(0, len(month_labels), 2)])
-        if i == 0:
+        if i % 3 == 0:
             ax.set_ylabel('Incident flu hospitalizations')
         format_count_axis(ax)
         ax.grid(True, alpha=0.3)
         sns.despine(ax=ax, trim=True)
 
-    # Add panel label A to first top axis
-    add_panel_label(axes_top[0], 'A', x=-0.15, y=1.05)
+    handles, labels = axes_states[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 0.055),
+               ncol=len(labels), frameon=False, handlelength=3.5,
+               fontsize=14, title='Historical seasons', title_fontsize=14,
+               borderaxespad=0)
 
-    # Right side: Correlation analysis (last column)
+    # Add panel label A to the first state axis
+    add_panel_label(axes_states[0], 'A', x=-0.15, y=1.05)
+
+    # Bottom right: Correlation analysis
     ax_corr = fig.add_subplot(gs[5])
 
     # Generate correlation figure but extract the plot
@@ -188,7 +198,7 @@ def figure1_unconditional_with_correlation(season_axis, uncond_samples):
     sns.despine(ax=ax_corr, trim=True)
 
     # Add panel label B
-    add_panel_label(ax_corr, 'B', x=-0.25, y=1.05)
+    add_panel_label(ax_corr, 'B', x=-0.15, y=1.05)
 
     # Save figure
     save_path = os.path.join(FIG_DIR, f"{_MODEL_NUM}_figure1_unconditional_correlation.png")
