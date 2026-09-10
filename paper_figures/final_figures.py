@@ -24,6 +24,7 @@ FIG_DIR = "influpaint-paper/figures/generated"
 os.makedirs(FIG_DIR, exist_ok=True)
 
 from .helpers import format_count_axis, load_unconditional_samples
+from .publication_style import save_paper_figure
 from .data_utils import compute_historical_peak_threshold, filter_trajectories_by_peak
 
 from . import unconditional_figures as uncond_figs
@@ -45,7 +46,8 @@ def add_panel_label(ax, label, x=-0.15, y=1.05, fontsize=16, fontweight='bold'):
         fontweight: Font weight for label
     """
     ax.text(x, y, str(label).lower(), transform=ax.transAxes,
-            fontsize=fontsize, fontweight=fontweight, va='top', ha='right')
+            fontsize=fontsize, fontweight=fontweight, va='top', ha='right',
+            gid='panel-label')
 
 
 def figure1_unconditional_with_correlation(season_axis, uncond_samples):
@@ -202,7 +204,7 @@ def figure1_unconditional_with_correlation(season_axis, uncond_samples):
 
     # Save figure
     save_path = os.path.join(FIG_DIR, f"{_MODEL_NUM}_figure1_unconditional_correlation.png")
-    fig.savefig(save_path, dpi=300, bbox_inches='tight')
+    save_paper_figure(fig, save_path, axes_states + [ax_corr])
     plt.close(fig)
 
     print(f"Figure 1 saved to {save_path}")
@@ -337,7 +339,8 @@ def figure2_csv_forecasts_two_seasons(season_axis):
                     mask = (x >= np.datetime64(left_bound)) & (x <= np.datetime64(right_bound))
                     if np.any(mask):
                         ax.plot(x[mask], ensemble["value"].values[mask], color='#333333',
-                               lw=2, ls=':', label='FluSight-ensemble' if j == 0 and row_idx == 0 else '')
+                               lw=2, ls=(0, (0.1, 1.5)), dash_capstyle='round',
+                               label='FluSight-ensemble' if j == 0 and row_idx == 0 else '')
 
             # Styling
             full_name = season_axis.get_location_name(loc_code)
@@ -365,8 +368,7 @@ def figure2_csv_forecasts_two_seasons(season_axis):
 
     # Save figure
     save_path = os.path.join(FIG_DIR, f"{_MODEL_NUM}_figure2_csv_forecasts_two_seasons.png")
-    plt.subplots_adjust(hspace=0.3, wspace=0.25)
-    fig.savefig(save_path, dpi=300, bbox_inches='tight')
+    save_paper_figure(fig, save_path, axes.flat, calendar_dates=True)
     plt.close(fig)
 
     print(f"Figure 2 saved to {save_path}")
@@ -592,7 +594,7 @@ def figure3_npy_forecasts_two_seasons(season_axis):
 
     # Save figure
     save_path = os.path.join(FIG_DIR, f"{_MODEL_NUM}_figure3_npy_forecasts_two_seasons.png")
-    fig.savefig(save_path, dpi=300, bbox_inches='tight')
+    save_paper_figure(fig, save_path, axes, calendar_dates=True)
     plt.close(fig)
 
     print(f"Figure 3 saved to {save_path}")
@@ -1265,8 +1267,7 @@ def figure4_mask_experiments(season_axis, season_first_year='2024', output_suffi
 
     # Save figure
     save_path = os.path.join(FIG_DIR, f"{_MODEL_NUM}_figure4_mask_experiments{output_suffix}.png")
-    plt.subplots_adjust(hspace=0.3, wspace=0.25)
-    fig.savefig(save_path, dpi=300, bbox_inches='tight')
+    save_paper_figure(fig, save_path, axes.flat, calendar_dates=True, mask_panels=True)
     plt.close(fig)
 
     print(f"Figure 4 saved to {save_path}")

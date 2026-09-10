@@ -60,7 +60,7 @@ SEASON_XLIMS = {
 }
 
 # Toggle: also show pre-forecast ("past") segments of NPY forecasts
-SHOW_NPY_PAST = True
+SHOW_NPY_PAST = False
 
 
 # Global matplotlib settings for publication
