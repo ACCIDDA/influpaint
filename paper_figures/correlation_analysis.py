@@ -7,11 +7,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from typing import Optional
+from influpaint.utils import SeasonAxis
 
-from .data_utils import normalize_samples_shape, get_real_weeks
+from .data_utils import normalize_samples_shape, get_real_weeks, validate_samples_and_season_axis
 
 
-def compute_weekly_incidence_correlation(inv_samples: np.ndarray) -> list[float]:
+def compute_weekly_incidence_correlation(inv_samples: np.ndarray,
+                                         season_axis: SeasonAxis) -> list[float]:
     """Compute temporal correlation between each pair of states.
 
     For each sample, we measure how similar state-level trajectories are by computing
@@ -19,11 +21,14 @@ def compute_weekly_incidence_correlation(inv_samples: np.ndarray) -> list[float]
 
     Args:
         inv_samples: Array shaped as (N, 1, weeks, places) or (N, weeks, places).
+        season_axis: Location mapping; spatial padding is excluded.
 
     Returns:
         List of correlation coefficients pooled over all samples and state pairs.
     """
     arr = normalize_samples_shape(inv_samples)
+    validate_samples_and_season_axis(arr, season_axis)
+    arr = arr[:, :, :, :len(season_axis.locations)]
     n, c, w, p = arr.shape
     real_weeks = get_real_weeks(arr)
 
@@ -60,17 +65,21 @@ def compute_weekly_incidence_correlation(inv_samples: np.ndarray) -> list[float]
 
 
 def compute_random_correlation(inv_samples: np.ndarray,
+                               season_axis: SeasonAxis,
                                n_permutations: int = 100) -> list[float]:
     """Compute null correlations by permuting each state's time series.
 
     Args:
         inv_samples: Array shaped as (N, 1, weeks, places) or (N, weeks, places).
+        season_axis: Location mapping; spatial padding is excluded.
         n_permutations: Number of random permutations to draw.
 
     Returns:
         List of correlation coefficients from permuted samples.
     """
     arr = normalize_samples_shape(inv_samples)
+    validate_samples_and_season_axis(arr, season_axis)
+    arr = arr[:, :, :, :len(season_axis.locations)]
     n, c, w, p = arr.shape
     real_weeks = get_real_weeks(arr)
 
@@ -109,11 +118,13 @@ def compute_random_correlation(inv_samples: np.ndarray,
     return correlations
 
 
-def compute_observed_correlation(n_seasons: int = 3) -> list[float]:
+def compute_observed_correlation(season_axis: SeasonAxis,
+                                 seasons: tuple[int, ...] = (2023, 2024)) -> list[float]:
     """Compute state-pair correlations from historical seasons.
 
     Args:
-        n_seasons: Number of most recent historical seasons to include.
+        season_axis: Locations shared with the generated and null correlations.
+        seasons: First years of the historical seasons to include.
 
     Returns:
         List of correlation coefficients pooled across seasons and state pairs.
@@ -122,14 +133,10 @@ def compute_observed_correlation(n_seasons: int = 3) -> list[float]:
 
     correlations = []
 
-    # Get the most recent n_seasons (excluding 2021-2022 season due to incomplete data)
-    all_seasons = sorted(gt_df['fluseason'].unique())
-    all_seasons = [s for s in all_seasons if s != 2021]  # Exclude 2021-2022 season
-    seasons = all_seasons[-n_seasons:]
-
     for season_year in seasons:
         season_data = gt_df[gt_df['fluseason'] == season_year]
         season_pivot = season_data.pivot(columns='location_code', values='value', index='season_week')
+        season_pivot = season_pivot.loc[:, season_axis.locations]
 
         # Get list of locations
         locations = season_pivot.columns.tolist()
@@ -160,12 +167,14 @@ def compute_observed_correlation(n_seasons: int = 3) -> list[float]:
 
 
 def plot_weekly_incidence_correlation(inv_samples: np.ndarray,
+                                      season_axis: SeasonAxis,
                                       save_path: Optional[str] = None,
                                       n_permutations: int = 100) -> plt.Figure:
     """Plot pairwise state correlation comparison.
 
     Args:
         inv_samples: (N, 1, weeks, places) or (N, weeks, places).
+        season_axis: Locations shared by all three correlation distributions.
         save_path: Optional path to save the figure.
         n_permutations: Number of random permutations for the null distribution.
 
@@ -173,13 +182,13 @@ def plot_weekly_incidence_correlation(inv_samples: np.ndarray,
         Matplotlib Figure object.
     """
     print("Computing random correlations...")
-    random_corr = compute_random_correlation(inv_samples, n_permutations)
+    random_corr = compute_random_correlation(inv_samples, season_axis, n_permutations)
 
     print("Computing influpaint correlations...")
-    influpaint_corr = compute_weekly_incidence_correlation(inv_samples)
+    influpaint_corr = compute_weekly_incidence_correlation(inv_samples, season_axis)
 
     print("Computing observed correlations...")
-    observed_corr = compute_observed_correlation()
+    observed_corr = compute_observed_correlation(season_axis)
 
     # Prepare data for box plot
     data = []

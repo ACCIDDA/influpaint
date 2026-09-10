@@ -153,10 +153,10 @@ def plot_npy_multi_date_two_seasons(base_dir: str, model_id: str, config: str,
                         x_plot_med_p = dates_plot[mask_med_p]
                         if len(x_plot_med_p) > 0:
                             ax.plot(x_plot_med_p, med_all[mask_med_p], color=palette[i], lw=1.0, alpha=0.7, ls=':', zorder=2)
-                rdt = pd.to_datetime(dref)
-                ax.axvline(rdt, color=palette[i], ls='--', lw=1)
-                # annotate forecast date on the dashed line
-                ax.text(rdt, ax.get_ylim()[1]*0.95, str(rdt.date()), color=palette[i], rotation=90,
+                # The reference date is the first predicted week.
+                last_observed_date = pd.to_datetime(dref) - pd.Timedelta(weeks=1)
+                ax.axvline(last_observed_date, color=palette[i], ls='--', lw=1)
+                ax.text(last_observed_date, ax.get_ylim()[1]*0.95, str(last_observed_date.date()), color=palette[i], rotation=90,
                         ha='right', va='top', fontsize=8,
                         bbox=dict(facecolor='white', alpha=0.6, edgecolor='none'))
             # Style - use full location name

@@ -17,14 +17,11 @@ from influpaint.utils import SeasonAxis
 # Import configuration
 from .config import (
     FIG_DIR, BEST_MODEL_ID, BEST_CONFIG, UNCOND_SAMPLES_PATH,
-    INPAINTING_BASE, PLOT_MEDIAN, _MODEL_NUM, MAX_LOW_LOCATIONS
+    INPAINTING_BASE, PLOT_MEDIAN, _MODEL_NUM
 )
 
 # Import helper functions
 from .helpers import load_unconditional_samples
-
-# Import data utilities
-from .data_utils import compute_historical_peak_threshold, filter_trajectories_by_peak
 
 # Import figure generation modules
 from . import unconditional_figures as uncond_figs
@@ -287,6 +284,7 @@ def generate_correlation_figures(season_axis, uncond_samples):
     # Weekly incidence correlation
     fig_correlation = correlation_analysis.plot_weekly_incidence_correlation(
         inv_samples=uncond_samples,
+        season_axis=season_axis,
         save_path=os.path.join(FIG_DIR, f"{_MODEL_NUM}_weekly_incidence_correlation.png"),
         n_permutations=100,
     )
@@ -328,34 +326,20 @@ def main():
     uncond_samples = load_unconditional_samples(UNCOND_SAMPLES_PATH)
     print(f"Loaded unconditional samples: {uncond_samples.shape}")
 
-    # Filter unconditional samples based on peak threshold (per location)
-    print("\nFiltering unconditional samples to remove blank/low trajectories...")
-    peak_thresholds = compute_historical_peak_threshold(
-        season_axis=season_axis,
-        seasons=[2022, 2023, 2024],
-        threshold_fraction=0.1,
-    )
-    uncond_samples_filtered = filter_trajectories_by_peak(
-        uncond_samples,
-        season_axis,
-        peak_thresholds,
-        max_low_locations=MAX_LOW_LOCATIONS
-    )
-
-    # Generate all figure types using filtered samples
+    # Generate all figure types
     try:
-        generate_unconditional_figures(season_axis, uncond_samples_filtered)
+        generate_unconditional_figures(season_axis, uncond_samples)
     except Exception as e:
         print(f"Error generating unconditional figures: {e}")
         raise ValueError("")
 
     try:
-        generate_peak_analysis_figures(season_axis, uncond_samples_filtered)
+        generate_peak_analysis_figures(season_axis, uncond_samples)
     except Exception as e:
         print(f"Error generating peak analysis figures: {e}")
         raise ValueError("")
     try:
-        generate_correlation_figures(season_axis, uncond_samples_filtered)
+        generate_correlation_figures(season_axis, uncond_samples)
     except Exception as e:
         print(f"Error generating correlation figures: {e}")
         raise ValueError("")

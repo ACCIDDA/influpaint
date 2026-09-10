@@ -21,8 +21,8 @@ CHANNELS = 1
 # Plotting options
 PLOT_MEDIAN = True
 
-# Trajectory filtering options
-MAX_LOW_LOCATIONS = 10  # Max number of locations allowed to have peaks below threshold
+# Same trajectory indices as before revision so the figure insets do not change.
+FIGURE1_INSET_SAMPLE_INDICES = (0, 255, 510)
 
 # Model configuration
 BEST_MODEL_ID = "i868"

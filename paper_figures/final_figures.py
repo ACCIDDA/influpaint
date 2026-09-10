@@ -16,7 +16,7 @@ from influpaint.utils import SeasonAxis
 
 from .config import (
     BEST_MODEL_ID, BEST_CONFIG, UNCOND_SAMPLES_PATH,
-    INPAINTING_BASE, _MODEL_NUM, MAX_LOW_LOCATIONS
+    INPAINTING_BASE, _MODEL_NUM, FIGURE1_INSET_SAMPLE_INDICES
 )
 
 # Output directory for final figures
@@ -25,7 +25,6 @@ os.makedirs(FIG_DIR, exist_ok=True)
 
 from .helpers import format_count_axis, load_unconditional_samples
 from .publication_style import save_paper_figure
-from .data_utils import compute_historical_peak_threshold, filter_trajectories_by_peak
 
 from . import unconditional_figures as uncond_figs
 from . import correlation_analysis
@@ -128,9 +127,7 @@ def figure1_unconditional_with_correlation(season_axis, uncond_samples):
                            label=season_label)
 
         # Add trajectory inset
-        n_trajs = min(3, ts.shape[0])
-        traj_indices = np.linspace(0, ts.shape[0]-1, num=n_trajs, dtype=int)
-        inset_trajectories = ts[traj_indices]
+        inset_trajectories = ts[list(FIGURE1_INSET_SAMPLE_INDICES)]
         ax_inset = add_trajectory_inset(ax, weeks, inset_trajectories, color)
         ax_inset.tick_params(axis='x', labelsize=plt.rcParams['xtick.labelsize'])
         ax_inset.tick_params(axis='y', labelsize=plt.rcParams['ytick.labelsize'])
@@ -171,9 +168,9 @@ def figure1_unconditional_with_correlation(season_axis, uncond_samples):
     )
 
     print("Computing correlations for Figure 1...")
-    random_corr = compute_random_correlation(uncond_samples, 100)
-    influpaint_corr = compute_weekly_incidence_correlation(uncond_samples)
-    observed_corr = compute_observed_correlation()
+    random_corr = compute_random_correlation(uncond_samples, season_axis, 100)
+    influpaint_corr = compute_weekly_incidence_correlation(uncond_samples, season_axis)
+    observed_corr = compute_observed_correlation(season_axis)
 
     data = []
     for corr in random_corr:
@@ -305,6 +302,13 @@ def figure2_csv_forecasts_two_seasons(season_axis):
                 if sub.empty:
                     continue
 
+                # The reference date is the first predicted week.
+                last_observed_date = pd.to_datetime(r) - pd.Timedelta(weeks=1)
+                observed_start = pd.DataFrame({
+                    'target_end_date': [last_observed_date],
+                    'value': [gt.loc[gt['date'] == last_observed_date, 'value'].item()],
+                })
+
                 for lo, hi in flusight_quantile_pairs:
                     low = sub[np.isclose(sub["q"], lo)].sort_values("target_end_date")
                     up = sub[np.isclose(sub["q"], hi)].sort_values("target_end_date")
@@ -319,22 +323,22 @@ def figure2_csv_forecasts_two_seasons(season_axis):
                 # Median
                 med = sub[np.isclose(sub["q"], 0.5)].sort_values("target_end_date")
                 if len(med):
+                    med = pd.concat([observed_start, med[['target_end_date', 'value']]], ignore_index=True)
                     x = pd.to_datetime(med["target_end_date"]).values
                     mask = (x >= np.datetime64(left_bound)) & (x <= np.datetime64(right_bound))
                     if np.any(mask):
                         ax.plot(x[mask], med["value"].values[mask], color=palette[j], lw=2)
-                    rdt = pd.to_datetime(r)
-                    if left_bound <= rdt <= right_bound:
-                        ax.axvline(rdt, color=palette[j], ls='--', lw=1)
-                        # Add date label near the top
+                    if left_bound <= last_observed_date <= right_bound:
+                        ax.axvline(last_observed_date, color=palette[j], ls='--', lw=1)
                         ymax = ax.get_ylim()[1]
-                        ax.text(rdt, ymax*0.95, rdt.strftime('%Y-%m-%d'), color=palette[j], rotation=90,
+                        ax.text(last_observed_date, ymax*0.95, last_observed_date.strftime('%Y-%m-%d'), color=palette[j], rotation=90,
                                 ha='right', va='top', fontsize=8,
                                 bbox=dict(facecolor='white', alpha=0.6, edgecolor='none'))
 
                 # FluSight-ensemble
                 ensemble = load_flusight_ensemble_forecast(season, loc_code, r)
                 if not ensemble.empty:
+                    ensemble = pd.concat([observed_start, ensemble[['target_end_date', 'value']]], ignore_index=True)
                     x = ensemble["target_end_date"].values
                     mask = (x >= np.datetime64(left_bound)) & (x <= np.datetime64(right_bound))
                     if np.any(mask):
@@ -1286,22 +1290,8 @@ def main():
     uncond_samples = load_unconditional_samples(UNCOND_SAMPLES_PATH)
     print(f"Loaded unconditional samples: {uncond_samples.shape}")
 
-    # Filter unconditional samples
-    print("\nFiltering unconditional samples...")
-    peak_thresholds = compute_historical_peak_threshold(
-        season_axis=season_axis,
-        seasons=[2022, 2023, 2024],
-        threshold_fraction=0.1,
-    )
-    uncond_samples_filtered = filter_trajectories_by_peak(
-        uncond_samples,
-        season_axis,
-        peak_thresholds,
-        max_low_locations=MAX_LOW_LOCATIONS
-    )
-
     # Generate figures
-    figure1_unconditional_with_correlation(season_axis, uncond_samples_filtered)
+    figure1_unconditional_with_correlation(season_axis, uncond_samples)
     figure2_csv_forecasts_two_seasons(season_axis)
     figure_relaizedforecast(season_axis)
     figure3_npy_forecasts_two_seasons(season_axis)

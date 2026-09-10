@@ -119,7 +119,11 @@ def save_paper_figure(fig, save_path, main_axes, *, calendar_dates=False,
         for text in reference_labels:
             text.set_visible(True)
             text.set_fontsize(FORECAST_DATE_FONT_PT * font_scale)
-            text.set_text(datetime.strptime(text.get_text(), '%Y-%m-%d').strftime('%b %d'))
+            date = datetime.strptime(text.get_text(), '%Y-%m-%d')
+            text.set_text(f'{date:%b}{date.day}')
+            text.set_transform(ax.get_xaxis_transform())
+            text.set_y(0.99)
+            text.set_va('top')
             text.set_ha('left')
         sns.despine(ax=ax, trim=False)
 
