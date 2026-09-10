@@ -5,7 +5,6 @@ from datetime import datetime
 import matplotlib.dates as mdates
 from matplotlib import ticker
 from matplotlib.text import Text
-from matplotlib.transforms import ScaledTranslation
 from mpl_toolkits.axes_grid1.inset_locator import AnchoredSizeLocator
 import seaborn as sns
 
@@ -136,11 +135,9 @@ def save_paper_figure(fig, save_path, main_axes, *, calendar_dates=False,
 
     for index, ax in enumerate(inset_axes):
         if ax.lines:
-            inset_transform = main_axes[index].transAxes + ScaledTranslation(
-                5 / 25.4, 0, fig.dpi_scale_trans)
             ax.set_axes_locator(AnchoredSizeLocator(
-                (0, 0, 0.98, 0.98), '43%', '43%', loc='upper right',
-                bbox_transform=inset_transform))
+                (0.17, 0.06, 0.98, 0.98), '43%', '43%', loc='upper right',
+                bbox_transform=main_axes[index].transAxes))
             xticks = ax.get_xticks()[[0, -1]]
             yticks = ax.get_yticks()[[0, -1]]
             ax.set_xticks(xticks, [f'{int(t)}' for t in xticks])

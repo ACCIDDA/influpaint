@@ -89,9 +89,7 @@ def figure1_unconditional_with_correlation(season_axis, uncond_samples):
     # Load historical data
     gt_df = pd.read_csv('influpaint/data/nhsn_flusight_past.csv')
     gt_plot_data = {}
-    for season in gt_df['fluseason'].unique():
-        if season == 2021:
-            continue
+    for season in (2022, 2023, 2024):
         season_data = gt_df[gt_df['fluseason'] == season]
         season_pivot = season_data.pivot(columns='location_code', values='value', index='season_week')
         gt_plot_data[season] = season_pivot
