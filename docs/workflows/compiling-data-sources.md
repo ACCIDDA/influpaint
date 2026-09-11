@@ -1,18 +1,8 @@
 # 1. Gather source datasets
 
-You will use **`dataset_creation/1-gather_all_flu_datasets_ipynb.py`** to turn surveillance records and simulated influenza trajectories into **`Flusight/flu-datasets/all_datasets.parquet`**, a common table that the training-data notebook can mix.
+The objective is to assemble a shared collection of influenza seasons from **observed surveillance and simulated epidemics**. Surveillance supplies the shapes of real historical epidemics; simulations broaden the range of possible seasons. Their calendars, location labels, measurements, and coverage differ, so the first task is to put them into a common format.
 
-!!! tip "Skip this step with the reproduction archive"
-
-    Use `influpaint-paper/influpaint_paper_reproduction_data/datasets/sources/all_datasets.parquet`. Restore it to the notebook input path:
-    
-    ```bash
-    mkdir -p Flusight/flu-datasets
-    cp influpaint-paper/influpaint_paper_reproduction_data/datasets/sources/all_datasets.parquet Flusight/flu-datasets/all_datasets.parquet
-    ```
-    
-    This is the locally available gathered-data snapshot, last modified November 7, 2025. It is not established as the original input to the July 17 training datasets. For the exact saved training realization, skip directly to the NetCDF files in step 2.
-
+Work through `dataset_creation/1-gather_all_flu_datasets_ipynb.py` to read and inspect each source, standardize its records, and save `Flusight/flu-datasets/all_datasets.parquet`. This table is the source archive that step 2 will turn into training datasets with different surveillance/modeling mixtures.
 
 ## Open the first notebook
 
@@ -22,9 +12,9 @@ The source file uses Jupytext's `# %%` cell format. Open it as a notebook in you
 jupytext --to notebook dataset_creation/1-gather_all_flu_datasets_ipynb.py --output dataset_creation/1-gather_all_flu_datasets.ipynb
 ```
 
-Run cells from the repository root. The notebook defaults to `download=False`, using the cached upstream files. Its source-reader code is in `influpaint/datasets/read_datasources.py`. Follow the notebook's source-preparation cells if assembling the raw inputs; the Parquet shortcut avoids that download and preparation work.
+Run cells from the repository root. The notebook defaults to `download=False`, using the cached upstream files. Its source-reader code is in `influpaint/datasets/read_datasources.py`. Prepare the upstream checkouts listed in [environment setup](../getting-started/installation.md#source-repositories), then follow the notebook's source-specific preparation cells. Run each section in order so you can inspect its data before adding it to the combined table.
 
-## Scene 1 — Put surveillance seasons on the same calendar
+## 1. Put surveillance seasons on the same calendar
 
 FluView describes influenza-like illness; FluSurv supplies hospitalization information. They capture epidemic shapes on different scales. `SeasonAxis.for_flusight(remove_us=True, remove_territories=True)` gives them a shared August-start season calendar and state/DC location codes.
 
@@ -36,7 +26,7 @@ FluView describes influenza-like illness; FluSurv supplies hospitalization infor
 
 *The same view for `csp_flusurv`, the hospitalization series included in the combined training-source table. The notebook also inspects Delphi FluSurv, but its final concatenation uses the CSP-prepared series.*
 
-## Scene 2 — Add plausible seasons from transmission models
+## 2. Add plausible seasons from transmission models
 
 The notebook reads Flu Scenario Modeling Hub rounds 4–5 and flepiMoP round 1. It excludes PSI-M2, samples 20 trajectories per SMH model/scenario, and selects 80 flepiMoP sample IDs. These sampling operations produce a particular realization each time the notebook runs.
 
@@ -44,7 +34,7 @@ The notebook reads Flu Scenario Modeling Hub rounds 4–5 and flepiMoP round 1. 
 
 *Twenty source trajectories per family, selected in sorted identifier order from the archive. This additional view makes the notebook's modeling-source step visible; the values are saved data, not newly simulated trajectories.*
 
-## Scene 3 — Save a common table
+## 3. Save a common table
 
 | Columns | Meaning |
 | --- | --- |
@@ -59,6 +49,17 @@ The NHSN cells separately prepare observed hospitalizations at `influpaint/data/
 
 Run the standard cells through the Parquet save. The notebook's intentional `assert False` marks the boundary before optional custom-data experiments.
 
-The story images are regenerated with `python -m main_training.render_notebook_stories`. They visualize the archived data without rerunning downloads or random source sampling.
+Before moving on, inspect the four source families and their season/location coverage in the combined table. The overlap plots help reveal missing coverage and differences in epidemic timing; the source identifiers let the next notebook select and weight each family. You are ready for step 2 when the Parquet file has been written and you understand which sources it contains.
+
+??? tip "Use saved results from the Zenodo archive"
+
+    Use `influpaint-paper/influpaint_paper_reproduction_data/datasets/sources/all_datasets.parquet`. Restore it to the notebook input path:
+
+    ```bash
+    mkdir -p Flusight/flu-datasets
+    cp influpaint-paper/influpaint_paper_reproduction_data/datasets/sources/all_datasets.parquet Flusight/flu-datasets/all_datasets.parquet
+    ```
+
+    This is the locally available gathered-data snapshot, last modified November 7, 2025. It is not established as the original input to the July 17 training datasets. For the exact saved training realization, skip directly to the NetCDF files in step 2.
 
 [Previous: Start here](start-here.md) · [Next: 2. Create training data](build-training-datasets.md)

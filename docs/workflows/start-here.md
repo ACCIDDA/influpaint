@@ -1,10 +1,14 @@
 # Start here
 
-Follow InfluPaint from source data to publication figures and operational forecasts. Each step explains what you will use and produce, and links to the saved files for that stage.
+The goal of this walkthrough is to build an influenza forecasting model and understand the choices that shape its predictions. InfluPaint first learns what complete influenza seasons look like. It then uses the observed part of a season to generate possible continuations, producing an ensemble of trajectories across states and weeks.
 
-!!! tip "Skip any step with the reproduction archive"
+You will start with historical surveillance and simulated epidemics, put them on a common calendar, and build training datasets with different mixtures of the two. After training candidate models, you will forecast the same reference dates with each candidate, compare their probabilistic accuracy, and use a selected model to fill missing observations or make an operational forecast.
 
-    **You can skip any step.** Use the saved inputs or outputs in the Zenodo reproduction archive and continue from the stage that interests you. The paper workflow chapters name the exact archive paths to use. The final operational chapter includes a separate saved 2025–2026 forecast example. You do not need to gather data, retrain models, or generate forecasts to explore the archived results or reproduce the paper figures.
+## Follow the data through the workflow
+
+Steps 1–2 create the training material: a standardized source table becomes a collection of complete season images. Steps 3–6 turn those images into a forecasting formulation: train the model, define the forecasting experiment, sample trajectories, and score the resulting quantiles. Step 7 explores other observation patterns, and step 8 brings the results together in figures.
+
+Once you have a trained model, [step 9](operational-forecasts.md) is the recurring operational workflow: update surveillance data, choose the forecast date, inspect the observation mask, sample, and review the export. You can reuse the checkpoint each week.
 
 ## Contents
 
@@ -23,12 +27,14 @@ Follow InfluPaint from source data to publication figures and operational foreca
 
 ## Before you start
 
-Begin with [step 0: clone the repositories and install the environment](../getting-started/installation.md) for the research environment. All commands and repository paths in this walkthrough are relative to the **research repository root**, the directory containing `influpaint/`, `main_training/`, and `mkdocs.yml`.
+Complete [step 0: install the environment](../getting-started/installation.md). All commands and repository paths in this walkthrough are relative to the **research repository root**, the directory containing `influpaint/`, `main_training/`, and `mkdocs.yml`. Run the data notebooks from that directory too, so their relative input paths resolve correctly.
 
-Place the reproduction archive at `influpaint-paper/influpaint_paper_reproduction_data/`. Its `README.md` describes the archived files and the figure-generation command. The paper's exact training inputs are the July 17, 2025 NetCDF files; newer datasets are different training realizations. [Steps 1 and 2](compiling-data-sources.md) also tell the notebooks' story through captioned plots from saved data.
+The two data-preparation notebooks live in `dataset_creation/`. Model and dataset choices are defined in `influpaint/batch/config.py`, and `influpaint/batch/scenarios.py` combines them into training scenarios. Cluster launchers live in `main_training/`; the reusable training and forecasting entry points live in `influpaint/batch/`.
 
-The paper's cluster launchers, saved scenario definitions, and job manifests live in `main_training/`; `main_training/runs.txt` collects the commands. Reusable model and batch code lives in `influpaint/`.
+Each chapter explains its objective, the settings to choose, what the script does, and what to inspect before continuing. The examples use the paper's configuration as a concrete starting point; when building your own experiment, change the input dataset paths and experiment names as described in the relevant step.
 
-To reproduce figures immediately, go to [step 8](paper-figures.md). After environment setup, start the data workflow with [step 1](compiling-data-sources.md) and follow the next-page links.
+## Join at the stage that interests you
+
+The Zenodo archive supplies saved datasets, a selected checkpoint, forecasts, and analysis tables. Its `README.md` documents the exact reproduction inputs and their provenance. Place it at `influpaint-paper/influpaint_paper_reproduction_data/` to use the archive paths in this walkthrough. Collapsed notes at the end of the paper workflow chapters identify saved files you can use to join that stage.
 
 [Previous: 0. Install the environment](../getting-started/installation.md) · [Next: 1. Gather source datasets](compiling-data-sources.md)

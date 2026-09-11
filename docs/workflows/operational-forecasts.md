@@ -1,22 +1,24 @@
 # 9. Generate operational forecasts
 
-Use **`run_operational_flusight.py`**, the interactive forecasting notebook, to condition a trained model on the latest reported hospitalizations and export **FluSight CSVs, forecast PDFs, and sampled trajectories**. The example below comes from the early 2025–2026 season, with a forecast reference date of **November 29, 2025**.
+The objective is to produce a forecast for the current influenza season using a trained model and the latest reported hospitalizations. Each forecasting cycle starts by updating surveillance data, then uses `run_operational_flusight.py` to inspect the observations, condition the model, and export FluSight CSVs, forecast PDFs, and sampled trajectories.
 
-## Inspect the observations and mask
+Reuse the selected checkpoint and its training dataset from the earlier steps. The observations and forecast date change each week; you can run this workflow without retraining. The figures below illustrate a reference date of **November 29, 2025**; set the date for your own forecast before sampling.
 
-[![The operational notebook's four-panel mask diagnostic for November 29, 2025](../assets/operational/2025-11-29-observation-mask.png)](../assets/operational/2025-11-29-observation-mask.png)
+## 1. Update the surveillance data first
 
-**Early-season observation mask.** This recreates the notebook's first graph, `gt1.plot_mask()`, using a surveillance snapshot from November 26, 2025, with observations through November 22. Rows are weeks and columns are locations on the padded 64 × 64 image grid. The mask is 1 for observed history and 0 for future weeks; its upper band is pink and its lower band is purple. The dashed line marks the forecasting boundary. Red entries in the data panels are missing values, while the extra rows and columns are padding. The last two panels overlay the same mask on the data and reference data; both use the same archived snapshot here, as in the notebook's `nogit=True` workflow.
+Before opening or running the forecasting notebook for a new forecast, update the local data checkouts from the research repository root:
 
-Unlike [the reconstruction experiments](mask-experiments.md), the operational mask leaves the observed history available and hides the future. Inspect this graph before sampling to confirm the season, available observations, and forecast boundary.
+```bash
+bash update-data.sh
+```
 
-!!! tip "Inspect a saved operational forecast"
+The script pulls the local FluSight, NC collaboration, and Metrocast repositories listed in [environment setup](../getting-started/installation.md#source-repositories). Run it each time you prepare a new operational forecast, before the notebook constructs its ground-truth object.
 
-    The example report and its preview are included on this page, so no model run is needed to inspect them. The original November 29 files are under `Flusight/2025-2026/Flusight 2025-2026/2025-11-29/` in the local research archive. These are separate from the paper reproduction archive's earlier operational submissions in `forecasts/operational/`.
+`GroundTruth.for_flusight` reads local hospitalization data; it does not download the latest observations. For the 2025–2026 example, the current reader uses `Flusight/2024-2025/FluSight-forecast-hub-official/target-data/target-hospital-admissions.csv`. The directory name does not limit the seasons in that file. The notebook uses `nogit=True`, so setting `data_date` alone neither refreshes the data nor selects a historical Git revision.
 
-## Open the notebook
+## 2. Open the notebook
 
-Complete [environment setup](../getting-started/installation.md) and restore the [i868 training dataset](build-training-datasets.md) and trained checkpoint. Run from the research repository root. Open `run_operational_flusight.py` as a Jupytext notebook in your editor, or create an unexecuted notebook copy:
+Complete [environment setup](../getting-started/installation.md) and make the selected checkpoint and its [training dataset](build-training-datasets.md) available. Run from the research repository root. Open `run_operational_flusight.py` as a Jupytext notebook in your editor, or create an unexecuted notebook copy:
 
 ```bash
 jupytext --to notebook run_operational_flusight.py --output run_operational_flusight.ipynb
@@ -25,39 +27,41 @@ jupyter lab run_operational_flusight.ipynb
 
 Select **Python (diffusion_torch)** as the kernel. Run the cells interactively, setting the configuration before loading the model or starting sampling.
 
-## Choose the model and forecast date
+## 3. Choose the model and forecast date
 
 The notebook uses scenario **868**, **512 samples**, and CoPaint configuration **`celebahq_noTTJ5`**. Set `forecast_date` to the intended forecast reference date; the checked-in notebook contains a fixed example date that must be changed for a new run.
 
-To load the selected checkpoint from the reproduction archive, set these variables in the configuration cell:
+To use the i868 candidate trained in the example experiment from step 3, set the configuration cell to:
 
 ```python
 scenario_id = 868
+forecast_date = "2025-11-29"  # Replace with your forecast reference date.
 config_name = "celebahq_noTTJ5"
 batch_size = 512
-experiment_name = None
+experiment_name = "my-flu-experiment_training"
 run_id = None
-model_path = (
-    "influpaint-paper/influpaint_paper_reproduction_data/"
-    "i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::3000.pth"
-)
+model_path = None
 ```
 
-The model/dataset cell still needs the scenario's training data to create its transformations. Alternatively, the notebook can load a finished i868 run from the local `paper-2025-07-22_training` MLflow experiment when that experiment and its artifacts are available.
+The notebook finds a finished run for that scenario in the named MLflow experiment. Use your selected scenario and experiment name. To select a particular training execution, set `experiment_name = None` and `run_id` to its MLflow run ID. To load a checkpoint file directly, set both `experiment_name` and `run_id` to `None` and set `model_path` to the `.pth` file.
 
-## Update the data and run inpainting
+The model/dataset cell also loads the scenario's training data to construct its transformations. Check that `dataset_library()` still points to the dataset used to train your checkpoint, and inspect the printed scenario string before sampling.
 
-Update the local source checkouts before preparing ground truth:
+## 4. Inspect the observations and mask
 
-```bash
-./update-data.sh
-```
+[![The operational notebook's four-panel mask diagnostic for November 29, 2025](../assets/operational/2025-11-29-observation-mask.png)](../assets/operational/2025-11-29-observation-mask.png)
 
-`GroundTruth.for_flusight` reads the local FluSight hospitalization data. For the 2025–2026 season, the current reader uses `Flusight/2024-2025/FluSight-forecast-hub-official/target-data/target-hospital-admissions.csv`; the directory name does not limit the seasons in that file. The notebook passes `nogit=True`, so `data_date` does not select a historical Git revision or download fresh data.
+**Early-season observation mask.** This recreates the notebook's first graph, `gt1.plot_mask()`, using a surveillance snapshot from November 26, 2025, with observations through November 22. Rows are weeks and columns are locations on the padded 64 × 64 image grid. The mask is 1 for observed history and 0 for future weeks; its upper band is pink and its lower band is purple. The dashed line marks the forecasting boundary. Red entries in the data panels are missing values, while the extra rows and columns are padding. The last two panels overlay the same mask on the data and reference data; both use the same archived snapshot here, as in the notebook's `nogit=True` workflow.
 
-Run the ground-truth cells and inspect the mask shown above. Then run the sampler cells: they transform the observations, pass the data and mask to `O_DDIMSampler`, generate 512 trajectories, and transform the results back to hospitalization counts. The notebook then plots national and state forecasts.
+Unlike [the reconstruction experiments](mask-experiments.md), the operational mask leaves the observed history available and hides the future. Inspect this graph before sampling to confirm the season, available observations, and forecast boundary.
 
-## Review an example output
+Run the ground-truth cells after configuring the date. Confirm that the mask ends at the intended observation boundary and that the data panels contain the latest reported weeks. With `nogit=True`, this is the local surveillance snapshot you refreshed before opening the notebook.
+
+## 5. Run inpainting
+
+Run the sampler cells. They transform the observations, pass the data and mask to `O_DDIMSampler`, generate 512 trajectories, and transform the results back to hospitalization counts. The notebook then plots national and state forecasts. Review their agreement with recent observations and the spread of possible future trajectories before exporting.
+
+## 6. Review the forecast plots
 
 [![Alabama full-season and short-horizon forecasts from the saved November 29, 2025 report](../assets/operational/2025-11-29-forecast-alabama.png)](../assets/operational/2025-11-29-forecast-50-95.pdf)
 
@@ -65,7 +69,7 @@ Run the ground-truth cells and inspect the mask shown above. Then run the sample
 
 [Open the full original forecast PDF, including national and state panels](../assets/operational/2025-11-29-forecast-50-95.pdf)
 
-## Export the forecast
+## 7. Export the forecast
 
 The export cells choose the next Saturday from the current date as `submission_date`, refresh the ground-truth object from the local data, and write to `operational_output/<submission_date>/`. For a live run, keep the sampling date, observations, and submission reference date consistent. To replay a historical example, use its archived surveillance snapshot and explicitly set the export date and ground-truth cutoff to match; the default export cells use today's date even if `forecast_date` is historical.
 
@@ -82,16 +86,22 @@ With the notebook's default prefix `UNC_IDD-InfluPaint`, the outputs are:
 
 The array files are written when `save_raw_arrays=True`. Review the plots and exported dates before using the CSV as a submission. Running the notebook creates local files; submission to FluSight is a separate action.
 
-## Figure sources
+??? tip "Inspect a saved operational forecast"
 
-The mask uses `target-data/target-hospital-admissions.csv` from revision `aa25b8d92c06241d7e50dfb15b80fbc04f6483d5` in the local `Flusight/2024-2025/my-hub-fork-for-submissions` checkout. It is reconstructed from that archived surveillance snapshot, not extracted from a saved notebook output. The PDF is copied unchanged from `Flusight/2025-2026/Flusight 2025-2026/2025-11-29/UNC_IDD-InfluPaint_celebahq_noTTJ5-2025-11-29-plot50-95.pdf`; the inline preview crops its Alabama row.
+    To use the paper's selected checkpoint, set `scenario_id = 868`, `experiment_name = None`, `run_id = None`, and `model_path = "influpaint-paper/influpaint_paper_reproduction_data/i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::3000.pth"`. Use its July 17 training dataset as described in step 2.
 
-Regenerate these documentation assets from the local source files with:
+    The example report and its preview are included on this page, so no model run is needed to inspect them. The original November 29 files are under `Flusight/2025-2026/Flusight 2025-2026/2025-11-29/` in the local research archive. These are separate from the paper reproduction archive's earlier operational submissions in `forecasts/operational/`.
 
-```bash
-python -m main_training.render_operational_story
-```
+??? info "Sources for the example figures"
 
-This calls the notebook's mask plotting method and uses Poppler's `pdftoppm` for the PDF preview. It does not generate new forecasts.
+    The mask uses `target-data/target-hospital-admissions.csv` from revision `aa25b8d92c06241d7e50dfb15b80fbc04f6483d5` in the local `Flusight/2024-2025/my-hub-fork-for-submissions` checkout. It is reconstructed from that archived surveillance snapshot, not extracted from a saved notebook output. The PDF is copied unchanged from `Flusight/2025-2026/Flusight 2025-2026/2025-11-29/UNC_IDD-InfluPaint_celebahq_noTTJ5-2025-11-29-plot50-95.pdf`; the inline preview crops its Alabama row.
+
+    Regenerate these documentation assets from the local source files with:
+
+    ```bash
+    python -m main_training.render_operational_story
+    ```
+
+    This calls the notebook's mask plotting method and uses Poppler's `pdftoppm` for the PDF preview. It does not generate new forecasts.
 
 [Previous: 8. Reproduce the paper figures](paper-figures.md) · [Back to contents](start-here.md)
