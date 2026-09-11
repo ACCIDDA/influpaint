@@ -4,6 +4,10 @@ The objective is to choose a forecasting formulation using the forecasts generat
 
 The evaluation pipeline joins the forecast CSVs to truth, computes probabilistic scores with R's `scoringutils`, and aggregates those scores into a leaderboard. A formulation here includes both the trained-model scenario and the CoPaint setting: the same checkpoint can forecast differently under different conditioning configurations.
 
+!!! tip "Use saved results from the Zenodo archive"
+
+    Use `influpaint-paper/influpaint_paper_reproduction_data/analysis/scoringutils_scores.csv` for the saved per-forecast scores, and `influpaint-paper/influpaint_paper_reproduction_data/analysis/leaderboard_full.csv` for the saved rankings. The selected-model forecast archive does not contain all candidate forecast CSVs required to rescore the complete comparison. To remake the paper comparison figures directly, use step 8.
+
 ## 1. Choose the forecasts and join them to observations
 
 `evaluation/prepare_dataset_for_scoringutils.py` reads the dates from `main_training/paper_runs_2025-07-22/inpaint_jobs_paper-2025-07-22.txt`, candidate CSVs under `from_longleaf/influpaint_res/`, and official forecasts/truth under the two season-specific `Flusight/` hub directories. Its `Config` class specifies the input locations. For your experiment, point it to the manifest from step 4 and the result directories from step 5, along with the benchmark and truth data for the corresponding seasons. The manifest defines the comparison dates, so keep it aligned with the forecast files you supply.
@@ -37,9 +41,5 @@ The paper's i868 + `celebahq_noTTJ5` ranks second in both combined absolute and 
 For a new experiment, use these comparisons to choose a scenario and conditioning configuration together, then carry that checkpoint and configuration into the reconstruction or operational workflow. `evaluation/choose_best_model.py` explicitly highlights i868 in the paper plots; it does not automatically choose a winner for a new experiment.
 
 These are the existing figures included in the paper's supplement. The underlying saved inputs are `analysis/leaderboard_full.csv` and `analysis/mlflow_losses.csv` in the reproduction archive. [Step 8](paper-figures.md) explains how to regenerate the supplementary figures.
-
-??? tip "Use saved results from the Zenodo archive"
-
-    Use `influpaint-paper/influpaint_paper_reproduction_data/analysis/scoringutils_scores.csv` for the saved per-forecast scores, and `influpaint-paper/influpaint_paper_reproduction_data/analysis/leaderboard_full.csv` for the saved rankings. The selected-model forecast archive does not contain all candidate forecast CSVs required to rescore the complete comparison. To remake the paper comparison figures directly, use step 8.
 
 [Previous: 5. Generate forecasts](inpainting.md) · [Next: 7. Reconstruct missing observations](mask-experiments.md)

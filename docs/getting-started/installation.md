@@ -10,7 +10,7 @@ cd influpaint
 git clone https://github.com/jcblemai/CoPaint4influpaint.git CoPaint4influpaint
 ```
 
-Clone **ACCIDDA/influpaint** to run the model. The separate **ACCIDDA/influpaint-paper** repository contains the manuscript. Keep `CoPaint4influpaint/` directly inside the research repository: the batch code imports its `guided_diffusion.O_DDIMSampler` from that location.
+Clone **ACCIDDA/influpaint** to run the model. Keep `CoPaint4influpaint/` directly inside the research repository: the batch code imports its `guided_diffusion.O_DDIMSampler` from that location.
 
 All subsequent commands run from the **research repository root**, the directory containing `influpaint/`, `main_training/`, and `mkdocs.yml`. The cloned dependencies and local data directories are ignored by Git and are not included in a fresh checkout.
 
@@ -60,11 +60,7 @@ The repository does not provide a pinned environment lockfile. The paper's Slurm
 
 ## Use the reproduction archive
 
-To reproduce saved results, place the extracted Zenodo reproduction archive at `influpaint-paper/influpaint_paper_reproduction_data/` under the research repository. Cloning the manuscript repository alone does not download this archive. If you also want the manuscript checkout, clone it before placing the archive inside it:
-
-```bash
-git clone https://github.com/ACCIDDA/influpaint-paper.git influpaint-paper
-```
+To reproduce saved results, place the extracted Zenodo reproduction archive at `influpaint-paper/influpaint_paper_reproduction_data/` under the research repository. Create the parent directory locally before extracting the archive.
 
 The archive's `README.md` identifies the files for skipping each stage. See the [quick start](quick-start.md) for the figure-generation command and the [workflow overview](../workflows/start-here.md) for saved inputs at each stage.
 

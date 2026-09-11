@@ -237,6 +237,7 @@ if __name__ == "__main__":
     df_raw['location'] = df_raw['location'].astype(str).str.strip()
     
     # Filter out problematic models from analysis
+    df_raw = df_raw[~df_raw['model'].str.startswith('i808')]
     df_raw = df_raw[df_raw['model'] != 'UGuelph-CompositeCurve']
     df_raw = df_raw[df_raw['model'] != 'CADPH-FluCAT_Ensemble']
     

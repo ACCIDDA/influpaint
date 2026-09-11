@@ -45,7 +45,6 @@ The documentation identifies saved inputs and outputs in the reproduction archiv
 | [`archives/`](archives/README.md) | Development notebooks, historical workflows, and reference implementations |
 | `CoPaint4influpaint/` | Active CoPaint runtime dependency |
 | `Flusight/`, `training_datasets/`, `from_longleaf/`, `results/` | Local data and results |
-| `influpaint-paper/` | Separate manuscript repository and local Zenodo reproduction archive |
 
 ## Research process and early development
 

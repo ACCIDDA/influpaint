@@ -4,6 +4,10 @@ The objective is to learn a distribution of complete influenza seasons from the 
 
 Use `influpaint/batch/config.py` to define these choices, `influpaint/batch/scenarios.py` to combine them, and `influpaint.batch.training` to train one candidate at a time.
 
+!!! tip "Use saved results from the Zenodo archive"
+
+    The archive contains the selected `i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::3000.pth` checkpoint and training-loss tables under `analysis/`. Its README documents the saved run and dataset. The generated batch workflow uses MLflow run IDs; to load a standalone checkpoint directly, use the `-m` option described in step 5 or the operational notebook in step 9.
+
 ## 1. Understand what defines a candidate
 
 The five option lists in `config.py` form the training search space:
@@ -12,7 +16,7 @@ The five option lists in `config.py` form the training search space:
 | --- | --- | --- |
 | Diffusion process | `U200l`, `U200c`, `U500l`, `U500c`, `U800c` | Number of diffusion steps (200, 500, or 800) and a linear (`l`) or cosine (`c`) noise schedule |
 | U-Net | `Rx124`, `Rx1224`, `Cx1224`, `Rx12448` | Residual (`R`) or ConvNeXt (`C`) blocks and the channel multipliers at successive network levels; the base width is 64 |
-| Training mixture | `100S`, `70S30M`, `30S70M`, `100M` | How much surveillance (`S`) and modeled (`M`) data the network sees |
+| Training mixture | `100S`, `70S30M`, `30S70M`, `100M` | Surveillance only; 70% surveillance / 30% simulations; 30% surveillance / 70% simulations; or simulations only. Surveillance comprises FluView and FluSurv; simulations comprise flepiMoP and Flu Scenario Modeling Hub trajectories. |
 | Transformation | `Lins`, `Sqrt`, `LinsZs`, `LogZs` | Linear scaling, square-root scaling, or the linear/log standardization recipes implemented in `transform_library` |
 | Enrichment | `No`, `Pois`, `PoisPadScaleSmall`, `PoisPadScale` | No augmentation, Poisson resampling, or Poisson resampling combined with random time shifts and magnitude scaling |
 
@@ -78,9 +82,5 @@ These unconditional samples show what the model has learned before any current-s
 Look at the loss curves for convergence or divergence, then inspect the generated epidemic curves for plausible timing, magnitude, and variation across locations. A low denoising loss alone does not establish forecasting skill; the retrospective forecasts and scores in steps 4–6 provide that comparison.
 
 Carry forward the **MLflow experiment name**, each finished **run ID**, and the corresponding training datasets. A scenario ID describes a recipe; a run ID identifies one execution and its learned weights. The forecast generator queries finished runs and expands each one into date-specific jobs.
-
-??? tip "Use saved results from the Zenodo archive"
-
-    The archive contains the selected `i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::3000.pth` checkpoint and training-loss tables under `analysis/`. Its README documents the saved run and dataset. The generated batch workflow uses MLflow run IDs; to load a standalone checkpoint directly, use the `-m` option described in step 5 or the operational notebook in step 9.
 
 [Previous: 2. Create training data](build-training-datasets.md) · [Next: 4. Prepare forecast jobs](forecast-jobs.md)

@@ -8,6 +8,10 @@ The workflow is the same as forecasting: prepare data and a mask, sample with fi
 
 **Figure 4 — Reconstruction with different observation masks.** Each inset shows the entries supplied to the model in green and the hidden entries in red. Black curves show observed hospitalizations; colored lines and fans show reconstructed medians and predictive quantiles. The same trained model handles missing states, midseason gaps, missing early weeks, and checkerboard patterns by changing the mask at sampling time.
 
+!!! tip "Use saved results from the Zenodo archive"
+
+    Use `influpaint-paper/influpaint_paper_reproduction_data/forecasts/masks/`. Each experiment directory contains `fluforecasts_ti.npy`, `mask.npy`, and `ground_truth.npy`. For example, `influpaint-paper/influpaint_paper_reproduction_data/forecasts/masks/missing_nc_season2023/fluforecasts_ti.npy` contains the North Carolina reconstruction ensemble.
+
 ## 1. Define which observations to hide
 
 A forecasting mask hides future weeks. These experiments instead hide whole locations, an internal time interval, past weeks, or scattered blocks. CoPaint conditions on the remaining entries and generates the missing portion using the same selected model.
@@ -36,9 +40,5 @@ The launcher runs `python -m main_training.mask_experiments` from the repository
 | `missing_checkerboard_4x4_season2023` | Alternating four-week by four-location blocks |
 
 In `mask.npy`, 1 means observed and 0 means hidden. The mask and saved truth have shape `(1,64,64)`; reconstruction arrays have shape `(512,1,64,64)`. Figure 4 compares the generated trajectories against the saved, untransformed truth for the 2023–2024 season. Look at the hidden regions when assessing reconstruction: how much does the model recover from neighboring weeks or other locations, and how does uncertainty widen where evidence is sparse? Carry the samples, masks, and truth together into the figure workflow.
-
-??? tip "Use saved results from the Zenodo archive"
-
-    Use `influpaint-paper/influpaint_paper_reproduction_data/forecasts/masks/`. Each experiment directory contains `fluforecasts_ti.npy`, `mask.npy`, and `ground_truth.npy`. For example, `influpaint-paper/influpaint_paper_reproduction_data/forecasts/masks/missing_nc_season2023/fluforecasts_ti.npy` contains the North Carolina reconstruction ensemble.
 
 [Previous: 6. Score forecasts](evaluation.md) · [Next: 8. Reproduce paper figures](paper-figures.md)

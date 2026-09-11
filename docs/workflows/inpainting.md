@@ -4,6 +4,10 @@ The objective is to turn the trained models from step 3 into forecasts for the j
 
 The entry point is `influpaint.batch.inpainting`. Each job loads one checkpoint, prepares observations for one reference date, runs the selected CoPaint configuration, and saves the resulting ensemble.
 
+!!! tip "Use saved results from the Zenodo archive"
+
+    `forecasts/retrospective/` contains the selected i868 ensemble and CSV for each of 29 reference dates; `forecasts/unconditional/` contains generated seasons without conditioning. These support the selected-model analyses. The full candidate comparison requires the other candidates' forecasts as well. To submit the preserved historical manifest using its MLflow runs, use `sbatch main_training/inpaint_array_paper-2025-07-22.run`.
+
 ## 1. Turn observed history into a conditioning image
 
 `GroundTruth.for_flusight` places observed hospitalizations on the same week/location grid as the training data. The observation mask marks entries supplied as evidence with 1 and hidden entries with 0. For forecasting, the observed history is available and future weeks are hidden.
@@ -54,9 +58,5 @@ The inverse-transformed ensemble has shape `(512, 1, 64, 64)`: sample, incidence
 Inspect the plots around the forecast boundary: do the generated trajectories follow the observed history, and how do they spread into the future? The CSV contains 23 marginal quantiles at horizons `0,1,2,3`. Check `reference_date` and `target_end_date` together; in the paper exports, horizon 0 targets the reference date itself.
 
 Once the jobs finish, carry the forecast CSVs and manifest into step 6 for scoring. Keep the full arrays for trajectory analyses and figures.
-
-??? tip "Use saved results from the Zenodo archive"
-
-    `forecasts/retrospective/` contains the selected i868 ensemble and CSV for each of 29 reference dates; `forecasts/unconditional/` contains generated seasons without conditioning. These support the selected-model analyses. The full candidate comparison requires the other candidates' forecasts as well. To submit the preserved historical manifest using its MLflow runs, use `sbatch main_training/inpaint_array_paper-2025-07-22.run`.
 
 [Previous: 4. Prepare forecast jobs](forecast-jobs.md) · [Next: 6. Score forecasts](evaluation.md)

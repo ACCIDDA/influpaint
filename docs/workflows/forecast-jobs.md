@@ -4,6 +4,10 @@ The objective is to give every trained candidate the same forecasting tasks so t
 
 A **forecast job** is one trained checkpoint, one forecast reference date, and one CoPaint configuration. It will generate an ensemble of possible seasons conditioned on the history available under that date's observation mask. This step defines the experiment; step 5 runs the sampling.
 
+!!! tip "Use the saved paper experiment"
+
+    The paper manifest is `main_training/paper_runs_2025-07-22/inpaint_jobs_paper-2025-07-22.txt`, with its launcher at `main_training/inpaint_array_paper-2025-07-22.run`. These refer to the historical MLflow runs. To explore saved selected-model forecasts directly, use `forecasts/retrospective/` in the Zenodo archive; its README describes the coverage.
+
 ## 1. Select the training runs
 
 The generator's `-e` argument names an MLflow training experiment. It queries the active tracking store for runs with status `FINISHED`, reads each run's scenario ID and run ID, and sorts them by scenario ID. It includes every finished run returned by that query, so choose an experiment containing the candidates you intend to compare.
@@ -68,9 +72,5 @@ Open the manifest and check that it contains the intended candidates, dates, and
 For repeated batches, `--skip_completed` removes combinations already marked `FINISHED` in the matching inpainting experiment. Completion is matched by scenario, date, and configuration, without the training run ID. Use a new experiment name when comparing newly trained weights. The result-directory names also omit the run ID, so keep one run per scenario in an experiment to avoid output collisions.
 
 You now have a concrete list of forecasts to generate. Continue to step 5 to submit it and inspect the sampled trajectories.
-
-??? tip "Use the saved paper experiment"
-
-    The paper manifest is `main_training/paper_runs_2025-07-22/inpaint_jobs_paper-2025-07-22.txt`, with its launcher at `main_training/inpaint_array_paper-2025-07-22.run`. These refer to the historical MLflow runs. To explore saved selected-model forecasts directly, use `forecasts/retrospective/` in the Zenodo archive; its README describes the coverage.
 
 [Previous: 3. Train candidate models](training.md) · [Next: 5. Generate forecasts](inpainting.md)
