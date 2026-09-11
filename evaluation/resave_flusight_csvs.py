@@ -6,7 +6,7 @@ This script processes inpainting results from the batch runs and regenerates
 FluSight-format CSV files using the stored fluforecasts_ti.npy files.
 
 Usage:
-    python resave_flusight_csvs.py
+    python -m evaluation.resave_flusight_csvs
 """
 
 import os

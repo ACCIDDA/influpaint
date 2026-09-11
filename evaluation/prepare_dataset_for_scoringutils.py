@@ -373,7 +373,7 @@ class ScoringutilsFullEvaluator:
         print(f"Combined data saved to: {combined_file}")
         
         print(f"\n🎯 Ready for R scoring!")
-        print(f"Next: Rscript score_with_scoringutils.R {combined_file} results/scoringutils_scores.csv")
+        print(f"Next: Rscript evaluation/score_with_scoringutils.R {combined_file} results/scoringutils_scores.csv")
         
         return {
             'combined_data': combined_data,

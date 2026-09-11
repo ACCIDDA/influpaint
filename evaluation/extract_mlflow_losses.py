@@ -3,7 +3,7 @@
 Extract full loss time series per model from MLflow experiment.
 
 Usage:
-    python extract_mlflow_losses.py --experiment_name "paper-2025-07-22_training"
+    python -m evaluation.extract_mlflow_losses --experiment_name "paper-2025-07-22_training"
 """
 
 import click

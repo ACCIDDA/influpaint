@@ -469,7 +469,7 @@ def generate_paper_supplementary_figures(leaderboard_path, losses_path, timeseri
 
 if __name__ == "__main__":
     import argparse
-    root = Path(__file__).resolve().parent
+    root = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output-dir", type=Path, default=root / "influpaint-paper/figures")
     args = parser.parse_args()

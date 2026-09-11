@@ -7,6 +7,8 @@
 | Directory | Purpose |
 | --- | --- |
 | [`influpaint/`](influpaint/) | Shared models, datasets, batch code, and utilities |
+| [`dataset_Creation/`](dataset_Creation/README.md) | The two main source-gathering and training-data notebooks |
+| [`evaluation/`](evaluation/README.md) | Forecast scoring, model comparison, and analysis exports |
 | [`main_training/`](main_training/README.md) | Paper training, calibration, and batch launchers |
 | [`paper_figures/`](paper_figures/README.md) | Paper figure generation |
 | [`docs/`](docs/index.md) | Paper overview and step-by-step walkthrough |

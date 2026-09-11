@@ -12,7 +12,7 @@ InfluPaint represents seasons as week-by-location images. Dataset preparation ma
 | Scenario and configuration definitions | `influpaint/batch/scenarios.py`, `config.py` |
 | Reusable training and forecasting entry points | `influpaint/batch/training.py`, `inpainting.py` |
 | Paper launchers and saved job manifests | `main_training/` |
-| Scoring | `prepare_dataset_for_scoringutils.py`, `score_with_scoringutils.R` |
-| Evaluation and figures | `plot_evaluation_results.py`, `benchmark_plotting.py`, `choose_best_model.py`, `paper_figures/` |
+| Scoring | `evaluation/prepare_dataset_for_scoringutils.py`, `evaluation/score_with_scoringutils.R` |
+| Evaluation and figures | `evaluation/plot_evaluation_results.py`, `evaluation/benchmark_plotting.py`, `evaluation/choose_best_model.py`, `paper_figures/` |
 
 A training scenario ID describes a formulation. An MLflow run ID identifies a particular training execution and its weights. A forecast Slurm array index selects one manifest row, containing the scenario, training run ID, reference date, and CoPaint configuration. The preserved paper manifest has 1,305 rows; each defines an independent forecast job. See [step 4](../workflows/forecast-jobs.md).

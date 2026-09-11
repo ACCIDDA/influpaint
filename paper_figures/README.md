@@ -114,7 +114,7 @@ This generates the Figure 1 correlation summary and the images included in the m
 - **Figure 2**: CSV forecasts for 2023-2024 and 2024-2025 seasons (4 states × 2 seasons)
 - **Figure 3**: NPY forecasts for two seasons with A/B labels (excluding NC)
 - **Figure 4**: Mask experiments with multiple panels (CA/FL/MD + NC/IL)
-- **Supplementary Figures 1–3**: Ablation effects, training losses, and loss versus WIS, using the plotting function in `choose_best_model.py`
+- **Supplementary Figures 1–3**: Ablation effects, training losses, and loss versus WIS, using the plotting function in `evaluation/choose_best_model.py`
 - **Supplementary Figure 4**: Submitted operational forecasts
 
 To use the archived reproduction inputs with the same script:

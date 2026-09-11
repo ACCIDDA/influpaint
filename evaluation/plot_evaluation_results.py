@@ -16,7 +16,7 @@ warnings.filterwarnings('ignore')
 
 # Import the existing SeasonAxis and benchmark plotting
 from influpaint.utils.season_axis import SeasonAxis
-from benchmark_plotting import plot_components, plot_timeseries, plot_wis_heatmap, plot_cumulative_timeseries, plot_multi_location_stacked, print_ladderboard, compute_missing_data, get_rankings, plot_interactive_model_selection
+from .benchmark_plotting import plot_components, plot_timeseries, plot_wis_heatmap, plot_cumulative_timeseries, plot_multi_location_stacked, print_ladderboard, compute_missing_data, get_rankings, plot_interactive_model_selection
 
 
 # %% Configuration
@@ -473,7 +473,7 @@ if __name__ == "__main__":
             # Absolute WIS Cumulative Time Series
             # Filter to top 10 models per group for better readability
             if 'group' in us_ts_data.columns:
-                from benchmark_plotting import get_top_models_per_group
+                from .benchmark_plotting import get_top_models_per_group
                 top_models = get_top_models_per_group(us_ts_data, 'wis', top_n=10, relative=False)
                 us_ts_filtered = us_ts_data[us_ts_data['model'].isin(top_models)]
             else:

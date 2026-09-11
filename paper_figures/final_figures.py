@@ -959,7 +959,7 @@ def main(argv=None):
         np.random.seed(args.seed)
         generate()
 
-    from choose_best_model import generate_paper_supplementary_figures
+    from evaluation.choose_best_model import generate_paper_supplementary_figures
     generate_paper_supplementary_figures(leaderboard, losses, timeseries, FIG_DIR)
     if args.data_root is not None:
         from .analyze_flusight_dropbox_tables import run_analysis

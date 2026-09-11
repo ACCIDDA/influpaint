@@ -4,12 +4,12 @@
 #' Takes a single combined CSV file (forecast+truth already merged in Python)
 #' and produces comprehensive scores
 #' 
-#' Usage: Rscript score_with_scoringutils.R <combined_file> <output_file>
+#' Usage: Rscript evaluation/score_with_scoringutils.R <combined_file> <output_file>
 
 # Parse command line arguments
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) != 2) {
-  stop("Usage: Rscript score_with_scoringutils.R <combined_file> <output_file>")
+  stop("Usage: Rscript evaluation/score_with_scoringutils.R <combined_file> <output_file>")
 }
 
 combined_file <- args[1]

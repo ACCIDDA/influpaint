@@ -4,6 +4,8 @@ Historical experiments and reference material. The active paper workflow is desc
 
 | Path | Contents |
 | --- | --- |
+| `trajectory-to-flusight-converter/` | Standalone trajectory-converter experiment |
+| `synthetic_dataset/` | Earlier synthetic-data generation experiments and local outputs |
 | `dev/` | Early diffusion experiments and reference notebooks |
 | `referenceimplementations/` | Local third-party reference checkouts (excluded from Git) |
 | `*.ipynb` | Historical operational influenza and North Carolina forecasting notebooks |

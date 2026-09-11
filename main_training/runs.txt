@@ -15,10 +15,10 @@ sbatch main_training/generated/inpaint_array_paper-2025-07-22.run
 # sbatch main_training/inpaint_array_paper-2025-07-22.run
 
 # 4. Copy cluster forecast outputs into from_longleaf/influpaint_res/.
-# Check Config in prepare_dataset_for_scoringutils.py before scoring a fresh experiment.
-python prepare_dataset_for_scoringutils.py
-Rscript score_with_scoringutils.R results/combined_forecast_truth_data.csv results/scoringutils_scores.csv
-python plot_evaluation_results.py
+# Check Config in evaluation/prepare_dataset_for_scoringutils.py before scoring a fresh experiment.
+python -m evaluation.prepare_dataset_for_scoringutils
+Rscript evaluation/score_with_scoringutils.R results/combined_forecast_truth_data.csv results/scoringutils_scores.csv
+python -m evaluation.plot_evaluation_results
 
 # 5. Reconstruct hidden observations using the selected i868 training run.
 sbatch main_training/mask_experiments.run

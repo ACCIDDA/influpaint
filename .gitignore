@@ -10,7 +10,7 @@ influpaint-paper/
 archives/dev/aider.chat.history.md
 CLAUDE.md
 custom_datasets/*
-synthetic_dataset/model_output/
+archives/synthetic_dataset/model_output/
 *.out
 CoPaint4influpaint/
 helpers/delphi_epidata.py
@@ -20,7 +20,7 @@ memories/
 outreach/
 wnv-forecasting/
 model_output/*
-synthetic_dataset/*
+archives/synthetic_dataset/*
 influpaint-paper/*
 # 
 interval_scoring/
