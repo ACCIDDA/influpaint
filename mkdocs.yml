@@ -31,6 +31,7 @@ nav:
       - "6. Score forecasts and select the formulation": workflows/evaluation.md
       - "7. Reconstruct missing observations": workflows/mask-experiments.md
       - "8. Reproduce the paper figures": workflows/paper-figures.md
+      - "9. Generate operational forecasts": workflows/operational-forecasts.md
   - Getting Started:
       - Longleaf notebooks and jobs: getting-started/cluster.md
       - Quick Start: getting-started/quick-start.md

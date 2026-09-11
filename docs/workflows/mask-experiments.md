@@ -2,6 +2,10 @@
 
 You will use **the selected i868 checkpoint and different observation masks** to obtain **reconstructed epidemic trajectories**, showing that the same model can fill gaps beyond future weeks.
 
+[![Reconstruction results for missing locations, missing weeks, and checkerboard masks](../assets/paper/figure-4-reconstruction.png)](../assets/paper/figure-4-reconstruction.png)
+
+**Figure 4 — Reconstruction with different observation masks.** Each inset shows the entries supplied to the model in green and the hidden entries in red. Black curves show observed hospitalizations; colored lines and fans show reconstructed medians and predictive quantiles. The same trained model handles missing states, midseason gaps, missing early weeks, and checkerboard patterns by changing the mask at sampling time.
+
 !!! tip "Skip this step with the reproduction archive"
 
     Use `influpaint-paper/influpaint_paper_reproduction_data/forecasts/masks/`. Each experiment directory contains `fluforecasts_ti.npy`, `mask.npy`, and `ground_truth.npy`. For example, `influpaint-paper/influpaint_paper_reproduction_data/forecasts/masks/missing_nc_season2023/fluforecasts_ti.npy` contains the North Carolina reconstruction ensemble.

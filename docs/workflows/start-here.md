@@ -1,10 +1,10 @@
 # Start here
 
-Follow InfluPaint from source data to publication figures. Each step explains what you will use and produce, and links to the saved files for that stage.
+Follow InfluPaint from source data to publication figures and operational forecasts. Each step explains what you will use and produce, and links to the saved files for that stage.
 
 !!! tip "Skip any step with the reproduction archive"
 
-    **You can skip any step.** Use the saved inputs or outputs in the Zenodo reproduction archive and continue from the stage that interests you. Every chapter begins with a tip like this one naming the exact archive paths to use. You do not need to gather data, retrain models, or generate forecasts to explore the archived results or reproduce the paper figures.
+    **You can skip any step.** Use the saved inputs or outputs in the Zenodo reproduction archive and continue from the stage that interests you. The paper workflow chapters name the exact archive paths to use. The final operational chapter includes a separate saved 2025–2026 forecast example. You do not need to gather data, retrain models, or generate forecasts to explore the archived results or reproduce the paper figures.
 
 ## Contents
 
@@ -19,6 +19,7 @@ Follow InfluPaint from source data to publication figures. Each step explains wh
 | [6. Score forecasts and select the formulation](evaluation.md) | Forecast quantiles and observed truth | Scores and a model leaderboard |
 | [7. Reconstruct missing observations](mask-experiments.md) | The selected model and observation masks | Reconstructed seasons |
 | [8. Reproduce the paper figures](paper-figures.md) | Archived samples, observations, and analysis tables | The paper's eight data figures |
+| [9. Generate operational forecasts](operational-forecasts.md) | A trained checkpoint and the latest reported hospitalizations | FluSight CSVs, forecast PDFs, and sampled trajectories |
 
 ## Before you start
 

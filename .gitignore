@@ -12,7 +12,6 @@ CLAUDE.md
 custom_datasets/*
 *.out
 CoPaint4influpaint/
-helpers/delphi_epidata.py
 archives/referenceimplementations/
 Flusight/*
 memories/

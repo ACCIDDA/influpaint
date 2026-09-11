@@ -32,7 +32,7 @@ Forecasting infectious disease incidence can provide important information to gu
 
 !!! tip "Skip any step with the reproduction archive"
 
-    **You can skip any step.** The Zenodo reproduction archive provides saved files so you can begin at the stage that interests you. Each chapter identifies the exact files to use in a tip like this one. See [Walkthrough → Start here](workflows/start-here.md) for the complete workflow, or go directly to [reproducing the paper figures](workflows/paper-figures.md).
+    **You can skip any step.** The Zenodo reproduction archive provides saved files so you can begin at the stage that interests you. Each chapter identifies the exact files to use in a tip like this one. See [Walkthrough → Start here](workflows/start-here.md) for the complete workflow, including [operational forecasts](workflows/operational-forecasts.md), or go directly to [reproducing the paper figures](workflows/paper-figures.md).
 
 ## Funding
 

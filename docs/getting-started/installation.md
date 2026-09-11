@@ -88,7 +88,6 @@ The clones below support source gathering and historical experiments. To follow 
 ```bash
 git clone https://github.com/andreas128/RePaint.git archives/referenceimplementations/RePaint
 git clone https://github.com/openai/guided-diffusion.git archives/referenceimplementations/guided-diffusion
-git clone https://github.com/cmu-delphi/delphi-epidata.git Flusight/flu-datasets/delphi-epidata
 
 git clone https://github.com/cdcepi/Flusight-forecast-data.git Flusight/2022-2023/FluSight-forecast-hub-official
 git clone https://github.com/cdcepi/FluSight-forecast-hub Flusight/2023-2024/FluSight-forecast-hub-official
@@ -103,7 +102,9 @@ git clone https://github.com/adrian-lison/interval-scoring.git interval_scoring
 
 ## Update data
 
-After cloning the data repositories above, run from the research repository root. This pulls the local FluSight, Delphi, NC collaboration, and Metrocast checkouts and copies the Delphi client into `helpers/`.
+The Delphi API client is included in the repository at `helpers/delphi_epidata.py`; no separate Delphi clone is required.
+
+After cloning the data repositories above, run from the research repository root. This pulls the local FluSight, NC collaboration, and Metrocast checkouts.
 
 ```bash
 ./update-data.sh
