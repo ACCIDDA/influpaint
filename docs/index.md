@@ -1,6 +1,9 @@
 # influpaint: Generative diffusion models for spatiotemporal influenza forecasting
 
-Joseph Lemaitre and Justin Lessler
+<div class="doc-author">
+  <div>Joseph Lemaitre and Justin Lessler</div>
+  <small>Atlantic Coast Center for Infectious Disease Dynamics and Analytics (ACCIDDA) at UNC Chapel Hill</small>
+</div>
 
 ## Abstract
 

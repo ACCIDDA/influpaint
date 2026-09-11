@@ -6,6 +6,7 @@ repo_name: influpaint
 
 theme:
   name: material
+  logo: assets/accidda-logo.png
   palette:
     scheme: default
     primary: indigo
