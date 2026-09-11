@@ -49,7 +49,7 @@ OUT_LOG="out_metrocast_calib_${RUN_TAG}.out"
 echo "Running MetroCast calib: mode=${FINETUNE_MODE}, lr=${FINETUNE_LR}, epochs=${FINETUNE_EPOCHS}"
 
 echo "Log: ${OUT_LOG}"
-/nas/longleaf/home/chadi/.conda/envs/diffusion_torch6/bin/python -u influpaint_metrocast_calib.py \
+/nas/longleaf/home/chadi/.conda/envs/diffusion_torch6/bin/python -u -m satellite_applications.metrocast.influpaint_metrocast_calib \
   --scenario_id ${SCENARIO_ID} \
   --forecast_date "${FORECAST_DATE}" \
   --config_name "${CONFIG_NAME}" \

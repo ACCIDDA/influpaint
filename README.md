@@ -2,6 +2,20 @@
 * **authors** Joseph Lemaitre, Justin Lessler
 * **affiliation** The University of North Carolina at Chapel Hill
 
+## Repository map
+
+| Directory | Purpose |
+| --- | --- |
+| [`influpaint/`](influpaint/) | Shared models, datasets, batch code, and utilities |
+| [`main_training/`](main_training/README.md) | Paper training, calibration, and batch launchers |
+| [`paper_figures/`](paper_figures/README.md) | Paper figure generation |
+| [`docs/`](docs/index.md) | Paper overview and step-by-step walkthrough |
+| [`satellite_applications/`](satellite_applications/README.md) | Metrocast and RSV applications |
+| [`archives/`](archives/README.md) | Development notebooks, historical workflows, and reference implementations |
+| `CoPaint4influpaint/` | Active CoPaint runtime dependency |
+| `Flusight/`, `training_datasets/`, `from_longleaf/`, `results/` | Local data and results |
+| `influpaint-paper/` | Separate manuscript repository and local Zenodo reproduction archive |
+
 ## Paper workflow
 
 The [Material documentation](docs/index.md) is a numbered walkthrough from gathering source datasets to training, inpainting, scoring, and paper figures. The first two steps include captioned notebook stories.
@@ -169,8 +183,8 @@ Create synthetic data from the `dataset_builder.ipynb` notebook, and run the inp
 
 ## Useful repo
 ```bash
-git clone https://github.com/andreas128/RePaint.git referenceimplementations/RePaint
-git clone https://github.com/openai/guided-diffusion.git referenceimplementations/guided-diffusion
+git clone https://github.com/andreas128/RePaint.git archives/referenceimplementations/RePaint
+git clone https://github.com/openai/guided-diffusion.git archives/referenceimplementations/guided-diffusion
 git clone https://github.com/cmu-delphi/delphi-epidata.git Flusight/flu-datasets/delphi-epidata¨
 
 

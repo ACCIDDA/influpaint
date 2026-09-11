@@ -7,14 +7,14 @@ from_longleaf/
 mlruns/
 training_datasets/
 influpaint-paper/
-dev/aider.chat.history.md
+archives/dev/aider.chat.history.md
 CLAUDE.md
 custom_datasets/*
 synthetic_dataset/model_output/
 *.out
 CoPaint4influpaint/
 helpers/delphi_epidata.py
-referenceimplementations/
+archives/referenceimplementations/
 Flusight/*
 memories/
 outreach/

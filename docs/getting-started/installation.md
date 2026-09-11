@@ -29,8 +29,8 @@ For documentation rendering, install `mkdocs-material` and `mkdocstrings[python]
 The clones below support source gathering and historical experiments. To follow the paper without downloading sources, use the archived checkpoints documented in the [walkthrough](../index.md).
 
 ```bash
-git clone https://github.com/andreas128/RePaint.git referenceimplementations/RePaint
-git clone https://github.com/openai/guided-diffusion.git referenceimplementations/guided-diffusion
+git clone https://github.com/andreas128/RePaint.git archives/referenceimplementations/RePaint
+git clone https://github.com/openai/guided-diffusion.git archives/referenceimplementations/guided-diffusion
 git clone https://github.com/cmu-delphi/delphi-epidata.git Flusight/flu-datasets/delphi-epidata
 
 git clone https://github.com/cdcepi/Flusight-forecast-data.git Flusight/2022-2023/FluSight-forecast-hub-official
