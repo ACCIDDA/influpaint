@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 from influpaint.utils import SeasonAxis
 from .data_utils import flusight_quantile_pairs, load_ground_truth_cached as load_truth_for_season
@@ -24,7 +25,9 @@ def plot_npy_multi_date_two_seasons(base_dir: str, model_id: str, config: str,
                                     start_date: str = '2023-10-07',
                                     save_path: str | None = None,
                                     n_sample_trajs: int = 10,
-                                    plot_median: bool = True):
+                                    plot_median: bool = True,
+                                    histogram_insets: bool = False,
+                                    histogram_reference: str = 'orange'):
     """Plot NPY forecasts for multiple dates across two seasons.
 
     Args:
@@ -39,6 +42,8 @@ def plot_npy_multi_date_two_seasons(base_dir: str, model_id: str, config: str,
         save_path: Optional path to save figure
         n_sample_trajs: Number of sample trajectories to plot
         plot_median: Whether to plot median
+        histogram_insets: Show changes from the orange forecast's last observed week in insets
+        histogram_reference: Forecast cutoff ('orange' or 'blue') used to select the target week
 
     Returns:
         matplotlib Figure object
@@ -109,10 +114,41 @@ def plot_npy_multi_date_two_seasons(base_dir: str, model_id: str, config: str,
                 eff_len = min(len(x_weeks), ts.shape[1])
                 dates_plot = pd.to_datetime(x_weeks[:eff_len])
                 ts = ts[:, :eff_len]
+                if histogram_insets and i == 1:
+                    reference_idx = {'orange': 1, 'blue': 2}[histogram_reference]
+                    reference_last_observed = pd.Timestamp(picked[reference_idx][0]) - pd.Timedelta(weeks=1)
+                    target_date = reference_last_observed + pd.Timedelta(weeks=3)
+                    target_idx, = np.flatnonzero(dates_plot == target_date)
+                    orange_last_observed = pd.Timestamp(dref) - pd.Timedelta(weeks=1)
+                    start_idx, = np.flatnonzero(dates_plot == orange_last_observed)
+                    values = ts[:, target_idx] - ts[:, start_idx]
+                    change_limit = np.abs(values).max()
+                    axins = inset_axes(
+                        ax, width='43%', height='43%', loc='upper right',
+                        bbox_to_anchor=(0.27, 0.06, 0.98, 0.98),
+                        bbox_transform=ax.transAxes,
+                    )
+                    axins.set_gid('forecast-histogram')
+                    counts, edges, _ = axins.hist(
+                        values, bins=20, range=(-change_limit, change_limit),
+                        color=palette[i], alpha=0.65, edgecolor='white', linewidth=0.3,
+                    )
+                    axins.set_xlim(edges[0], edges[-1])
+                    axins.set_ylim(0, np.ceil(counts.max() * 1.1))
+                    axins.set_yticks([])
+                    axins.axvline(0, color='0.25', ls='--', lw=0.8)
+                    axins.set_title(f'on {target_date:%b} {target_date.day}', color=palette[i], pad=2)
+                    axins.grid(True, alpha=0.3)
+                    axins.set_axisbelow(True)
+                    sns.despine(ax=axins, trim=False)
+                    ax.axvline(target_date, color='0.5', ls=':', lw=1.2, alpha=0.85)
                 # Light sampled trajectories
                 if n_sample_trajs and n_sample_trajs > 0:
                     ns = min(n_sample_trajs, ts.shape[0])
                     sample_idxs = np.linspace(0, ts.shape[0]-1, num=ns, dtype=int)
+                    if histogram_insets and i == 1:
+                        ax.scatter([target_date] * ns, ts[sample_idxs, target_idx],
+                                   s=3, color=palette[i], alpha=0.85, linewidths=0, zorder=4)
                     # Future trajectories
                     mask_fut = dates_plot >= pd.to_datetime(dref)
                     if np.any(mask_fut):
@@ -173,7 +209,7 @@ def plot_npy_multi_date_two_seasons(base_dir: str, model_id: str, config: str,
             ax.set_xlim(left_bound, right_bound)
             format_count_axis(ax)
             format_date_axis(ax)
-    fig.tight_layout()
+    fig.subplots_adjust(wspace=0.3, hspace=0.3)
     if save_path:
         fig.savefig(save_path, dpi=300, bbox_inches='tight')
     return fig

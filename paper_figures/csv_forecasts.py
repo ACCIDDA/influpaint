@@ -11,6 +11,7 @@ import seaborn as sns
 from .data_utils import flusight_quantile_pairs
 from .helpers import format_count_axis, state_to_code, list_influpaint_csvs, format_date_axis
 from .config import SEASON_XLIMS
+from . import config
 
 
 FLUSIGHT_BASES = {
@@ -47,8 +48,7 @@ def load_flusight_ensemble_forecast(season: str, location: str, reference_date) 
     if season not in FLUSIGHT_BASES:
         raise ValueError(f"Season {season} not found in FLUSIGHT_BASES")
 
-    base_dir = FLUSIGHT_BASES[season]
-    ensemble_dir = os.path.join(base_dir, "model-output", "FluSight-ensemble")
+    ensemble_dir = os.path.join(config.MODEL_OUTPUT_DIRS[season], "FluSight-ensemble")
 
     if not os.path.exists(ensemble_dir):
         raise FileNotFoundError(f"FluSight-ensemble directory not found: {ensemble_dir}")
@@ -84,7 +84,7 @@ def load_flusight_model_forecast(season: str, model: str, location: str, referen
     if season not in FLUSIGHT_BASES:
         raise ValueError(f"Season {season} not found in FLUSIGHT_BASES")
 
-    model_dir = os.path.join(FLUSIGHT_BASES[season], "model-output", model)
+    model_dir = os.path.join(config.MODEL_OUTPUT_DIRS[season], model)
     if not os.path.exists(model_dir):
         raise FileNotFoundError(f"FluSight model directory not found: {model_dir}")
 
@@ -117,7 +117,7 @@ def load_flusight_model_forecasts_for_season(season: str, model: str) -> pd.Data
     if season not in FLUSIGHT_BASES:
         raise ValueError(f"Season {season} not found in FLUSIGHT_BASES")
 
-    model_dir = os.path.join(FLUSIGHT_BASES[season], "model-output", model)
+    model_dir = os.path.join(config.MODEL_OUTPUT_DIRS[season], model)
     if not os.path.exists(model_dir):
         raise FileNotFoundError(f"FluSight model directory not found: {model_dir}")
 

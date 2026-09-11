@@ -6,6 +6,14 @@ Each figure corresponds to a specific figure number in the paper.
 """
 
 import os
+import argparse
+from pathlib import Path
+import sys
+
+if __package__ in (None, ""):
+    sys.path[0] = str(Path(__file__).resolve().parents[1])
+    __package__ = "paper_figures"
+
 import subprocess
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,6 +21,7 @@ import matplotlib.gridspec as gridspec
 from prepare_dataset_for_scoringutils import Config as ScoringConfig
 
 from influpaint.utils import SeasonAxis
+from . import config
 
 from .config import (
     BEST_MODEL_ID, BEST_CONFIG, UNCOND_SAMPLES_PATH,
@@ -20,8 +29,7 @@ from .config import (
 )
 
 # Output directory for final figures
-FIG_DIR = "influpaint-paper/figures/generated"
-os.makedirs(FIG_DIR, exist_ok=True)
+FIG_DIR = config.REPOSITORY_ROOT / "influpaint-paper/figures/generated"
 
 from .helpers import format_count_axis, load_unconditional_samples
 from .publication_style import save_paper_figure
@@ -87,7 +95,7 @@ def figure1_unconditional_with_correlation(season_axis, uncond_samples):
     weeks = np.arange(1, real_weeks + 1)
 
     # Load historical data
-    gt_df = pd.read_csv('influpaint/data/nhsn_flusight_past.csv')
+    gt_df = pd.read_csv(config.HISTORICAL_OBSERVATIONS)
     gt_plot_data = {}
     for season in (2022, 2023, 2024):
         season_data = gt_df[gt_df['fluseason'] == season]
@@ -543,7 +551,8 @@ def figure_relaizedforecast(season_axis):
     return save_path
 
 
-def figure3_npy_forecasts_two_seasons(season_axis):
+def figure3_npy_forecasts_two_seasons(season_axis, *, histogram_reference='orange',
+                                    output_suffix=''):
     """Figure 3: NPY forecasts for two seasons.
 
     Same as 868_forecast_npy_two_panel_states.png but remove North Carolina.
@@ -551,6 +560,8 @@ def figure3_npy_forecasts_two_seasons(season_axis):
 
     Args:
         season_axis: SeasonAxis object
+        histogram_reference: Forecast cutoff ('orange' or 'blue') used to select histogram dates
+        output_suffix: Suffix for the exported figure filename
 
     Returns:
         Path to saved figure
@@ -570,11 +581,13 @@ def figure3_npy_forecasts_two_seasons(season_axis):
         state=states,
         save_path=None,
         plot_median=False,
+        histogram_insets=True,
+        histogram_reference=histogram_reference,
     )
 
     # Add panel labels to the figure
     # The figure has 2 rows (seasons) and len(states) columns
-    axes = fig.get_axes()
+    axes = fig.get_axes()[:2 * len(states)]
 
     # Find the first axis in each row
     ncols = len(states)
@@ -595,7 +608,7 @@ def figure3_npy_forecasts_two_seasons(season_axis):
             label.set_horizontalalignment('center')
 
     # Save figure
-    save_path = os.path.join(FIG_DIR, f"{_MODEL_NUM}_figure3_npy_forecasts_two_seasons.png")
+    save_path = os.path.join(FIG_DIR, f"{_MODEL_NUM}_figure3_npy_forecasts_two_seasons{output_suffix}.png")
     save_paper_figure(fig, save_path, axes, calendar_dates=True)
     plt.close(fig)
 
@@ -1002,18 +1015,17 @@ def figure4_mask_experiments(season_axis, season_first_year='2024', output_suffi
     """
     print("Generating Figure 4: Mask experiments...")
 
-    MASK_RESULTS_DIR = "from_longleaf/mask_experiments_868_celebahq_noTTJ5/"
+    MASK_RESULTS_DIR = config.MASK_RESULTS_DIR
 
     if not os.path.isdir(MASK_RESULTS_DIR):
-        print(f"Mask results directory not found: {MASK_RESULTS_DIR}")
-        return None
+        raise FileNotFoundError(MASK_RESULTS_DIR)
 
     # Create figure with uniform layout and shared x-axis.
     fig, axes = plt.subplots(2, 4, figsize=(20, 10), dpi=200, sharex=True, sharey=False)
 
     # We'll manually plot the mask experiments using the same logic as mask_experiments.py
     from .mask_experiments import add_mask_heatmap_inset
-    from influpaint.utils import ground_truth
+    from .data_utils import load_mask_truth
     from influpaint.utils.helpers import flusight_quantile_pairs
     from .helpers import state_to_code
     from .config import IMAGE_SIZE, CHANNELS
@@ -1151,14 +1163,7 @@ def figure4_mask_experiments(season_axis, season_first_year='2024', output_suffi
             "size_pct_ci": (float(size_pct_lo), float(size_pct_hi)),
         }
 
-    gt = ground_truth.GroundTruth.for_flusight(
-        season_first_year=str(season_first_year),
-        data_date=dt.datetime.today(),
-        mask_date=pd.to_datetime(f"{int(season_first_year) + 1}-05-14"),
-        channels=CHANNELS,
-        image_size=IMAGE_SIZE,
-        nogit=True,
-    )
+    gt = load_mask_truth(season_axis, season_first_year)
     dates = pd.to_datetime(gt.gt_xarr['date'].values)
 
     def load_mask(mask_name):
@@ -1276,30 +1281,54 @@ def figure4_mask_experiments(season_axis, season_first_year='2024', output_suffi
     return save_path
 
 
-def main():
-    """Generate all final paneled figures for the paper."""
-    print("="*60)
-    print("Influpaint Final Paneled Figures Generation")
-    print("="*60)
+def main(argv=None):
+    """Generate only the eight data plots included in the paper and supplement."""
+    global FIG_DIR, INPAINTING_BASE, UNCOND_SAMPLES_PATH
+    parser = argparse.ArgumentParser(description=main.__doc__)
+    parser.add_argument("--data-root", type=Path,
+                        help="Read the archived inputs in a reproduction folder.")
+    parser.add_argument("--output-dir", type=Path,
+                        help="Destination; defaults to DATA_ROOT/regenerated_paper_figures for an archive.")
+    parser.add_argument("--seed", type=int, default=0)
+    args = parser.parse_args(argv)
+    plt.switch_backend("Agg")
 
-    # Setup
-    print("\nSetting up...")
-    season_axis = SeasonAxis.for_flusight(remove_us=True, remove_territories=True)
+    if args.data_root is not None:
+        config.use_archive(args.data_root)
+        analysis = config.ARCHIVE_ROOT / "analysis"
+        leaderboard = analysis / "leaderboard_full.csv"
+        losses = analysis / "mlflow_losses.csv"
+        timeseries = analysis / "mlflow_loss_timeseries.csv"
+        default_output = config.ARCHIVE_ROOT / "regenerated_paper_figures"
+    else:
+        leaderboard = config.REPOSITORY_ROOT / "results/leaderboards/leaderboard_full.csv"
+        losses = config.REPOSITORY_ROOT / "mlflow_losses.csv"
+        timeseries = config.REPOSITORY_ROOT / "mlflow_loss_timeseries.csv"
+        default_output = config.REPOSITORY_ROOT / "influpaint-paper/figures/generated"
+    FIG_DIR = (args.output_dir or default_output).resolve()
+    FIG_DIR.mkdir(parents=True, exist_ok=True)
+    INPAINTING_BASE = config.INPAINTING_BASE
+    UNCOND_SAMPLES_PATH = config.UNCOND_SAMPLES_PATH
+    from .data_utils import load_ground_truth_cached
+    load_ground_truth_cached.cache_clear()
+
+    season_axis = SeasonAxis.for_flusight(
+        location_filepath=config.LOCATION_FILE, remove_us=True, remove_territories=True)
     uncond_samples = load_unconditional_samples(UNCOND_SAMPLES_PATH)
-    print(f"Loaded unconditional samples: {uncond_samples.shape}")
+    jobs = [
+        lambda: figure1_unconditional_with_correlation(season_axis, uncond_samples),
+        lambda: figure2_csv_forecasts_two_seasons(season_axis),
+        lambda: figure3_npy_forecasts_two_seasons(season_axis),
+        lambda: figure4_mask_experiments(season_axis, season_first_year='2023'),
+        lambda: figure_relaizedforecast(season_axis),
+    ]
+    for generate in jobs:
+        np.random.seed(args.seed)
+        generate()
 
-    # Generate figures
-    figure1_unconditional_with_correlation(season_axis, uncond_samples)
-    figure2_csv_forecasts_two_seasons(season_axis)
-    figure_relaizedforecast(season_axis)
-    figure3_npy_forecasts_two_seasons(season_axis)
-    figure3_ratio_flusight_over_influpaint(season_axis)
-    figure4_mask_experiments(season_axis, season_first_year='2023')
-
-    print("\n" + "="*60)
-    print("Final figures generation complete!")
-    print(f"All figures saved to: {os.path.abspath(FIG_DIR)}")
-    print("="*60)
+    from choose_best_model import generate_paper_supplementary_figures
+    generate_paper_supplementary_figures(leaderboard, losses, timeseries, FIG_DIR)
+    print(f"Wrote the paper's eight data plots to {FIG_DIR}", flush=True)
 
 
 if __name__ == "__main__":

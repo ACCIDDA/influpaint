@@ -31,6 +31,7 @@ def save_paper_figure(fig, save_path, main_axes, *, calendar_dates=False,
                       mask_panels=False):
     """Export fixed canvases with typography sized for the manuscript text width."""
     main_axes = list(main_axes)
+    histogram_insets = any(ax.get_gid() == 'forecast-histogram' for ax in fig.axes)
     ncols = len(main_axes) // 2
     width = WIDE_FIGURE_WIDTH_IN if ncols == 4 else PAPER_WIDTH_IN
     height = WIDE_FIGURE_HEIGHT_IN if ncols == 4 else PAPER_HEIGHT_IN
@@ -40,7 +41,7 @@ def save_paper_figure(fig, save_path, main_axes, *, calendar_dates=False,
     fig.set_layout_engine(None)
     margins = dict(left=0.09, right=0.975, top=0.92,
                    bottom=0.17 if fig.legends else 0.12,
-                   wspace=0.24 if ncols == 4 else 0.48,
+                   wspace=0.40 if histogram_insets else (0.24 if ncols == 4 else 0.48),
                    hspace=0.38 if ncols == 4 else 0.40)
     fig.subplots_adjust(**margins)
     for gs in {ax.get_subplotspec().get_gridspec() for ax in main_axes}:
@@ -124,6 +125,8 @@ def save_paper_figure(fig, save_path, main_axes, *, calendar_dates=False,
             text.set_y(0.99)
             text.set_va('top')
             text.set_ha('left')
+        if histogram_insets and reference_labels[-1].get_text() == 'Apr5':
+            reference_labels[-1].set_y(0.43)
         sns.despine(ax=ax, trim=False)
 
     inset_axes = [ax for ax in fig.axes if ax not in main_axes]
@@ -134,7 +137,19 @@ def save_paper_figure(fig, save_path, main_axes, *, calendar_dates=False,
                 loc='upper right', bbox_transform=parent.transAxes))
 
     for index, ax in enumerate(inset_axes):
-        if ax.lines:
+        if ax.get_gid() == 'forecast-histogram':
+            ax.xaxis.set_major_locator(ticker.MaxNLocator(nbins=3, min_n_ticks=2))
+            ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: compact_count(round(x))))
+            ax.set_yticks([])
+            ax.tick_params(axis='both', labelsize=FORECAST_DATE_FONT_PT * font_scale,
+                           length=2 * font_scale, pad=1 * font_scale)
+            ax.title.set_fontsize(FORECAST_DATE_FONT_PT * font_scale)
+            for text in ax.texts:
+                text.set_fontsize((FORECAST_DATE_FONT_PT - 0.5) * font_scale)
+            for patch in ax.patches:
+                patch.set_linewidth(0.2 * font_scale)
+            sns.despine(ax=ax, trim=False)
+        elif ax.lines:
             ax.set_axes_locator(AnchoredSizeLocator(
                 (0.17, 0.06, 0.98, 0.98), '43%', '43%', loc='upper right',
                 bbox_transform=main_axes[index].transAxes))

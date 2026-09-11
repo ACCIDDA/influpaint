@@ -8,6 +8,8 @@ import pandas as pd
 import matplotlib.dates as mdates
 from matplotlib import ticker
 from influpaint.utils import SeasonAxis
+from pathlib import Path
+from . import config as figure_config
 
 
 def forecast_week_saturdays(season: str, season_axis: SeasonAxis, max_weeks: int) -> pd.DatetimeIndex:
@@ -82,6 +84,8 @@ def list_influpaint_csvs(base_dir: str, model_id: str, config: str):
     Returns:
         Sorted list of CSV file paths
     """
+    if figure_config.ARCHIVE_ROOT is not None:
+        return sorted(str(path) for path in Path(base_dir).glob("*/*.csv"))
     out = []
     for root, _, files in os.walk(base_dir):
         if model_id in root and f"conf_{config}" in root:
@@ -118,6 +122,8 @@ def list_inpainting_dirs(base_dir: str, model_id: str, config: str):
     Returns:
         Sorted list of directory paths containing fluforecasts_ti.npy
     """
+    if figure_config.ARCHIVE_ROOT is not None:
+        return sorted(str(path.parent) for path in Path(base_dir).glob("*/fluforecasts_ti.npy"))
     out = []
     for d in os.listdir(base_dir):
         p = os.path.join(base_dir, d)

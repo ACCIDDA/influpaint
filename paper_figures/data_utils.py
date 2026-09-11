@@ -12,6 +12,7 @@ from typing import Optional
 
 from influpaint.utils import SeasonAxis
 from influpaint.utils.helpers import flusight_quantiles, flusight_quantile_pairs
+from . import config
 
 
 def normalize_samples_shape(inv_samples: np.ndarray) -> np.ndarray:
@@ -79,11 +80,27 @@ def load_ground_truth_cached(season: str) -> pd.DataFrame:
     Returns:
         DataFrame with ground truth data
     """
-    from prepare_dataset_for_scoringutils import ScoringutilsFullEvaluator
-    ev = ScoringutilsFullEvaluator()
-    gt = ev.load_ground_truth(season)
+    gt = pd.read_csv(config.GROUND_TRUTH_FILES[season], dtype={"location": str})
     gt["date"] = pd.to_datetime(gt["date"])
     return gt
+
+
+def load_mask_truth(season_axis, season_first_year):
+    """Build the mask figure's observation array from the selected local truth file."""
+    from types import SimpleNamespace
+    from influpaint.utils.ground_truth import pad_dataframe
+    from influpaint.utils.converters import dataframe_to_xarray
+
+    season = f"{season_first_year}-{int(season_first_year) + 1}"
+    frame = load_ground_truth_cached(season).rename(
+        columns={"date": "week_enddate", "location": "location_code"})
+    frame = season_axis.add_season_columns(frame, do_fluseason_year=True)
+    frame = frame[(frame["fluseason"] == int(season_first_year)) &
+                  frame["location_code"].isin(season_axis.locations)]
+    frame = pad_dataframe(frame, season_axis)
+    array = dataframe_to_xarray(frame, season_setup=season_axis,
+                                xarrax_features="incidHosp", pad_to=64)
+    return SimpleNamespace(season_setup=season_axis, gt_xarr=array)
 
 
 def get_state_timeseries(samples: np.ndarray,

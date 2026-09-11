@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from typing import Optional
 from influpaint.utils import SeasonAxis
+from . import config
 
 from .data_utils import normalize_samples_shape, get_real_weeks, validate_samples_and_season_axis
 
@@ -129,7 +130,7 @@ def compute_observed_correlation(season_axis: SeasonAxis,
     Returns:
         List of correlation coefficients pooled across seasons and state pairs.
     """
-    gt_df = pd.read_csv('influpaint/data/nhsn_flusight_past.csv')
+    gt_df = pd.read_csv(config.HISTORICAL_OBSERVATIONS)
 
     correlations = []
 
