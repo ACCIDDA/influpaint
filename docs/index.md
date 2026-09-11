@@ -20,15 +20,15 @@ Forecasting infectious disease incidence can provide important information to gu
 
 **Figure 4 — One trained model, many reconstruction tasks.** InfluPaint can adapt to different patterns of missing data by changing the observation mask at sampling time, without retraining the model. The same model reconstructs missing states, fills midseason gaps, infers early-season dynamics from later observations, and handles checkerboard patterns of missing weeks and locations. Black curves show observed hospitalizations; colored fans and lines show predictive quantiles and medians. The insets identify observed entries in green and hidden entries in red. This flexibility lets the model work with partial spatial coverage and interrupted time series.
 
-## Learn seasons as images, then fill in what is missing
+## How InfluPaint works
 
 [![Paper Figure 5: encoding epidemic seasons as images, learning to denoise, and conditioning generation with an observation mask](assets/paper/figure-5-methods.png)](assets/paper/figure-5-methods.png)
 
-**Figure 5 — How InfluPaint works.** **a.** An influenza season becomes an image whose axes represent weeks and locations and whose pixel intensity represents incidence. **b.** A diffusion model learns to reverse the gradual addition of noise, allowing it to generate new, plausible seasons. **c.** Inpainting combines observed values and a mask with the generation process to infer the missing parts of a season. The paper's forecasting implementation uses CoPaint to condition these generated trajectories on the available observations.
+**Figure 5 — Model overview.** **a.** An influenza season becomes an image whose axes represent weeks and locations and whose pixel intensity represents incidence. **b.** A diffusion model learns to reverse the gradual addition of noise, allowing it to generate new, plausible seasons. **c.** Inpainting combines observed values and a mask with the generation process to infer the missing parts of a season. The paper's forecasting implementation uses CoPaint to condition these generated trajectories on the available observations.
 
 ## Explore the walkthrough
 
-[Start here: from source data to paper figures](workflows/start-here.md){ .md-button }
+[Start here: clone the repositories and install the environment](getting-started/installation.md){ .md-button }
 
 !!! tip "Skip any step with the reproduction archive"
 

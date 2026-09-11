@@ -10,6 +10,7 @@ Follow InfluPaint from source data to publication figures. Each step explains wh
 
 | Step | You will use | You will produce |
 | --- | --- | --- |
+| [0. Install the environment](../getting-started/installation.md) | Research and CoPaint repositories, Conda | A working research environment |
 | [1. Gather source datasets](compiling-data-sources.md) | FluView, FluSurv, and simulated trajectories | One standardized source table |
 | [2. Create training data](build-training-datasets.md) | Source table and mixing rules | Four complete season-image datasets |
 | [3. Train candidate models](training.md) | Training images and diffusion configurations | Model checkpoints and training losses |
@@ -21,10 +22,12 @@ Follow InfluPaint from source data to publication figures. Each step explains wh
 
 ## Before you start
 
-Follow [Installation](../getting-started/installation.md) for the research environment. All commands and repository paths in this walkthrough are relative to the **research repository root**, the directory containing `influpaint/`, `main_training/`, and `mkdocs.yml`.
+Begin with [step 0: clone the repositories and install the environment](../getting-started/installation.md) for the research environment. All commands and repository paths in this walkthrough are relative to the **research repository root**, the directory containing `influpaint/`, `main_training/`, and `mkdocs.yml`.
 
 Place the reproduction archive at `influpaint-paper/influpaint_paper_reproduction_data/`. Its `README.md` describes the archived files and the figure-generation command. The paper's exact training inputs are the July 17, 2025 NetCDF files; newer datasets are different training realizations. [Steps 1 and 2](compiling-data-sources.md) also tell the notebooks' story through captioned plots from saved data.
 
 The paper's cluster launchers, saved scenario definitions, and job manifests live in `main_training/`; `main_training/runs.txt` collects the commands. Reusable model and batch code lives in `influpaint/`.
 
-To reproduce figures immediately, go to [step 8](paper-figures.md). To understand the model itself, start with [step 1](compiling-data-sources.md) and follow the next-page links.
+To reproduce figures immediately, go to [step 8](paper-figures.md). After environment setup, start the data workflow with [step 1](compiling-data-sources.md) and follow the next-page links.
+
+[Previous: 0. Install the environment](../getting-started/installation.md) · [Next: 1. Gather source datasets](compiling-data-sources.md)

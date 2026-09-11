@@ -1,6 +1,35 @@
-# Influpaint : Inpainting denoising diffusion probabilistic models for infectious disease (influenza) forecasting
-* **authors** Joseph Lemaitre, Justin Lessler
-* **affiliation** The University of North Carolina at Chapel Hill
+# InfluPaint: Generative diffusion models for spatiotemporal influenza forecasting
+
+* **Authors:** Joseph Lemaitre, Justin Lessler
+* **Affiliation:** The University of North Carolina at Chapel Hill
+
+InfluPaint represents influenza seasons as images, with weeks and locations as axes and incidence as pixel intensity. A denoising diffusion model learns from surveillance and simulated trajectories; CoPaint conditions generated seasons on observed data to forecast future hospitalizations or reconstruct missing observations without retraining.
+
+[Read the paper on arXiv](https://arxiv.org/abs/2604.24913) · [Documentation](docs/index.md)
+
+## Running InfluPaint
+
+Start with [installing the environment and cloning the repositories](docs/getting-started/installation.md), the first page of the walkthrough. Follow the [workflow guide](docs/workflows/start-here.md) for source data, training, inpainting, evaluation, and paper figures, or use the [quick start](docs/getting-started/quick-start.md) to reproduce figures from saved results. [Cluster and notebook instructions](docs/getting-started/cluster.md) cover UNC Longleaf.
+
+The documentation identifies saved inputs and outputs in the reproduction archive so you can begin at the stage that interests you.
+
+## Forecast influenza hospitalizations
+
+[![Paper Figure 2: four-week influenza hospitalization forecasts for two seasons](docs/assets/paper/figure-2-forecasts.png)](docs/assets/paper/figure-2-forecasts.png)
+
+**Figure 2 — Forecasts from observed history.** InfluPaint conditions on the observed part of a season to generate 512 possible trajectories for future hospitalizations. Colored fans show forecast uncertainty and colored lines show medians for North Carolina, New York, Texas, and Florida across the 2023–2024 and 2024–2025 seasons. Black lines show observed hospitalizations, dotted lines show the FluSight ensemble, and dashed vertical lines mark the last observed week for each forecast. These retrospective forecasts use finalized observations up to each forecast date.
+
+## Adapt to different observation patterns without retraining
+
+[![Paper Figure 4: reconstructions with missing states, missing weeks, and checkerboard observation masks](docs/assets/paper/figure-4-reconstruction.png)](docs/assets/paper/figure-4-reconstruction.png)
+
+**Figure 4 — One trained model, many reconstruction tasks.** InfluPaint can adapt to different patterns of missing data by changing the observation mask at sampling time, without retraining the model. The same model reconstructs missing states, fills midseason gaps, infers early-season dynamics from later observations, and handles checkerboard patterns of missing weeks and locations. Black curves show observed hospitalizations; colored fans and lines show predictive quantiles and medians. The insets identify observed entries in green and hidden entries in red. This flexibility lets the model work with partial spatial coverage and interrupted time series.
+
+## How InfluPaint works
+
+[![Paper Figure 5: encoding epidemic seasons as images, learning to denoise, and conditioning generation with an observation mask](docs/assets/paper/figure-5-methods.png)](docs/assets/paper/figure-5-methods.png)
+
+**Figure 5 — Model overview.** **a.** An influenza season becomes an image whose axes represent weeks and locations and whose pixel intensity represents incidence. **b.** A diffusion model learns to reverse the gradual addition of noise, allowing it to generate new, plausible seasons. **c.** Inpainting combines observed values and a mask with the generation process to infer the missing parts of a season. The paper's forecasting implementation uses CoPaint to condition these generated trajectories on the available observations.
 
 ## Repository map
 
@@ -18,23 +47,11 @@
 | `Flusight/`, `training_datasets/`, `from_longleaf/`, `results/` | Local data and results |
 | `influpaint-paper/` | Separate manuscript repository and local Zenodo reproduction archive |
 
-## Paper workflow
+## Research process and early development
 
-The [Material documentation](docs/index.md) is a numbered walkthrough from gathering source datasets to training, inpainting, scoring, and paper figures. The first two steps include captioned notebook stories.
+These notes preserve the original model-development process and early FluSight experience. The RePaint experiments, architecture settings, timing, and research priorities below are historical; the current paper workflow uses CoPaint, as described in the [architecture documentation](docs/architecture/inpainting.md).
 
-Paper calibration launchers and manifests live in [`main_training/`](main_training/README.md); [`main_training/runs.txt`](main_training/runs.txt) collects the commands. The reproduction archive at `influpaint-paper/influpaint_paper_reproduction_data/` includes exact July 17 training datasets and saved checkpoints, forecasts, scores, and figures. Its README gives the paths for skipping each step.
-
-From the research repository root:
-
-```bash
-python -m paper_figures.final_figures --data-root influpaint-paper/influpaint_paper_reproduction_data
-```
-
-**⚠️⚠️⚠️ The description below is now outdated, please wait for the new one (we use CoPaint instead of REpaint for inpainting) ⚠️⚠️⚠️**
-
-volta-gpu (16G) from longleaf don't have enough gpu-mem neede a100-gpu
-
-## Introduction
+### Introduction
 
 Denoising Diffusion Probabilistic Models (DDPM) are generative models like generative adversarial networks, autoregressive models, and variational auto-encoder. While slow, they can generate high quality samples with good diversity. They work wonderfully well for image synthesis, see [openAI DALL-E 2](https://openai.com/dall-e-2/). These model has been described in [1] and [2].
 
@@ -81,7 +98,7 @@ A benefit of this approach is the nice diversity in forecasts compared to mechan
 <img width="988" alt="image" src="https://user-images.githubusercontent.com/7485811/233660673-b415dd62-fd5a-4097-b8ce-ef698202269d.png">
 
 
-### Current focus
+### Research directions from the early experiments
 - Use other variables (humidity, Flu A, and Flu B proportions) as additional image channels.
 - Application to other diseases and validation
 - Design of ID modeling specific neural architectures
@@ -99,131 +116,3 @@ A benefit of this approach is the nice diversity in forecasts compared to mechan
 2023-04-11 Our model showed some bias in the CDC's plots that we did not observe on our side, and we have found a bug where the post-processing rescaling (due to the misalignement observed in Rout et al.) has not been applied in the quantiles sent to FluSight. This mainy affected the submissions of the last few weeks, where our model consistently scaled lower than reported hospital admission. It is now corrected.
 
 2023-02-13: Before: more resampling steps gives smaller confidence interval, because more certainty in what matches the curve. Now that I added some random noise perturbation of the training set, more resampling steps gives larger confidence interval under certain conditions.
-
-## Instruction
-The main notebook either run on google Colab or on UNC HPC cluster, longleaf.
-
-### Building the conda environment
-If on UNC HPC cluster longleaf, just ssh into longleaf longing node: `ssh chadi@longleaf.unc.edu`.
-
-Build conda environment, do just once:
-```bash
-## Only on UNC Longleaf
-module purge
-module load anaconda
-
-# initialized conda in your .bashrc:
-conda init
-```
-
-then disconnect & reconnect to you shell for the changes to be taken into account. You should see `(base)` on the left of the prompt, then:
-
-```bash
-conda create -c conda-forge -n diffusion_torch seaborn scipy numpy pandas matplotlib ipykernel xarray netcdf4 h5netcdf tqdm  einops tenacity aiohttp ipywidgets jupyterlab # (if not on longleaf, you don't have to install the last two packages)
-conda activate diffusion_torch
-# the next commands are inside the diffusion_torch environment
-conda install torchvision -c pytorch
-conda install -c bioconda epiweeks
-# install a jupyter kernel for this environment
-python -m ipykernel install --user --name diffusion_torch --display-name "Python (diffusion_torch)"
-```
-
-Keep in mind that on longeaf one cannot modify the base enviroment (located /nas/longleaf/rhel8/apps/anaconda/2021.11) but can create new enviroment with everything needed in these.
-
-### Running for UNC OpenOndemand
-Now you can run on [UNC open Ondemand (OOD)](https://ondemand.rc.unc.edu), which is also a very convienient way to download data or to view figures outputed by the model. Just run a juypter notebook with request-gpu option selected and the following *Jupyter startup directory*
-```
-"/nas/longleaf/home/chadi/inpainting-idforecasts"
-```
-and the following *Additional Job Submission Arguments*:
-```
---mem=32gb -p volta-gpu --qos=gpu_access --gres=gpu:1
-```
-(I don't the above arguments are really necessary, because on OOD you won't get a full volta gpu anway, but an A100 divided into small MIG 1g.5gb.
-
-Then go to to run diffusion once your job is allocated.
-
-### Running on a full compute node with Volta GUP or on UNC-IDD patron node
-For the first time only, create jupyter lab password:
-```bash
-sh create_notebook_password.sh
-```
-Then launch a batch job to create a jupyter notebook server you can connect to (here requests one volta-gpu for 18 hours)
-
-Launch a job for 18h on volta-gpu
-```bash
-srun --ntasks=1 --cpus-per-task=4 --mem=32G --time=18:00:00 --partition=volta-gpu --gres=gpu:4 --qos=gpu_access --output=out.out sh runjupyter.sh &
-```
-or on UNC-IDD patron node:
-```bash
-srun --ntasks=1 --time=18:00:00 -p jlessler --gres=gpu:1 --output=out.out sh runjupyter.sh &
-```
-UNC-IDD specs are:
-- 512GB ram
-- 56 physical CPU cores - can be 112 vCores if you decide to enable Hyperthreading
-- [Quantity 4 of Nvidia L40, 48GB](https://www.nvidia.com/en-us/data-center/l40/)
-
-where I request 4 GPUs here; you will see
-```
-run: job 56345284 queued and waiting for resources
-```
-and after some time:
-```
-srun: job 56345284 has been allocated resources
-```
-
-then `cat out.out` which shows the instructions to go and make the ssh tunnel to connect on jupyter lab.
-
-
-
-
-## Run the diffusion
-Make sure on the upper right corner, that the conda enviroment kernel `Python (diffusion_torch)` is activated.
-
-Create synthetic data from the `dataset_builder.ipynb` notebook, and run the inpainting forecast from `inpaintingFluForecasts.ipynb`
-
-
-## Useful repo
-```bash
-git clone https://github.com/andreas128/RePaint.git archives/referenceimplementations/RePaint
-git clone https://github.com/openai/guided-diffusion.git archives/referenceimplementations/guided-diffusion
-git clone https://github.com/cmu-delphi/delphi-epidata.git Flusight/flu-datasets/delphi-epidata¨
-
-
-git clone https://github.com/cdcepi/Flusight-forecast-data.git Flusight/2022-2023/FluSight-forecast-hub-official
-git clone https://github.com/cdcepi/FluSight-forecast-hub Flusight/2023-2024/FluSight-forecast-hub-official
-git clone https://github.com/cdcepi/FluSight-forecast-hub Flusight/2024-2025/FluSight-forecast-hub-official
-git clone https://github.com/midas-network/flu-scenario-modeling-hub.git Flusight/Flu-SMH
-git clone https://github.com/ACCIDDA/NC_Forecasting_Collab.git custom_datasets/NC_Forecasting_Collab
-git clone https://github.com/reichlab/flu-metrocast.git Flusight/metrocast/flu-metrocast
-```
-
-
-# WIS by Adrian Lison
-git clone https://github.com/adrian-lison/interval-scoring.git interval_scoring
-```
-then to update your repository, type:
-```
-./update_data.sh
-```
-
-
-## Installing git lfs on longleaf
-```bash
-https://github.com/git-lfs/git-lfs/releases/download/v3.2.0/git-lfs-linux-amd64-v3.2.0.tar.gz
-tar -xf git-lfs-linux-amd64-v3.2.0.tar.gz
-cd git-lfs-3.2.0
-export PREFIX=$HOME/bin
-./install.sh
-```
-Make sure it is rightly installed & in the path. If needed edit `.profile` as
-```
-if [ -d "$HOME/bin/bin" ] ; then
-  PATH="$PATH:$HOME/bin/bin"
-fi
-```
-
-```bash
-git lfs install
-git lfs pull
-```

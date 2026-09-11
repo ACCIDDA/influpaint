@@ -21,6 +21,7 @@ theme:
 nav:
   - InfluPaint: index.md
   - Walkthrough:
+      - "0. Clone repositories and install the environment": getting-started/installation.md
       - Start here: workflows/start-here.md
       - "1. Gather source datasets": workflows/compiling-data-sources.md
       - "2. Create training data": workflows/build-training-datasets.md
@@ -31,7 +32,7 @@ nav:
       - "7. Reconstruct missing observations": workflows/mask-experiments.md
       - "8. Reproduce the paper figures": workflows/paper-figures.md
   - Getting Started:
-      - Installation: getting-started/installation.md
+      - Longleaf notebooks and jobs: getting-started/cluster.md
       - Quick Start: getting-started/quick-start.md
   - Architecture:
       - Overview: architecture/overview.md
