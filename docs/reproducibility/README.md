@@ -183,7 +183,7 @@ Rscript evaluation/score_with_scoringutils.R \
   model_candidate_evaluation/scoringutils_scores.csv
 ```
 
-Recomputing these scores requires the full set of candidate and comparison forecast CSVs and configured source paths. The archive contains only the selected model's retrospective forecasts, so it supports reproducing the complete comparison from saved scores, but not rescoring every candidate from raw forecasts. The intermediate `combined_forecast_truth_data.csv` is not included.
+Recomputing these scores requires the full set of candidate and comparison forecast CSVs and configured source paths. The archive contains only the selected model's retrospective forecasts, so it supports reproducing the complete comparison from saved scores, but not rescoring every candidate from raw forecasts.
 
 ## Paper figures
 `regenerated_paper_figures/` contains the eight data plots included in the paper and supplement:
