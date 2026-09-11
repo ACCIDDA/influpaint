@@ -1,6 +1,6 @@
 # 2. Create training data
 
-You will use **`dataset_Creation/2-build_training_flu_datasets_ipynb.py`** and the combined Parquet table to create **four NetCDF datasets of complete season images** for training.
+You will use **`dataset_creation/2-build_training_flu_datasets_ipynb.py`** and the combined Parquet table to create **four NetCDF datasets of complete season images** for training.
 
 !!! tip "Skip this step with the reproduction archive"
 

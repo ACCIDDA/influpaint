@@ -1,6 +1,6 @@
 # 1. Gather source datasets
 
-You will use **`dataset_Creation/1-gather_all_flu_datasets_ipynb.py`** to turn surveillance records and simulated influenza trajectories into **`Flusight/flu-datasets/all_datasets.parquet`**, a common table that the training-data notebook can mix.
+You will use **`dataset_creation/1-gather_all_flu_datasets_ipynb.py`** to turn surveillance records and simulated influenza trajectories into **`Flusight/flu-datasets/all_datasets.parquet`**, a common table that the training-data notebook can mix.
 
 !!! tip "Skip this step with the reproduction archive"
 
@@ -19,7 +19,7 @@ You will use **`dataset_Creation/1-gather_all_flu_datasets_ipynb.py`** to turn s
 The source file uses Jupytext's `# %%` cell format. Open it as a notebook in your editor, or create an unexecuted Jupyter copy:
 
 ```bash
-jupytext --to notebook dataset_Creation/1-gather_all_flu_datasets_ipynb.py --output dataset_Creation/1-gather_all_flu_datasets.ipynb
+jupytext --to notebook dataset_creation/1-gather_all_flu_datasets_ipynb.py --output dataset_creation/1-gather_all_flu_datasets.ipynb
 ```
 
 Run cells from the repository root. The notebook defaults to `download=False`, using the cached upstream files. Its source-reader code is in `influpaint/datasets/read_datasources.py`. Follow the notebook's source-preparation cells if assembling the raw inputs; the Parquet shortcut avoids that download and preparation work.
