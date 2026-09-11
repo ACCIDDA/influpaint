@@ -23,10 +23,12 @@ The `get_mlflow_run_id.py` script maps: Scenario ID → MLflow Run ID
 - Results: Individual forecasts stored in MLflow + filesystem
 
 ### Reduce Phase (Local computer)
-- `aggregate_results.py` reads all MLflow results
-- Computes WIS scores across scenarios/dates/configs
-- Creates ensemble forecasts, summary tables, plots
-- Generates final analysis ready for papers
+- `prepare_dataset_for_scoringutils.py` combines saved forecast CSVs and observed truth using the forecast dates in the paper job manifest.
+- `score_with_scoringutils.R` computes WIS and other probabilistic forecast scores with R's `scoringutils` package.
+- `plot_evaluation_results.py` and `benchmark_plotting.py` create evaluation plots and model leaderboards.
+- `choose_best_model.py` supplies the model-comparison and training-loss plots used by `paper_figures.final_figures`.
+
+See the [evaluation workflow](../workflows/evaluation.md) for commands and required inputs.
 
 ## Key Components
 

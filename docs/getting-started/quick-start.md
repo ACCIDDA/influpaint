@@ -32,12 +32,14 @@ sbatch inpaint_array_paper-2025-06_all_scenarios.run
 
 ## Evaluation
 
-Aggregate results (run locally):
+Run locally from the repository root after copying the forecast outputs:
 
 ```bash
-python aggregate_results.py \
-  -e "paper-2025-06_inpainting" \
-  --compute_wis \
-  --create_ensemble \
-  --plot_results
+python prepare_dataset_for_scoringutils.py
+Rscript score_with_scoringutils.R results/combined_forecast_truth_data.csv results/scoringutils_scores.csv
+python plot_evaluation_results.py
 ```
+
+The preparation script is configured for the saved `paper-2025-07-22` job
+manifest and the local FluSight data. See the [evaluation workflow](../workflows/evaluation.md)
+for required inputs and outputs.

@@ -1,7 +1,7 @@
 """
 Batch processing module for InfluPaint.
 
-Handles training, inpainting, job generation, and result aggregation.
+Handles training, inpainting, and job generation.
 """
 
 # Main functions - these modules are designed to be run as scripts

@@ -7,6 +7,7 @@ Each figure corresponds to a specific figure number in the paper.
 
 import os
 import argparse
+import json
 from pathlib import Path
 import sys
 
@@ -177,6 +178,22 @@ def figure1_unconditional_with_correlation(season_axis, uncond_samples):
     random_corr = compute_random_correlation(uncond_samples, season_axis, 100)
     influpaint_corr = compute_weekly_incidence_correlation(uncond_samples, season_axis)
     observed_corr = compute_observed_correlation(season_axis)
+
+    summary = {
+        name: {
+            "count": len(values),
+            "mean": float(np.mean(values)),
+            "median": float(np.median(values)),
+        }
+        for name, values in (
+            ("compute_random_correlation", random_corr),
+            ("compute_weekly_incidence_correlation", influpaint_corr),
+            ("compute_observed_correlation", observed_corr),
+        )
+    }
+    summary_path = Path(FIG_DIR) / f"{_MODEL_NUM}_figure1_correlation_summary.json"
+    summary_path.write_text(json.dumps(summary, indent=2, allow_nan=False) + "\n")
+    print(f"Correlation summary saved to {summary_path}")
 
     data = []
     for corr in random_corr:
@@ -1282,7 +1299,7 @@ def figure4_mask_experiments(season_axis, season_first_year='2024', output_suffi
 
 
 def main(argv=None):
-    """Generate only the eight data plots included in the paper and supplement."""
+    """Generate the paper plots, correlation summary, and archived FluSight analysis."""
     global FIG_DIR, INPAINTING_BASE, UNCOND_SAMPLES_PATH
     parser = argparse.ArgumentParser(description=main.__doc__)
     parser.add_argument("--data-root", type=Path,
@@ -1328,7 +1345,10 @@ def main(argv=None):
 
     from choose_best_model import generate_paper_supplementary_figures
     generate_paper_supplementary_figures(leaderboard, losses, timeseries, FIG_DIR)
-    print(f"Wrote the paper's eight data plots to {FIG_DIR}", flush=True)
+    if args.data_root is not None:
+        from .analyze_flusight_dropbox_tables import run_analysis
+        run_analysis(config.ARCHIVE_ROOT, FIG_DIR)
+    print(f"Wrote the paper figures and analysis outputs to {FIG_DIR}", flush=True)
 
 
 if __name__ == "__main__":

@@ -13,6 +13,7 @@ paper_figures/
 ├── data_utils.py                 # Data preprocessing utilities
 ├── unconditional_figures.py      # Unconditional generation figures
 ├── correlation_analysis.py       # Spatial correlation analysis
+├── analyze_flusight_dropbox_tables.py # Archived operational leaderboard analysis
 ├── peak_analysis.py              # Peak distribution analysis
 ├── csv_forecasts.py              # CSV forecast quantile fans
 ├── npy_forecasts.py              # NPY full-horizon forecasts
@@ -90,27 +91,55 @@ Generates final paneled figures for paper publication by composing existing plot
 - `figure4_mask_experiments()` - Multi-panel mask experiments figure
 - `add_panel_label()` - Utility to add A, B, C labels to panels
 
+### publication_style.py
+Controls the final dimensions and typography of main Figures 1-4 in one place.
+`PAPER_WIDTH_IN = 6.1` matches the manuscript's LaTeX text width;
+`FIGURE1_LATEX_WIDTH_FRACTION = 0.75` matches Figure 1's LaTeX inclusion width.
+Its text and decorations are enlarged before export to compensate for that reduction.
+`PAPER_FONT_PT = 7` controls the base font size. Figures 2-4 use a wider,
+shorter 6.8-by-3.8-inch canvas. `WIDE_FONT_SCALE` sets their font sizes
+independently of canvas dimensions; main text prints at approximately 7 pt when
+LaTeX fits these figures to 6.1 inches. Exports use
+`PAPER_DPI = 600` and tight cropping with 0.02-inch padding to remove outer
+whitespace. Y-axis labels are aligned across rows. Panel letters use the base font size plus 2 pt;
+`FORECAST_DATE_FONT_PT = 5` controls the complete set of forecast-date annotations.
+X- and y-tick labels use the base font size minus 0.5 pt. The full hospitalization
+axis label uses 6.5 pt in all four figures, before export scaling. Tick lengths,
+spines, gridlines, and line widths scale with the typography for consistent
+decoration sizes in the manuscript.
+Tick density, panel spacing, inset styling, and the historical-season
+legend are handled by `save_paper_figure()`.
+
 ## Usage
 
-### Generate All Figures
-
-```python
-from paper_figures.main import main
-main()
-```
-
-### Generate Final Paneled Figures
+### Generate the Paper and Supplement Figures
 
 ```bash
 python -m paper_figures.final_figures
 ```
 
-This generates the final multi-panel figures for the paper:
+This generates the Figure 1 correlation summary and the images included in the manuscript and supplement:
 - **Figure 1**: Unconditional generation (excluding NC) + correlation analysis
 - **Figure 2**: CSV forecasts for 2023-2024 and 2024-2025 seasons (4 states × 2 seasons)
 - **Figure 3**: NPY forecasts for two seasons with A/B labels (excluding NC)
-- **Figure 3 (Companion)**: WIS ratio plot and summary tables for FluSight vs Influpaint
 - **Figure 4**: Mask experiments with multiple panels (CA/FL/MD + NC/IL)
+- **Supplementary Figures 1–3**: Ablation effects, training losses, and loss versus WIS, using the plotting function in `choose_best_model.py`
+- **Supplementary Figure 4**: Submitted operational forecasts
+
+To use the archived reproduction inputs with the same script:
+
+```bash
+python -m paper_figures.final_figures --data-root influpaint-paper/influpaint_paper_reproduction_data
+```
+
+This writes those eight data plots, the correlation JSON, and the FluSight leaderboard CSV and plot into `influpaint-paper/influpaint_paper_reproduction_data/regenerated_paper_figures/`. Set `--output-dir` to choose another destination. The default seed is 0 (`--seed` overrides it). The companion ratio analysis and the exploratory figures in `paper_figures.main` are not part of this command.
+
+All unconditional, peak-analysis, and correlation figures use the complete
+ensemble of 512 samples. Figure 1's insets use
+zero-based indices `(0, 255, 510)` in the full i868 sample array.
+Generated and time-permuted correlations use only the 51 locations defined by
+`SeasonAxis` (the 50 states and DC), excluding spatial padding. Observed
+correlations use the same locations for the 2023–2024 and 2024–2025 seasons.
 
 One-call Figure 3 comparison pipeline (build both inputs, score both with `score_with_scoringutils.R`, then plot):
 
@@ -196,3 +225,32 @@ For final publication figures, outputs are written to `influpaint-paper/figures/
 
 For the Figure 3 ratio companion analysis, scoring horizons `0..3` in `results_good/scoringutils_scores.csv`
 map to CDC 1-4 week-ahead targets.
+
+
+## Reproduce the Zenodo archive
+
+Run from the Influpaint repository root in the Influpaint Python environment:
+
+```bash
+python -m paper_figures.final_figures --data-root "/absolute/path/to/this_zenodo_folder"
+```
+
+For the local archive, the data root is `influpaint-paper/influpaint_paper_reproduction_data`.
+The command writes the eight paper/supplementary data plots plus
+`868_figure1_correlation_summary.json`, `flusight_dropbox_analysis.csv`, and
+`2024-2025_wis_pairgrid.png` to `DATA_ROOT/regenerated_paper_figures/`.
+Use `--output-dir` to change that destination. The default random seed is `0`.
+The correlation JSON contains the count, mean, and median of each distribution
+plotted in Figure 1b (time-permuted null, generated seasons, and observed seasons).
+
+The leaderboard input tables live in `DATA_ROOT/analysis/FlusightScores/`.
+To run only their analysis:
+
+```bash
+python -m paper_figures.analyze_flusight_dropbox_tables --data-root "/absolute/path/to/this_zenodo_folder"
+```
+
+This excludes FluSight-prefixed models in all three seasons and applies a 70%
+submission threshold in 2023–2024 and 2024–2025. It summarizes archived scores
+without rescoring forecasts. The archive README documents the input snapshots,
+filtering, and all generated outputs.

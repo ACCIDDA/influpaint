@@ -10,7 +10,6 @@ Parallel training and inpainting for InfluPaint experiments.
 - `inpainting.py` - Generate forecasts
 - `generate_inpainting_jobs.py` - Generate SLURM array jobs
 - `mlflow_utils.py` - MLflow utilities
-- `aggregation.py` - Result aggregation
 
 ## Usage
 
@@ -97,6 +96,21 @@ python -m influpaint.batch.scenarios
 2. Generate jobs: `python jobs.py`
 3. Run inpainting: `sbatch inpaint_array_*.run`
 4. Check results in MLflow and output directory
+5. Score forecast CSVs using the [evaluation workflow](../../docs/workflows/evaluation.md).
+
+### Evaluation
+
+Run from the repository root after forecasts have been copied locally:
+
+```bash
+python prepare_dataset_for_scoringutils.py
+Rscript score_with_scoringutils.R results/combined_forecast_truth_data.csv results/scoringutils_scores.csv
+python plot_evaluation_results.py
+```
+
+The preparation script uses the saved paper job manifest, forecast CSVs, and
+FluSight observations. The R script computes scores with `scoringutils`; the
+plotting script writes evaluation plots and the model leaderboard.
 
 ## Output
 
