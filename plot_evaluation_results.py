@@ -121,7 +121,7 @@ def get_missing_data_for_plot(original_df: pd.DataFrame, models_in_plot: List[st
     expected_horizons = [0, 1, 2, 3]
     
     # Get expected dates from jobs file or data
-    jobs_file = "paper_runs_2025-07-22/inpaint_jobs_paper-2025-07-22.txt"
+    jobs_file = "main_training/paper_runs_2025-07-22/inpaint_jobs_paper-2025-07-22.txt"
     try:
         jobs_df = pd.read_csv(jobs_file)
         if season_filter and season_filter != "Combined":

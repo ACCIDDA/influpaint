@@ -1,0 +1,27 @@
+# Paper calibration commands; run from the research repository root.
+# Run each stage after its prerequisites finish. This is a command reference.
+
+# 1. Restore the exact archived training datasets.
+cp influpaint-paper/influpaint_paper_reproduction_data/datasets/training/TS_*_2025-07-17.nc training_datasets/
+
+# 2. On Longleaf, train the 17 requested candidate scenarios.
+sbatch main_training/train.run
+
+# 3. After training, generate a fresh manifest using the new MLflow run IDs.
+python -m influpaint.batch.generate_inpainting_jobs -e paper-2025-07-22_training --configs celebahq_noTTJ5,celebahq_try3,celebahq --output_dir main_training/generated
+sbatch main_training/generated/inpaint_array_paper-2025-07-22.run
+
+# To rerun the preserved 1,305 historical jobs with the original MLflow store:
+# sbatch main_training/inpaint_array_paper-2025-07-22.run
+
+# 4. Copy cluster forecast outputs into from_longleaf/influpaint_res/.
+# Check Config in prepare_dataset_for_scoringutils.py before scoring a fresh experiment.
+python prepare_dataset_for_scoringutils.py
+Rscript score_with_scoringutils.R results/combined_forecast_truth_data.csv results/scoringutils_scores.csv
+python plot_evaluation_results.py
+
+# 5. Reconstruct hidden observations using the selected i868 training run.
+sbatch main_training/mask_experiments.run
+
+# 6. Reproduce the paper figures from archived outputs, locally.
+python -m paper_figures.final_figures --data-root influpaint-paper/influpaint_paper_reproduction_data

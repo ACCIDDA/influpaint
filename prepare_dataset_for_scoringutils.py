@@ -16,7 +16,7 @@ class Config:
     """Configuration settings for evaluation (copied from 4-evaluate-candidates.py)."""
     
     # File paths
-    JOBS_FILE = "paper_runs_2025-07-22/inpaint_jobs_paper-2025-07-22.txt"
+    JOBS_FILE = "main_training/paper_runs_2025-07-22/inpaint_jobs_paper-2025-07-22.txt"
     INPAINT_RES_BASE = "from_longleaf/influpaint_res"
     
     FLUSIGHT_BASES = {

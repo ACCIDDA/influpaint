@@ -19,7 +19,16 @@ theme:
     - search.highlight
 
 nav:
-  - Home: index.md
+  - How InfluPaint Works: index.md
+  - Paper Walkthrough:
+      - "1. Gather source datasets": workflows/compiling-data-sources.md
+      - "2. Create training data": workflows/build-training-datasets.md
+      - "3. Train candidate models": workflows/training.md
+      - "4. Prepare forecast jobs": workflows/forecast-jobs.md
+      - "5. Generate forecasts with inpainting": workflows/inpainting.md
+      - "6. Score forecasts and select the formulation": workflows/evaluation.md
+      - "7. Reconstruct missing observations": workflows/mask-experiments.md
+      - "8. Reproduce the paper figures": workflows/paper-figures.md
   - Getting Started:
       - Installation: getting-started/installation.md
       - Quick Start: getting-started/quick-start.md
@@ -27,12 +36,6 @@ nav:
       - Overview: architecture/overview.md
       - Training: architecture/training.md
       - Inpainting: architecture/inpainting.md
-  - Workflows:
-      - Compiling Data Sources: workflows/compiling-data-sources.md
-      - Build Training Datasets: workflows/build-training-datasets.md
-      - Training Workflow: workflows/training.md
-      - Inpainting Workflow: workflows/inpainting.md
-      - Evaluation: workflows/evaluation.md
   - API Reference:
       - Batch:
           - Scenarios: api/batch/scenarios.md
@@ -60,6 +63,7 @@ nav:
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
+      auto_title: true
   - pymdownx.superfences
   - pymdownx.tabbed:
       alternate_style: true

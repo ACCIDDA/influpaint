@@ -7,4 +7,4 @@
 #SBATCH -p jlessler
 #SBATCH --nodelist="g1803jles02"
 
-/nas/longleaf/home/chadi/.conda/envs/diffusion_torch6/bin/python mask_experiments.py
+/nas/longleaf/home/chadi/.conda/envs/diffusion_torch6/bin/python -m main_training.mask_experiments

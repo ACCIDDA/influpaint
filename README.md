@@ -2,16 +2,17 @@
 * **authors** Joseph Lemaitre, Justin Lessler
 * **affiliation** The University of North Carolina at Chapel Hill
 
-## Code organisation
-- season_setup.py This module create axes dataframe to prepare arrayification
-w
+## Paper workflow
 
-# Workflow
-- run flu_dataset_explorerNB.py to get a huge parquet dataframe of all the data used for training
-- rune create_dataset.py to build xarray dataset with multiple frames, no gap, scaled, and all
-- run train.run on slurm to train variants of influpaint
+The [Material documentation](docs/index.md) is a numbered walkthrough from gathering source datasets to training, inpainting, scoring, and paper figures. The first two steps include captioned notebook stories.
 
+Paper calibration launchers and manifests live in [`main_training/`](main_training/README.md); [`main_training/runs.txt`](main_training/runs.txt) collects the commands. The reproduction archive at `influpaint-paper/influpaint_paper_reproduction_data/` includes exact July 17 training datasets and saved checkpoints, forecasts, scores, and figures. Its README gives the paths for skipping each step.
 
+From the research repository root:
+
+```bash
+python -m paper_figures.final_figures --data-root influpaint-paper/influpaint_paper_reproduction_data
+```
 
 **⚠️⚠️⚠️ The description below is now outdated, please wait for the new one (we use CoPaint instead of REpaint for inpainting) ⚠️⚠️⚠️**
 

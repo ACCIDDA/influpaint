@@ -1,48 +1,38 @@
-# Inpainting Workflow
+# 5. Generate forecasts with inpainting
 
-## Mega-Array Generation
+You will use **a trained diffusion model, observed hospitalizations, and CoPaint** to generate **512 trajectories conditioned on observed history**, then export marginal forecast quantiles.
 
-Generate job array for all scenarios:
+!!! tip "Skip this step with the reproduction archive"
 
-```bash
-python generate_inpaint_jobs.py \
-  -e "paper-2025-06" \
-  --scenarios "0-31" \
-  --start_date "2022-10-12" \
-  --end_date "2023-05-15"
-```
+    Use `influpaint-paper/influpaint_paper_reproduction_data/forecasts/retrospective/`. Each of its 29 date directories contains `fluforecasts_ti.npy` and a FluSight-format CSV for the selected i868 model. For unconditional generated seasons, use `influpaint-paper/influpaint_paper_reproduction_data/forecasts/unconditional/inverse_transformed_samples_i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No.npy`. These are sufficient for the selected-model figure analyses, not the full candidate-model recalibration.
 
-Creates:
-- `inpaint_jobs_paper-2025-06_all_scenarios.txt`: Job list (scenario×date×config combinations)
-- `inpaint_array_paper-2025-06_all_scenarios.run`: SLURM submission script
 
-## Submission
+## Turn observations into a mask
 
-Submit all scenarios at once:
+The batch runner places observed history on the same week/location grid as the training images. A mask identifies entries supplied as evidence. Future weeks remain hidden. CoPaint's `O_DDIMSampler`, imported from `CoPaint4influpaint/`, guides denoising so sampled seasons agree with the observed portion while proposing plausible values for the hidden portion.
+
+For the selected paper formulation, `celebahq_noTTJ5` disables time travel and uses two latent optimization iterations. The model weights stay fixed during these forecast jobs; conditioning changes the generated trajectories.
+
+## Submit and save forecasts
+
+After generating new jobs in step 4:
 
 ```bash
-sbatch inpaint_array_paper-2025-06_all_scenarios.run
+sbatch main_training/generated/inpaint_array_paper-2025-07-22.run
 ```
 
-## Job Execution
+To rerun the saved historical manifest with its original MLflow store:
 
-Each job:
-1. Reads scenario ID from array
-2. Uses `get_mlflow_run_id.py` to find trained model
-3. Loads model from MLflow
-4. Runs inpainting for specific date and config
-5. Saves results to MLflow and filesystem
+```bash
+sbatch main_training/inpaint_array_paper-2025-07-22.run
+```
 
-## Why get_mlflow_run_id.py is Needed
+Each task invokes `python -m influpaint.batch.inpainting` with the scenario, run ID, forecast date, and conditioning configuration. It saves transformed samples (`fluforecasts.npy`), inverse-transformed samples (`fluforecasts_ti.npy`), and exported quantiles.
 
-When running `sbatch --array=23 inpaint.run`:
-- **Array ID 23**: Which scenario to run inpainting for
-- **MLflow Run ID**: Which specific trained model to load for scenario 23
+## Read the outputs correctly
 
-Example:
-- Scenario 23 trained in experiment "paper-2025-06_training"
-- Multiple training runs might exist for scenario 23
-- `get_mlflow_run_id.py` finds the latest successful run ID: `abc123def456`
-- `inpaint.py` loads that exact model using MLflow run ID
+Inverse-transformed arrays have shape `(512, 1, 64, 64)` and retain complete sampled seasons on the hospitalization-count scale. The first 51 location columns represent states and DC; remaining columns are padding. CSVs contain 23 marginal quantiles at horizons `0,1,2,3`. Use `target_end_date` to identify the target week: horizon 0 in the archive has `target_end_date == reference_date`.
 
-Without this script, you'd manually search MLflow for "which run trained scenario 23?" - tedious and error-prone.
+The retrospective jobs use available truth with a historical observation mask (`nogit=True`). They do not reconstruct the exact surveillance-data vintage available at each historical issue date. Actual operational submissions are archived separately under `forecasts/operational/` and span historical model versions.
+
+[Previous: 4. Prepare forecast jobs](forecast-jobs.md) · [Next: 6. Score forecasts](evaluation.md)

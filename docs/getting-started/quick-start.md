@@ -1,45 +1,11 @@
-# Quick Start
+# Quick start
 
-## Training
-
-Edit experiment name in `train.run`:
+To understand the full process, follow [How InfluPaint works](../index.md). To recreate the paper figures, place the reproduction archive at `influpaint-paper/influpaint_paper_reproduction_data/` and run from the research repository root:
 
 ```bash
-sbatch train.run
+python -m paper_figures.final_figures --data-root influpaint-paper/influpaint_paper_reproduction_data
 ```
 
-## Inpainting
+Outputs go to the archive's `regenerated_paper_figures/`. See [step 8](../workflows/paper-figures.md) for the figure/input map and [Installation](installation.md) for the environment.
 
-Generate mega-array for all scenarios:
-
-```bash
-python generate_inpaint_jobs.py \
-  -e "paper-2025-06" \
-  --scenarios "0-31" \
-  --start_date "2022-10-12" \
-  --end_date "2023-05-15"
-```
-
-This creates:
-- Job list: `inpaint_jobs_paper-2025-06_all_scenarios.txt`
-- SLURM script: `inpaint_array_paper-2025-06_all_scenarios.run`
-
-Submit all scenarios:
-
-```bash
-sbatch inpaint_array_paper-2025-06_all_scenarios.run
-```
-
-## Evaluation
-
-Run locally from the repository root after copying the forecast outputs:
-
-```bash
-python prepare_dataset_for_scoringutils.py
-Rscript score_with_scoringutils.R results/combined_forecast_truth_data.csv results/scoringutils_scores.csv
-python plot_evaluation_results.py
-```
-
-The preparation script is configured for the saved `paper-2025-07-22` job
-manifest and the local FluSight data. See the [evaluation workflow](../workflows/evaluation.md)
-for required inputs and outputs.
+For a fresh calibration, restore the exact training datasets as shown in [step 2](../workflows/build-training-datasets.md), then follow steps 3–7. `main_training/runs.txt` collects the commands; its Slurm launchers must be submitted from the repository root. New jobs are generated under `main_training/generated/` after training finishes.

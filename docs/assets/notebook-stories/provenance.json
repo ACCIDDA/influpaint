@@ -1,0 +1,40 @@
+{
+  "source_snapshot": "datasets/sources/all_datasets.parquet",
+  "source_rows": 2535111,
+  "training_date": "2025-07-17",
+  "training_shapes": {
+    "100S": [
+      520,
+      1,
+      64,
+      64
+    ],
+    "70S30M": [
+      3332,
+      1,
+      64,
+      64
+    ],
+    "30S70M": [
+      3223,
+      1,
+      64,
+      64
+    ],
+    "100M": [
+      1240,
+      1,
+      64,
+      64
+    ]
+  },
+  "grid_sample_indices": [
+    3000,
+    3001,
+    3002,
+    3003,
+    3004
+  ],
+  "image_sample_index": 3000,
+  "source_snapshot_is_proven_original_training_input": false
+}

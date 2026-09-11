@@ -8,7 +8,7 @@ This creates a job array where each job runs one atomic inpainting task:
 - Single config
 
 Usage:
-    python generate_inpaint_jobs.py -e "paper-2025-06" -s 5 --start_date "2022-10-12" --end_date "2023-05-15"
+    python -m influpaint.batch.generate_inpainting_jobs -e "paper-2025-07-22_training" --output_dir main_training/generated
 """
 
 import click
@@ -102,7 +102,7 @@ def filter_completed_jobs(jobs, training_experiment_name):
 @click.command()
 @click.option("-e", "--experiment_name", required=True, help="MLflow training experiment name (e.g. 'paper-2025-06_training')")
 @click.option("--configs", default=None, help="Comma-separated config names (default: all available configs)")
-@click.option("--output_dir", default=".", help="Where to write job files")
+@click.option("--output_dir", default="main_training/generated", help="Where to write job files")
 @click.option("--skip_completed", is_flag=True, help="Skip jobs that already completed successfully in inpainting experiment")
 def main(experiment_name, configs, output_dir, skip_completed):
     """Generate SLURM job files for inpainting all finished models from MLflow experiment on last 2 flu seasons"""
@@ -186,6 +186,7 @@ def main(experiment_name, configs, output_dir, skip_completed):
     
     # Write job list with run_id included
     output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
     experiment_basename = experiment_name.replace('_training', '')
     job_list_file = output_path / f"inpaint_jobs_{experiment_basename}.txt"
     
