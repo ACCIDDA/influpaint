@@ -9,8 +9,8 @@ theme:
   logo: assets/accidda-logo.png
   palette:
     scheme: default
-    primary: indigo
-    accent: indigo
+    primary: pink
+    accent: pink
   features:
     - navigation.instant
     - navigation.tracking
