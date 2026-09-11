@@ -10,7 +10,7 @@ InfluPaint represents seasons as week-by-location images. Dataset preparation ma
 | Diffusion and U-Net | `influpaint/models/ddpm.py`, `nn_blocks.py` |
 | Paper conditioning sampler | `CoPaint4influpaint/` (`O_DDIMSampler`) |
 | Scenario and configuration definitions | `influpaint/batch/scenarios.py`, `config.py` |
-| Reusable training and forecasting entry points | `influpaint/batch/training.py`, `inpainting.py` |
+| Training and forecasting scripts | `influpaint/batch/training.py`, `inpainting.py` |
 | Paper launchers and saved job manifests | `main_training/` |
 | Scoring | `evaluation/prepare_dataset_for_scoringutils.py`, `evaluation/score_with_scoringutils.R` |
 | Evaluation and figures | `evaluation/plot_evaluation_results.py`, `evaluation/benchmark_plotting.py`, `evaluation/choose_best_model.py`, `paper_figures/` |

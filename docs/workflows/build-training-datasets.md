@@ -1,12 +1,14 @@
 # 2. Create training data
 
-The objective is to turn the source archive from step 1 into **complete training seasons with different mixtures of surveillance and simulated data**. This lets you ask whether learning mainly from observed epidemics, mainly from simulations, or from a blend of both gives better forecasts.
+Turn the source table from step 1 into **complete training seasons with different mixtures of surveillance and simulated data**. This lets you ask whether learning mainly from observed epidemics, mainly from simulations, or from a blend of both gives better forecasts.
 
 Use `dataset_creation/2-build_training_flu_datasets_ipynb.py` to read `Flusight/flu-datasets/all_datasets.parquet`, choose the source proportions, fill out the week/location grid, and save four NetCDF datasets. Each training example becomes an image: weeks run down the rows, locations run across the columns, and pixel values describe epidemic intensity.
 
 Open the Jupytext script as notebook cells and use the repository root as the working directory. Read `Flusight/flu-datasets/all_datasets.parquet` first. Run the cells in order: inspect source scales, set the mixing recipes, build frames, then save and plot the resulting datasets. The notebook writes `training_datasets/TS_<mixture>_<today>.nc`; note those filenames because you will select them in the training configuration in step 3.
 
 !!! tip "Use saved results from the Zenodo archive"
+
+    Get the [Zenodo reproducibility archive](start-here.md#reproducibility-archive) to use these saved files.
 
     Use the exact paper inputs in `influpaint-paper/influpaint_paper_reproduction_data/datasets/training/`:
 

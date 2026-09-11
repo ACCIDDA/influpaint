@@ -1,10 +1,12 @@
 # 5. Generate forecasts with inpainting
 
-The objective is to turn the trained models from step 3 into forecasts for the jobs defined in step 4. A trained diffusion model can generate a complete influenza season; **inpainting supplies the observed part of a particular season and asks the model to generate the missing part**. Repeating this produces 512 possible trajectories, which you can inspect as complete seasons or summarize as forecast quantiles.
+Run the jobs from step 4 to forecast hospitalizations with the models trained in step 3. A trained diffusion model can generate a complete influenza season; **inpainting supplies the observed part of a particular season and asks the model to generate the missing part**. Repeating this produces 512 possible trajectories, which you can inspect as complete seasons or summarize as forecast quantiles.
 
-The entry point is `influpaint.batch.inpainting`. Each job loads one checkpoint, prepares observations for one reference date, runs the selected CoPaint configuration, and saves the resulting ensemble.
+Run `influpaint.batch.inpainting` to generate the forecasts. Each job loads one checkpoint, prepares observations for one reference date, runs the selected CoPaint configuration, and saves the resulting ensemble.
 
 !!! tip "Use saved results from the Zenodo archive"
+
+    Get the [Zenodo reproducibility archive](start-here.md#reproducibility-archive) to use these saved files.
 
     `forecasts/retrospective/` contains the selected i868 ensemble and CSV for each of 29 reference dates; `forecasts/unconditional/` contains generated seasons without conditioning. These support the selected-model analyses. The full candidate comparison requires the other candidates' forecasts as well. To submit the preserved historical manifest using its MLflow runs, use `sbatch main_training/inpaint_array_paper-2025-07-22.run`.
 
@@ -15,6 +17,8 @@ The entry point is `influpaint.batch.inpainting`. Each job loads one checkpoint,
 The runner transforms hospitalizations using the candidate's training-data transformation, then passes both the transformed values and mask to CoPaint's `O_DDIMSampler` from `CoPaint4influpaint/`. CoPaint guides the generated season toward agreement with the observed entries while sampling plausible values for the hidden entries. Network weights remain fixed; the changing observations and conditioning settings determine the forecast.
 
 These retrospective jobs read the locally available truth with a historical mask date (`nogit=True`). They evaluate forecasts conditioned on that history, using the local data revisions. To make a live forecast with refreshed surveillance, follow [step 9](operational-forecasts.md).
+
+For a reference date of October 14, 2023, the mask keeps available weekly observations dated before October 14 and hides the row for October 14 and the following weeks. A 1 in the mask means “use this entry as evidence”; a 0 means “generate this entry.” A zero-valued hospitalization observation and a hidden entry are different: the mask determines whether the value is supplied to the sampler. If the requested date is beyond the available data, `GroundTruth` moves the mask boundary back toward the latest observed week and reports the change.
 
 ## 2. Submit the jobs you prepared
 
@@ -55,8 +59,27 @@ After sampling, it inverse-transforms the output to hospitalization counts, aggr
 
 The inverse-transformed ensemble has shape `(512, 1, 64, 64)`: sample, incidence channel, week, location. The first 53 week positions and 51 location columns hold the season; the remaining positions are padding. Each ensemble member is a whole trajectory across weeks and locations. The CSV summarizes each target separately, so use the arrays when studying temporal or spatial relationships within generated seasons.
 
+### Read a forecast CSV
+
+A **quantile** summarizes one point of a predictive distribution. The 0.50 quantile is the median; the interval from the 0.25 to 0.75 quantiles contains the middle 50% of the distribution. Quantiles are calculated across the sampled trajectories separately for each location and target week.
+
+| CSV column | Meaning |
+| --- | --- |
+| `reference_date` | The date identifying this forecast |
+| `target` | `wk inc flu hosp`: weekly incident influenza hospitalizations |
+| `horizon` | Week offset from the reference date: 0, 1, 2, or 3 in this experiment |
+| `target_end_date` | The date of the week being predicted |
+| `location` | State/DC FIPS code or `US` for the national forecast |
+| `output_type` | `quantile` |
+| `output_type_id` | Quantile probability, such as 0.01, 0.50, or 0.99 |
+| `value` | The predicted hospitalization value at that quantile |
+
+For example, one saved row has reference date `2025-03-15`, horizon `1`, target date `2025-03-22`, location `01` (Alabama), quantile `0.01`, and value `20.617424`. It is the first percentile for Alabama hospitalizations in the week ending March 22, not a single simulated trajectory. Exported quantiles can be fractional even though hospitalizations are counts.
+
+The 23 probabilities are 0.01, 0.025, every 0.05 from 0.05 through 0.95, 0.975, and 0.99. National predictions are calculated by summing locations within each sampled trajectory and then taking quantiles of those sums. Adding state quantiles does not give the national quantiles.
+
 Inspect the plots around the forecast boundary: do the generated trajectories follow the observed history, and how do they spread into the future? The CSV contains 23 marginal quantiles at horizons `0,1,2,3`. Check `reference_date` and `target_end_date` together; in the paper exports, horizon 0 targets the reference date itself.
 
-Once the jobs finish, carry the forecast CSVs and manifest into step 6 for scoring. Keep the full arrays for trajectory analyses and figures.
+Once the jobs finish, [score their CSVs in step 6](evaluation.md) using the dates in the manifest. Keep the full arrays for trajectory analyses and figures.
 
 [Previous: 4. Prepare forecast jobs](forecast-jobs.md) · [Next: 6. Score forecasts](evaluation.md)

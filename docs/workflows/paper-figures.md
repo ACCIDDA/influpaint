@@ -1,40 +1,61 @@
 # 8. Reproduce the paper figures
 
-The objective is to bring the workflow's results together visually: what complete seasons the model generates, how it forecasts from partial history, how it reconstructs missing observations, and how candidate choices affect forecast accuracy.
+To plot the figures in the paper, download the Zenodo reproducibility archive and run the command below. It uses the saved generated seasons, forecasts, reconstructions, observations, and score tables to produce the four main data figures and four supplementary figures. You do not need to retrain the models, generate forecasts, or calculate scores again.
 
-`paper_figures.final_figures` combines the unconditional samples from training, retrospective forecasts, reconstruction experiments, observations, and evaluation tables into the eight data figures in the paper and supplement. The command below uses the Zenodo archive as a ready-to-use collection of those inputs; its README handles the exact reproduction inventory.
+**Zenodo DOI: `10.5281/zenodo.XXXXXXX` (placeholder).**
 
-!!! tip "Use saved results from the Zenodo archive"
+!!! tip "Use the reproducibility folder"
 
-    The saved figure outputs are in `influpaint-paper/influpaint_paper_reproduction_data/regenerated_paper_figures/`, including `868_figure1_unconditional_correlation.png`, `868_figure2_csv_forecasts_two_seasons.png`, `868_figure3_npy_forecasts_two_seasons.png`, and `868_figure4_mask_experiments.png`. The archive README lists the supplementary plots and summary tables.
+    Extract the archive to `influpaint-paper/influpaint_paper_reproduction_data/` under the research repository. Its `README.md` lists the saved inputs and their provenance. The archive also contains the previously generated figures under `regenerated_paper_figures/` if you want to inspect them before rerunning the plotting command.
 
-## 1. Generate the figures
+## 1. Plot the figures
 
-From the research repository root in the InfluPaint environment:
+Install the [Python environment](../getting-started/installation.md), activate it, and run from the research repository root:
 
 ```bash
-python -m paper_figures.final_figures --data-root influpaint-paper/influpaint_paper_reproduction_data
+python -m paper_figures.final_figures \
+  --data-root influpaint-paper/influpaint_paper_reproduction_data
 ```
 
-The command reads saved results and writes to the archive's `regenerated_paper_figures/` directory. It uses plotting seed 0; specify `--seed` for another seed or `--output-dir` for another destination. It does not retrain, sample new forecasts, or rerun the retrospective scoring pipeline.
+The command reads the archive and writes plots to `influpaint-paper/influpaint_paper_reproduction_data/regenerated_paper_figures/`. To save them elsewhere, add `--output-dir`:
 
-## 2. Follow each figure back to its inputs
+```bash
+python -m paper_figures.final_figures \
+  --data-root influpaint-paper/influpaint_paper_reproduction_data \
+  --output-dir reproduced_figures
+```
 
-| Figure | Archived inputs |
-| --- | --- |
-| Figure 1: unconditional seasons and correlations | `forecasts/unconditional/` and `observations/nhsn_flusight_past.csv` |
-| Figure 2: short-horizon forecasts | `forecasts/retrospective/` CSVs, observations, and operational FluSight ensemble CSVs |
-| Figure 3: full-season forecasts | `forecasts/retrospective/` NPY trajectories and observations |
-| Figure 4: reconstructions | `forecasts/masks/` samples, masks, and truth |
-| Supplementary Figures 1–3 | `analysis/leaderboard_full.csv`, `mlflow_losses.csv`, and `mlflow_loss_timeseries.csv` (all in `analysis/`) |
-| Supplementary Figure 4: operational forecasts | `forecasts/operational/` and observations |
+The plotting seed defaults to 0. `--seed` changes random choices made by the plotting routines; it does not regenerate the archived model samples. This command reproduces plots from saved results. To train models or calculate new scores, follow steps 1–7.
 
-The command also produces `868_figure1_correlation_summary.json`, `flusight_dropbox_analysis.csv`, and `2024-2025_wis_pairgrid.png`. The operational leaderboard analysis summarizes snapshots in `analysis/FlusightScores/`; it does not rescore raw forecasts.
+## 2. Open the output files
 
-## 3. Review and use the outputs
+The following paths are relative to the output directory. Input paths are relative to the extracted reproducibility folder.
 
-For a new experiment, inspect `paper_figures/config.py` and the figure modules to route the plots to your results and adjust the selected scenario and dates. The supplied figures use the paper's model and comparison setup.
+| Figure | Output filename | Saved inputs and what the figure shows |
+| --- | --- | --- |
+| **Figure 1: generated seasons and correlations** | `868_figure1_unconditional_correlation.png` | Unconditional samples in `forecasts/unconditional/` and historical hospitalizations in `observations/nhsn_flusight_past.csv`; compares generated epidemic curves and their correlation structure with observed seasons |
+| **Figure 2: short-horizon forecasts** | `868_figure2_csv_forecasts_two_seasons.png` | CSVs in `forecasts/retrospective/`, observed hospitalizations, and FluSight ensemble forecasts; plots forecast medians and intervals for the two evaluated seasons |
+| **Figure 3: full-season forecasts** | `868_figure3_npy_forecasts_two_seasons.png` | Arrays in `forecasts/retrospective/` and observations; shows the complete trajectories behind the short-horizon quantiles |
+| **Figure 4: missing-data reconstructions** | `868_figure4_mask_experiments.png` | Samples, masks, and truth in `forecasts/masks/`; compares six reconstructions from 2023–2024 |
+| **Supplementary Figure 1: model-choice comparison** | `sup_forest_effect.png` | `analysis/leaderboard_full.csv`; compares changes in forecast scores when varying one setting at a time |
+| **Supplementary Figure 2: training losses** | `sup_training_loss.png` | `analysis/mlflow_losses.csv` and `analysis/mlflow_loss_timeseries.csv`; plots training losses for the candidates |
+| **Supplementary Figure 3: loss versus forecast score** | `sup_lossVSwis.png` | Training-loss and leaderboard tables; compares denoising loss with absolute and relative WIS |
+| **Supplementary Figure 4: operational forecasts** | `868_Relaizedforecast.png` | Actual submissions in `forecasts/operational/` and observations; shows forecasts submitted during the operational seasons |
 
-Review the regenerated plots before using them. The static methods diagram is not generated by this command.
+`868_Relaizedforecast.png` is the filename used by the script, including that spelling. The operational submissions span historical model versions; they were not all produced by the selected retrospective i868 checkpoint.
+
+The command also writes:
+
+- `868_figure1_correlation_summary.json`: numerical correlation summaries for Figure 1.
+- `flusight_dropbox_analysis.csv`: a summary of the archived operational leaderboard snapshots in `analysis/FlusightScores/`.
+- `2024-2025_wis_pairgrid.png`: a comparison plot from those leaderboard snapshots.
+
+The leaderboard-summary step reads published score tables; it does not rescore the underlying operational forecasts. The static methods diagram is not generated by this command.
+
+## 3. Check the plots
+
+Open the figures and confirm that the state names, seasons, and dates match the figure you want to reproduce. Figure 1 uses generated seasons without current-season conditioning; Figures 2–3 use retrospective forecasts; Figure 4 uses reconstruction masks. Supplementary Figure 4 uses the separate operational submissions.
+
+For your own results, change the input paths and selected model settings in `paper_figures/config.py` and the relevant figure functions in `paper_figures/final_figures.py`. The supplied plots assume the paper's model and comparison dates. For a weekly operational forecast, use the notebook in [step 9](operational-forecasts.md), which exports reports for the date you select.
 
 [Previous: 7. Reconstruct missing observations](mask-experiments.md) · [Next: 9. Generate operational forecasts](operational-forecasts.md)

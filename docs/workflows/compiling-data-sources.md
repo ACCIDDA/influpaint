@@ -2,11 +2,11 @@
 
 The starting point for InfluPaint is a **common table of weekly influenza measurements and simulated hospitalizations**, saved as `Flusight/flu-datasets/all_datasets.parquet`. Each row holds one value for one location and week within a particular source, season, and trajectory. Grouping those rows gives epidemic curves; arranging the curves for all locations side by side will give the training images in step 2.
 
-The objective of this step is to assemble that table from four source families. Two describe observed epidemics through surveillance; two supply simulated epidemics from transmission models. The table gives them common column names and season labels while retaining their source identities and measurement scales. The first notebook, `dataset_creation/1-gather_all_flu_datasets_ipynb.py`, reads, inspects, and combines them.
+Assemble this table from four source families. Two describe observed epidemics through surveillance; two supply simulated epidemics from transmission models. The table gives them common column names and season labels while retaining their source identities and measurement scales. The first notebook, `dataset_creation/1-gather_all_flu_datasets_ipynb.py`, reads, inspects, and combines them.
 
 !!! tip "Start from the saved source table"
 
-    To follow the data exploration without gathering the raw sources, copy the common table from the Zenodo reproduction archive:
+    To follow the data exploration without gathering the raw sources, copy the common table from the [Zenodo reproducibility archive](start-here.md#reproducibility-archive):
 
     ```bash
     mkdir -p Flusight/flu-datasets

@@ -60,6 +60,8 @@ The repository does not provide a pinned environment lockfile. The paper's Slurm
 
 ## Use the reproduction archive
 
+**Zenodo DOI: `10.5281/zenodo.XXXXXXX` (placeholder).**
+
 To reproduce saved results, place the extracted Zenodo reproduction archive at `influpaint-paper/influpaint_paper_reproduction_data/` under the research repository. Create the parent directory locally before extracting the archive.
 
 The archive's `README.md` identifies the files for skipping each stage. See the [quick start](quick-start.md) for the figure-generation command and the [workflow overview](../workflows/start-here.md) for saved inputs at each stage.

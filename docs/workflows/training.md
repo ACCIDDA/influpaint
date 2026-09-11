@@ -1,10 +1,12 @@
 # 3. Train candidate models
 
-The objective is to learn a distribution of complete influenza seasons from the training images created in step 2, and to compare how modeling choices affect that distribution. Each **candidate model** combines a dataset mixture, an image transformation, optional data augmentation, a U-Net architecture, and a diffusion process. Training produces a checkpoint for each candidate; later steps evaluate how well those checkpoints forecast observed epidemics.
+Train diffusion models on the season images from step 2, then compare how their architecture, data mixture, and preprocessing affect the seasons they generate. Each **candidate model** combines a dataset mixture, an image transformation, optional data augmentation, a U-Net architecture, and a diffusion process. Training produces a checkpoint for each candidate; later steps evaluate how well those checkpoints forecast observed epidemics.
 
 Use `influpaint/batch/config.py` to define these choices, `influpaint/batch/scenarios.py` to combine them, and `influpaint.batch.training` to train one candidate at a time.
 
 !!! tip "Use saved results from the Zenodo archive"
+
+    Get the [Zenodo reproducibility archive](start-here.md#reproducibility-archive) to use these saved files.
 
     The archive contains the selected `i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::3000.pth` checkpoint and training-loss tables under `analysis/`. Its README documents the saved run and dataset. The generated batch workflow uses MLflow run IDs; to load a standalone checkpoint directly, use the `-m` option described in step 5 or the operational notebook in step 9.
 
@@ -20,6 +22,20 @@ The five option lists in `config.py` form the training search space:
 | Transformation | `Lins`, `Sqrt`, `LinsZs`, `LogZs` | Linear scaling, square-root scaling, or the linear/log standardization recipes implemented in `transform_library` |
 | Enrichment | `No`, `Pois`, `PoisPadScaleSmall`, `PoisPadScale` | No augmentation, Poisson resampling, or Poisson resampling combined with random time shifts and magnitude scaling |
 
+### What the model learns
+
+A **diffusion step** is one level of noise in the process that corrupts a season image. Training draws a noise level, corrupts a training image at that level, and asks the network to predict the added noise. A **noise schedule** determines how much corruption each level represents. When generating a season, the model starts from noise and reverses this process.
+
+The **U-Net** is the neural network that predicts the noise. It reduces the image to coarser representations and then expands it back to the original resolution, with connections between corresponding levels. The architecture codes specify its blocks and feature widths. For example, `Rx1224` uses residual blocks and multipliers `(1, 2, 2, 4)` on a base width of 64, giving feature widths of 64, 128, 128, and 256 at those levels. `Cx1224` uses the same multipliers with ConvNeXt blocks.
+
+### What preprocessing and enrichment do
+
+A **transformation** changes the numerical scale seen by the model and has an inverse used to return generated values to the hospitalization scale. With square-root preprocessing (`Sqrt`), let `M` be the largest value in the training dataset's incidence channel. An input value `x` becomes `2 × sqrt(x / M)`, and a generated value `y` becomes `M × (y / 2)²` after inversion. For example, if `M = 10,000`, an input count of 100 becomes 0.2. This reduces the dominance of large peaks in the training values.
+
+`Lins` uses `2 × x / M`. `LinsZs` subtracts the dataset mean and divides by its standard deviation. `LogZs` uses the code's logarithmic recipe: `(log(1 + x) - log(mean)) / log(std)`, where the mean and standard deviation come from the untransformed dataset. The code recomputes these statistics when loading a model, which is why forecasting needs the same training dataset as well as the checkpoint.
+
+**Enrichment** changes a training example randomly each time it is loaded. Poisson resampling replaces each value with a draw whose mean is that value, adding count variation. Time shifts move an epidemic earlier or later and fill the exposed weeks with zeros. Magnitude scaling multiplies the whole image by a random factor. These changes happen before the numerical transformation; they are not inverted when generating forecasts.
+
 Enrichment is applied when a training image is loaded, before the transformation. It adds variation to the saved dataset: the small recipe shifts by up to four weeks and scales by 0.7–1.3; the wider recipe uses up to 15 weeks and 0.1–1.9. The dataset mixture itself is chosen in step 2.
 
 `get_all_training_scenarios()` enumerates the Cartesian product of the five lists: **5 × 4 × 4 × 4 × 4 = 1,280 possible candidates**. A scenario ID is the zero-based position in that enumeration. Its readable name records the choices, for example:
@@ -33,6 +49,17 @@ This means 500 diffusion steps with a cosine schedule, a residual U-Net with cha
 ## 2. Choose the comparison you want to run
 
 The paper uses a smaller comparison built around `CONFIG_BASELINE`: **i804**, with `U500c`, `Rx124`, `30S70M`, `Sqrt`, and `No`. `get_essential_scenarios()` selects this baseline plus every candidate that changes exactly one of those five choices. That gives **17 requested candidates**, making it possible to examine the effect of each choice while holding the others fixed. For example, i868 changes only the U-Net from `Rx124` to `Rx1224`.
+
+The supplied Slurm array requests the following comparisons. Every row keeps all baseline settings except the named change:
+
+| Comparison | Scenario IDs and changed settings |
+| --- | --- |
+| Baseline | **804:** 500 cosine diffusion steps, `Rx124`, 30% surveillance / 70% simulations, square root, no enrichment |
+| Diffusion process | **36:** 200 linear; **292:** 200 cosine; **548:** 500 linear; **1060:** 800 cosine |
+| Network | **868:** `Rx1224`; **932:** `Cx1224`; **996:** `Rx12448` |
+| Training data | **772:** surveillance only; **788:** 70% surveillance / 30% simulations; **820:** simulations only |
+| Transformation | **800:** linear scaling; **808:** linear standardization; **812:** logarithmic recipe |
+| Enrichment | **805:** Poisson, wide shifts and scaling; **806:** Poisson, small shifts and scaling; **807:** Poisson only |
 
 Print the available formulations and the essential Slurm array list:
 
@@ -65,6 +92,10 @@ sbatch main_training/train.run
 
 The supplied launcher requests one GPU, 32 GB RAM, and 12 hours per candidate. Each array task passes its `SLURM_ARRAY_TASK_ID` as the scenario ID to `influpaint.batch.training`. Keep the same MLflow tracking store available for the job-generation step; that store connects each training run to its checkpoint artifacts.
 
+### What an epoch and a batch mean
+
+A **batch** is a group of training images processed in one optimizer update. An **epoch** is one pass through the shuffled training loader. With 3,223 images and a batch size of 512, the loader produces six full batches per epoch and drops the remaining 151 images for that pass. Shuffling changes which images are dropped in later epochs. At 3,000 epochs, that gives 18,000 optimizer updates. Diffusion steps, training epochs, and optimizer updates count different operations.
+
 ## 4. Follow what the training script does
 
 For each candidate, the script:
@@ -76,6 +107,18 @@ For each candidate, the script:
 5. Starts from noise to generate unconditional seasons, inverse-transforms them to the original scale, and saves sample arrays and diagnostic plots.
 
 These unconditional samples show what the model has learned before any current-season observations are supplied. Forecast conditioning happens in step 5.
+
+### Files and records created by a training run
+
+A **checkpoint** is a `.pth` file containing the network weights, optimizer state, epoch setting, and loss type. For the i868 example, its filename ends with:
+
+```text
+i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::3000.pth
+```
+
+The script creates a directory under `training_output/` named with the code revision, experiment name, and run date. It records that directory as `output_folder` and the checkpoint as `model_path` in MLflow.
+
+**MLflow** stores experiment records. An experiment groups related training runs; a run records one training execution. The script logs `step_loss`, `epoch_loss`, the final loss and the average of the last 100 training losses. It also saves the checkpoint under the run's `checkpoints` artifacts and generated arrays under `samples`. Sample plots show the generated epidemic curves after inverse transformation.
 
 ## 5. Inspect the result before forecasting
 

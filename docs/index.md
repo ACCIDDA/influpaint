@@ -28,12 +28,14 @@ Forecasting infectious disease incidence can provide important information to gu
 
 ## Explore the walkthrough
 
-The walkthrough takes you from heterogeneous influenza records to a working forecast. Start by gathering surveillance and simulated seasons, turn them into training images with different source mixtures, and train candidate diffusion models. Then condition each model on observed hospitalizations, compare its forecasts, and use the selected formulation for reconstruction or weekly forecasting.
+Follow the walkthrough to prepare influenza data, train models, and make forecasts. Start by gathering surveillance and simulated seasons, turn them into training images with different source mixtures, and train candidate diffusion models. Then condition each model on observed hospitalizations, compare its forecasts, and use the selected formulation for reconstruction or weekly forecasting.
 
 [Start the step-by-step walkthrough](workflows/start-here.md){ .md-button .md-button--primary }
 [Install the environment](getting-started/installation.md){ .md-button }
 
-For saved paper results and exact reproduction inputs, use the Zenodo archive and its README. The [paper figures chapter](workflows/paper-figures.md) provides the plotting entry point.
+To plot the figures in the paper directly from saved results, go to [Reproduce the paper figures](workflows/paper-figures.md). This is the reproducibility workflow: download the Zenodo archive and run the plotting command using its saved data, forecasts, and scores.
+
+**Zenodo DOI: `10.5281/zenodo.XXXXXXX` (placeholder).**
 
 ## Funding
 

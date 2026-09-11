@@ -4,9 +4,11 @@ The goal of this walkthrough is to build an influenza forecasting model and unde
 
 You will start with historical surveillance and simulated epidemics, put them on a common calendar, and build training datasets with different mixtures of the two. After training candidate models, you will forecast the same reference dates with each candidate, compare their probabilistic accuracy, and use a selected model to fill missing observations or make an operational forecast.
 
-## Join at the stage that interests you
+## Reproducibility archive
 
-The Zenodo archive supplies saved datasets, a selected checkpoint, forecasts, and analysis tables. Its `README.md` documents the exact reproduction inputs and their provenance. Place it at `influpaint-paper/influpaint_paper_reproduction_data/` to use the archive paths in this walkthrough. Archive notes near the top of the paper workflow chapters identify saved files you can use to join that stage.
+**Zenodo DOI: `10.5281/zenodo.XXXXXXX` (placeholder).**
+
+To reproduce the paper, use the Zenodo archive. It contains the source table, four training datasets, the selected model checkpoint, saved forecasts, and score and loss tables. Its `README.md` documents the exact reproduction inputs and their provenance. Place it at `influpaint-paper/influpaint_paper_reproduction_data/` to use the archive paths in this walkthrough. To plot the figures in the paper without rerunning training or forecasts, go to [Reproduce the paper figures](paper-figures.md). To start at another step, use the saved files listed near the top of that chapter.
 
 ## Follow the data through the workflow
 
@@ -33,8 +35,8 @@ Once you have a trained model, [step 9](operational-forecasts.md) is the recurri
 
 Complete [step 0: install the environment](../getting-started/installation.md). All commands and repository paths in this walkthrough are relative to the **research repository root**, the directory containing `influpaint/`, `main_training/`, and `mkdocs.yml`. Run the data notebooks from that directory too, so their relative input paths resolve correctly.
 
-The two data-preparation notebooks live in `dataset_creation/`. Model and dataset choices are defined in `influpaint/batch/config.py`, and `influpaint/batch/scenarios.py` combines them into training scenarios. Cluster launchers live in `main_training/`; the reusable training and forecasting entry points live in `influpaint/batch/`.
+The two data-preparation notebooks live in `dataset_creation/`. Model and dataset choices are defined in `influpaint/batch/config.py`, and `influpaint/batch/scenarios.py` combines them into training scenarios. Cluster launchers live in `main_training/`; the scripts that train models and generate forecasts live in `influpaint/batch/`.
 
-Each chapter explains its objective, the settings to choose, what the script does, and what to inspect before continuing. The examples use the paper's configuration as a concrete starting point; when building your own experiment, change the input dataset paths and experiment names as described in the relevant step.
+The examples use the paper's configuration. For your own experiment, set the dataset paths in step 3, use a new experiment name for training and forecasting, and choose the forecast dates in step 4.
 
 [Previous: 0. Install the environment](../getting-started/installation.md) · [Next: 1. Gather source datasets](compiling-data-sources.md)

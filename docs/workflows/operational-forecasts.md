@@ -1,6 +1,6 @@
 # 9. Generate operational forecasts
 
-The objective is to produce a forecast for the current influenza season using a trained model and the latest reported hospitalizations. Each forecasting cycle starts by updating surveillance data, then uses `run_operational_flusight.py` to inspect the observations, condition the model, and export FluSight CSVs, forecast PDFs, and sampled trajectories.
+Forecast the current influenza season using a trained model and the latest reported hospitalizations. Each forecasting cycle starts by updating surveillance data, then uses `run_operational_flusight.py` to inspect the observations, condition the model, and export FluSight CSVs, forecast PDFs, and sampled trajectories.
 
 Reuse the selected checkpoint and its training dataset from the earlier steps. The observations and forecast date change each week; you can run this workflow without retraining. The figures below illustrate a reference date of **November 29, 2025**; set the date for your own forecast before sampling.
 
@@ -47,6 +47,16 @@ The notebook finds a finished run for that scenario in the named MLflow experime
 
 The model/dataset cell also loads the scenario's training data to construct its transformations. Check that `dataset_library()` still points to the dataset used to train your checkpoint, and inspect the printed scenario string before sampling.
 
+Three dates have different roles in this notebook:
+
+| Setting | What it controls |
+| --- | --- |
+| `forecast_date` | The reference date chosen before sampling; it sets the observation-mask cutoff |
+| `data_date` | The requested observation-data date; with `nogit=True`, the reader uses the current local files, so this value does not download or retrieve a historical snapshot |
+| `submission_date` | The reference date written into filenames and exported forecast rows; the export cell calculates it separately from today's date |
+
+The season is inferred from the date: for example, November 29, 2025 belongs to 2025–2026. For a forecast with observations through November 22, the November 29 row and following weeks are hidden. The plot in the next section shows that example.
+
 ## 4. Inspect the observations and mask
 
 [![The operational notebook's four-panel mask diagnostic for November 29, 2025](../assets/operational/2025-11-29-observation-mask.png)](../assets/operational/2025-11-29-observation-mask.png)
@@ -73,6 +83,14 @@ Run the sampler cells. They transform the observations, pass the data and mask t
 
 The export cells choose the next Saturday from the current date as `submission_date`, refresh the ground-truth object from the local data, and write to `operational_output/<submission_date>/`. For a live run, keep the sampling date, observations, and submission reference date consistent. To replay a historical example, use its archived surveillance snapshot and explicitly set the export date and ground-truth cutoff to match; the default export cells use today's date even if `forecast_date` is historical.
 
+For a run using an explicitly chosen reference date, replace the export cell's next-Saturday calculation with:
+
+```python
+submission_date = pd.to_datetime(forecast_date).date()
+```
+
+In the export cell that rebuilds `GroundTruth.for_flusight`, also set `mask_date=pd.to_datetime(forecast_date)` to keep the sampling cutoff. Use the same local surveillance snapshot for sampling and exporting. Rebuilding the ground-truth object does not rerun CoPaint: if you update the data or change the forecast cutoff, rerun the observation and sampling cells before exporting.
+
 With the notebook's default prefix `UNC_IDD-InfluPaint`, the outputs are:
 
 | Output | Contents |
@@ -84,7 +102,7 @@ With the notebook's default prefix `UNC_IDD-InfluPaint`, the outputs are:
 | `<date>_fluforecasts_transformed_inv.npy` | Sampled trajectories on the hospitalization scale |
 | `<date>_forecasts_national.npy` | National trajectories aggregated from the samples |
 
-The array files are written when `save_raw_arrays=True`. Review the plots and exported dates before using the CSV as a submission. Running the notebook creates local files; submission to FluSight is a separate action.
+The array files are written when `save_raw_arrays=True`. Open the CSV and check its `reference_date`, `target_end_date`, state codes, and quantile probabilities against the intended run. Horizons 0–3 should target the reference date and the next three weekly dates. Open both report PDFs to inspect the national and state forecasts. If the dates or observations are wrong, correct the notebook settings and regenerate the forecast and exports. Running the notebook creates local files; submission to FluSight is a separate action.
 
 ??? tip "Inspect a saved operational forecast"
 
