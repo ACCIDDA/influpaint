@@ -6,11 +6,12 @@ repo_name: influpaint
 
 theme:
   name: material
-  logo: assets/accidda-logo.png
+  logo: assets/in-logo-basic-no-words.png
+  favicon: assets/in-logo-basic-no-words.png
   palette:
     scheme: default
-    primary: pink
-    accent: pink
+    primary: custom
+    accent: custom
   features:
     - navigation.instant
     - navigation.tracking
@@ -18,6 +19,9 @@ theme:
     - toc.follow
     - search.suggest
     - search.highlight
+
+extra_css:
+  - stylesheets/extra.css
 
 nav:
   - InfluPaint: index.md
