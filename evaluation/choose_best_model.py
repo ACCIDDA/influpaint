@@ -474,5 +474,5 @@ if __name__ == "__main__":
     parser.add_argument("--output-dir", type=Path, default=root / "influpaint-paper/figures")
     args = parser.parse_args()
     generate_paper_supplementary_figures(
-        root / "results/leaderboards/leaderboard_full.csv",
+        root / "model_candidate_evaluation/leaderboards/leaderboard_full.csv",
         root / "mlflow_losses.csv", root / "mlflow_loss_timeseries.csv", args.output_dir)

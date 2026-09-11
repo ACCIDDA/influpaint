@@ -2,7 +2,7 @@
 .matplotlib
 operational_output/
 figures/
-results/
+model_candidate_evaluation/
 from_longleaf/
 mlruns/
 training_datasets/

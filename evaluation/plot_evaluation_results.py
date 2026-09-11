@@ -20,11 +20,11 @@ from .benchmark_plotting import plot_components, plot_timeseries, plot_wis_heatm
 
 
 # %% Configuration
-CSV_PATH = "results/scoringutils_scores.csv" 
-SAVE_DIR = "results/simple_plots"
+CSV_PATH = "model_candidate_evaluation/scoringutils_scores.csv"
+SAVE_DIR = "model_candidate_evaluation/simple_plots"
 GROUP_COLORS = {'influpaint': 'green', 'flusight': 'blue'}
 ALLOW_MISSING_DATES_PER_MODEL = 5  # Same threshold as evaluation_pipeline.py
-LEADERBOARD_DIR = "results/leaderboards"
+LEADERBOARD_DIR = "model_candidate_evaluation/leaderboards"
 LEADERBOARD_CSV = os.path.join(LEADERBOARD_DIR, "leaderboard_full.csv")
 DEFAULT_SAVE_DIR = SAVE_DIR
 DEFAULT_LEADERBOARD_DIR = LEADERBOARD_DIR
@@ -222,6 +222,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Plot evaluation results.")
     parser.add_argument("--csv-path", default=CSV_PATH, help="Path to scoringutils CSV.")
     parser.add_argument("--save-dir", default=SAVE_DIR, help="Directory to save plots.")
+    parser.add_argument("--leaderboard-dir", help="Directory to save the leaderboard CSV.")
     parser.add_argument("--group-filter", default=None, help="Restrict plots to a single group label (e.g., 'flusight').")
     parser.add_argument("--annotate-ranks", action="store_true", help="Add value and rank labels for WIS and relative WIS bar charts.")
     args = parser.parse_args()
@@ -229,6 +230,8 @@ if __name__ == "__main__":
     CSV_PATH = args.csv_path
     SAVE_DIR = args.save_dir
     LEADERBOARD_DIR = DEFAULT_LEADERBOARD_DIR if args.save_dir == DEFAULT_SAVE_DIR else os.path.join(SAVE_DIR, "leaderboards")
+    if args.leaderboard_dir:
+        LEADERBOARD_DIR = args.leaderboard_dir
     LEADERBOARD_CSV = os.path.join(LEADERBOARD_DIR, "leaderboard_full.csv")
 
     # Load data with proper location column handling

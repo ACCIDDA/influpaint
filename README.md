@@ -44,7 +44,7 @@ To plot the figures in the paper, follow [Reproduce the paper figures](docs/work
 | [`satellite_applications/`](satellite_applications/README.md) | Metrocast and RSV applications |
 | [`archives/`](archives/README.md) | Development notebooks, historical workflows, and reference implementations |
 | `CoPaint4influpaint/` | Active CoPaint runtime dependency |
-| `Flusight/`, `training_datasets/`, `from_longleaf/`, `results/` | Local data and results |
+| `Flusight/`, `training_datasets/`, `from_longleaf/`, `model_candidate_evaluation/` | Local data and results |
 
 ## Research process and early development
 

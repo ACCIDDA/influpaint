@@ -929,12 +929,12 @@ def main(argv=None):
     if args.data_root is not None:
         config.use_archive(args.data_root)
         analysis = config.ARCHIVE_ROOT / "analysis"
-        leaderboard = analysis / "leaderboard_full.csv"
+        leaderboard = config.ARCHIVE_ROOT / "model_candidate_evaluation/leaderboards/leaderboard_full.csv"
         losses = analysis / "mlflow_losses.csv"
         timeseries = analysis / "mlflow_loss_timeseries.csv"
         default_output = config.ARCHIVE_ROOT / "regenerated_paper_figures"
     else:
-        leaderboard = config.REPOSITORY_ROOT / "results/leaderboards/leaderboard_full.csv"
+        leaderboard = config.REPOSITORY_ROOT / "model_candidate_evaluation/leaderboards/leaderboard_full.csv"
         losses = config.REPOSITORY_ROOT / "mlflow_losses.csv"
         timeseries = config.REPOSITORY_ROOT / "mlflow_loss_timeseries.csv"
         default_output = config.REPOSITORY_ROOT / "influpaint-paper/figures/generated"

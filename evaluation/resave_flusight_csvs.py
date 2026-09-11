@@ -271,9 +271,9 @@ def main():
             
             if failed_jobs:
                 # Write single combined failed jobs file
-                os.makedirs("results", exist_ok=True)
+                os.makedirs("model_candidate_evaluation", exist_ok=True)
                 failed_jobs_df = pd.DataFrame(failed_jobs)
-                failed_jobs_file = "results/failed_inpaint_jobs_all.txt"
+                failed_jobs_file = "model_candidate_evaluation/failed_inpaint_jobs_all.txt"
                 failed_jobs_df[['job_id', 'scenario_id', 'run_id', 'season', 'date', 'config']].to_csv(
                     failed_jobs_file, index=False
                 )

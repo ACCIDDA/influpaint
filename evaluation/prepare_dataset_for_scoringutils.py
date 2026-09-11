@@ -343,7 +343,7 @@ class ScoringutilsFullEvaluator:
         print(f"Data preparation completed in {prep_elapsed:.2f} seconds")
         
         # Save combined data to disk for R to use
-        save_dir = "results"
+        save_dir = "model_candidate_evaluation"
         os.makedirs(save_dir, exist_ok=True)
         
         combined_file = os.path.join(save_dir, 'combined_forecast_truth_data.csv')
@@ -373,7 +373,7 @@ class ScoringutilsFullEvaluator:
         print(f"Combined data saved to: {combined_file}")
         
         print(f"\n🎯 Ready for R scoring!")
-        print(f"Next: Rscript evaluation/score_with_scoringutils.R {combined_file} results/scoringutils_scores.csv")
+        print(f"Next: Rscript evaluation/score_with_scoringutils.R {combined_file} model_candidate_evaluation/scoringutils_scores.csv")
         
         return {
             'combined_data': combined_data,

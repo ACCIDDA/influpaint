@@ -6,11 +6,13 @@ Forecast scoring, model comparison, and analysis exports. Run from the **researc
 
 ```bash
 python -m evaluation.prepare_dataset_for_scoringutils
-Rscript evaluation/score_with_scoringutils.R results/combined_forecast_truth_data.csv results/scoringutils_scores.csv
+Rscript evaluation/score_with_scoringutils.R model_candidate_evaluation/combined_forecast_truth_data.csv model_candidate_evaluation/scoringutils_scores.csv
 python -m evaluation.plot_evaluation_results
 ```
 
-The preparation configuration identifies the saved job manifest, candidate forecasts, official FluSight forecasts, and observations. Outputs remain in `results/`. R requires `scoringutils` and `dplyr`.
+The preparation configuration identifies the saved job manifest, candidate forecasts, official FluSight forecasts, and observations. Outputs remain in `model_candidate_evaluation/`. R requires `scoringutils` and `dplyr`.
+
+The reproduction archive includes a complete `model_candidate_evaluation/` folder. Its README explains how to regenerate the diagnostics from the saved scores using `--csv-path`, `--save-dir`, and `--leaderboard-dir`, without rescoring the forecasts.
 
 | File | Purpose |
 | --- | --- |

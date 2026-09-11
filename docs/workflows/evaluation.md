@@ -8,7 +8,7 @@ The evaluation pipeline joins the forecast CSVs to truth, computes probabilistic
 
     Get the [Zenodo reproducibility archive](start-here.md#reproducibility-archive) to use these saved files.
 
-    Use `influpaint-paper/influpaint_paper_reproduction_data/analysis/scoringutils_scores.csv` for the saved per-forecast scores, and `influpaint-paper/influpaint_paper_reproduction_data/analysis/leaderboard_full.csv` for the saved rankings. The selected-model forecast archive does not contain all candidate forecast CSVs required to rescore the complete comparison. To remake the paper comparison figures directly, use step 8.
+    Use `influpaint-paper/influpaint_paper_reproduction_data/model_candidate_evaluation/scoringutils_scores.csv` for the saved per-forecast scores, and `influpaint-paper/influpaint_paper_reproduction_data/model_candidate_evaluation/leaderboards/leaderboard_full.csv` for the saved rankings. The selected-model forecast archive does not contain all candidate forecast CSVs required to rescore the complete comparison. To remake the paper comparison figures directly, use step 8.
 
 ## 1. Choose the forecasts and join them to observations
 
@@ -35,14 +35,14 @@ Run from the research repository root after copying the cluster outputs:
 python -m evaluation.prepare_dataset_for_scoringutils
 ```
 
-The output is `results/combined_forecast_truth_data.csv`. It has one row per quantile for a model, reference date, target week, location, and horizon. `predicted` is the forecast quantile value, `quantile` is its probability, and `observed` is the matching hospitalization count. The same observed count is repeated across the 23 quantile rows for a forecast. `group` distinguishes InfluPaint candidates (`influpaint`) from official hub submissions (`flusight`). The script joins by location and target date and stops if that join loses forecast rows.
+The output is `model_candidate_evaluation/combined_forecast_truth_data.csv`. It has one row per quantile for a model, reference date, target week, location, and horizon. `predicted` is the forecast quantile value, `quantile` is its probability, and `observed` is the matching hospitalization count. The same observed count is repeated across the 23 quantile rows for a forecast. `group` distinguishes InfluPaint candidates (`influpaint`) from official hub submissions (`flusight`). The script joins by location and target date and stops if that join loses forecast rows.
 
 ## 2. Calculate and interpret the scores
 
 R requires `scoringutils` and `dplyr`. Run:
 
 ```bash
-Rscript evaluation/score_with_scoringutils.R results/combined_forecast_truth_data.csv results/scoringutils_scores.csv
+Rscript evaluation/score_with_scoringutils.R model_candidate_evaluation/combined_forecast_truth_data.csv model_candidate_evaluation/scoringutils_scores.csv
 ```
 
 The R script groups the quantile rows into forecast distributions. It writes one score row for each unique combination of model, group, season, reference date, target date, location, and horizon. These columns describe the forecast; the remaining columns describe its performance:
@@ -65,15 +65,26 @@ For example, if 70 of 100 observations fall inside the forecast's central 90% in
 python -m evaluation.plot_evaluation_results
 ```
 
-This reads `results/scoringutils_scores.csv`, writes diagnostic plots under `results/simple_plots/`, and writes `results/leaderboards/leaderboard_full.csv`. To plot a different score file in a separate folder, use:
+This reads `model_candidate_evaluation/scoringutils_scores.csv`, writes diagnostic plots under `model_candidate_evaluation/simple_plots/`, and writes `model_candidate_evaluation/leaderboards/leaderboard_full.csv`. To plot a different score file in a separate folder, use:
 
 ```bash
 python -m evaluation.plot_evaluation_results \
-  --csv-path results/my-experiment-scores.csv \
-  --save-dir results/my-experiment-plots
+  --csv-path model_candidate_evaluation/my-experiment-scores.csv \
+  --save-dir model_candidate_evaluation/my-experiment-plots
 ```
 
-With a custom save directory, the leaderboard is written inside its `leaderboards/` subdirectory.
+With a custom save directory, the leaderboard is written inside its `leaderboards/` subdirectory. Set `--leaderboard-dir` to choose a separate destination.
+
+The reproduction archive includes the complete `model_candidate_evaluation/` folder. To regenerate its candidate plots and leaderboard directly from its saved scores, run:
+
+```bash
+MPLBACKEND=Agg python -m evaluation.plot_evaluation_results \
+  --csv-path influpaint-paper/influpaint_paper_reproduction_data/model_candidate_evaluation/scoringutils_scores.csv \
+  --save-dir influpaint-paper/influpaint_paper_reproduction_data/model_candidate_evaluation/simple_plots \
+  --leaderboard-dir influpaint-paper/influpaint_paper_reproduction_data/model_candidate_evaluation/leaderboards
+```
+
+The archive README documents the folder contents, the separate operational leaderboard command, and the retained FluSight-only plot snapshots that the default command does not regenerate.
 
 The plotting script calculates **relative WIS** by dividing each forecast's WIS by FluSight-baseline's WIS for the same location, target date, and horizon. A ratio of 0.8 means 20% lower WIS than the baseline for that forecast; 1.0 means equal WIS; 1.2 means 20% higher. A missing or zero baseline score leaves the ratio undefined.
 
@@ -97,6 +108,6 @@ The saved leaderboard contains 36 InfluPaint formulations: 12 included training 
 
 For your experiment, choose the scenario and CoPaint configuration together. Record the chosen training run ID, scenario ID, training dataset filename, and CoPaint configuration; use those same settings for [reconstruction](mask-experiments.md) or [operational forecasts](operational-forecasts.md). `evaluation/choose_best_model.py` explicitly highlights i868 in the paper plots; it does not automatically choose a winner for a new experiment.
 
-These are the existing figures included in the paper's supplement. The underlying saved inputs are `analysis/leaderboard_full.csv` and `analysis/mlflow_losses.csv` in the reproduction archive. To reproduce these figures from the saved tables, follow [Reproduce the paper figures](paper-figures.md).
+These are the existing figures included in the paper's supplement. The underlying saved inputs are `model_candidate_evaluation/leaderboards/leaderboard_full.csv` and `analysis/mlflow_losses.csv` in the reproduction archive. To reproduce these figures from the saved tables, follow [Reproduce the paper figures](paper-figures.md).
 
 [Previous: 5. Generate forecasts](inpainting.md) · [Next: 7. Reconstruct missing observations](mask-experiments.md)

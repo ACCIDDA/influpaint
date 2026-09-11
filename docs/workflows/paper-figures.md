@@ -37,7 +37,7 @@ The following paths are relative to the output directory. Input paths are relati
 | **Figure 2: short-horizon forecasts** | `868_figure2_csv_forecasts_two_seasons.png` | CSVs in `forecasts/retrospective/`, observed hospitalizations, and FluSight ensemble forecasts; plots forecast medians and intervals for the two evaluated seasons |
 | **Figure 3: full-season forecasts** | `868_figure3_npy_forecasts_two_seasons.png` | Arrays in `forecasts/retrospective/` and observations; shows the complete trajectories behind the short-horizon quantiles |
 | **Figure 4: missing-data reconstructions** | `868_figure4_mask_experiments.png` | Samples, masks, and truth in `forecasts/masks/`; compares six reconstructions from 2023–2024 |
-| **Supplementary Figure 1: model-choice comparison** | `sup_forest_effect.png` | `analysis/leaderboard_full.csv`; compares changes in forecast scores when varying one setting at a time |
+| **Supplementary Figure 1: model-choice comparison** | `sup_forest_effect.png` | `model_candidate_evaluation/leaderboards/leaderboard_full.csv`; compares changes in forecast scores when varying one setting at a time |
 | **Supplementary Figure 2: training losses** | `sup_training_loss.png` | `analysis/mlflow_losses.csv` and `analysis/mlflow_loss_timeseries.csv`; plots training losses for the candidates |
 | **Supplementary Figure 3: loss versus forecast score** | `sup_lossVSwis.png` | Training-loss and leaderboard tables; compares denoising loss with absolute and relative WIS |
 | **Supplementary Figure 4: operational forecasts** | `868_Relaizedforecast.png` | Actual submissions in `forecasts/operational/` and observations; shows forecasts submitted during the operational seasons |
