@@ -4,9 +4,9 @@ Run the jobs from step 4 to forecast hospitalizations with the models trained in
 
 Run `influpaint.batch.inpainting` to generate the forecasts. Each job loads one checkpoint, prepares observations for one reference date, runs the selected CoPaint configuration, and saves the resulting ensemble.
 
-!!! tip "Use saved results from the Zenodo archive"
+!!! tip "Paper reproducibility"
 
-    Get the [Zenodo reproducibility archive](start-here.md#reproducibility-archive) to use these saved files.
+    Get the results for this step directly from the [Zenodo reproducibility archive](start-here.md#reproducibility-archive).
 
     `forecasts/retrospective/` contains the selected i868 ensemble and CSV for each of 29 reference dates; `forecasts/unconditional/` contains generated seasons without conditioning. These support the selected-model analyses. The full candidate comparison requires the other candidates' forecasts as well. To submit the preserved historical manifest using its MLflow runs, use `sbatch main_training/inpaint_array_paper-2025-07-22.run`.
 

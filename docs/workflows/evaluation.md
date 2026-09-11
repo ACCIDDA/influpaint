@@ -4,9 +4,9 @@ Score the forecasts from step 5 and choose which model and conditioning settings
 
 The evaluation pipeline joins the forecast CSVs to truth, computes probabilistic scores with R's `scoringutils`, and aggregates those scores into a leaderboard. A formulation here includes both the trained-model scenario and the CoPaint setting: the same checkpoint can forecast differently under different conditioning configurations.
 
-!!! tip "Use saved results from the Zenodo archive"
+!!! tip "Paper reproducibility"
 
-    Get the [Zenodo reproducibility archive](start-here.md#reproducibility-archive) to use these saved files.
+    Get the results for this step directly from the [Zenodo reproducibility archive](start-here.md#reproducibility-archive).
 
     Use `influpaint-paper/influpaint_paper_reproduction_data/model_candidate_evaluation/scoringutils_scores.csv` for the saved per-forecast scores, and `influpaint-paper/influpaint_paper_reproduction_data/model_candidate_evaluation/leaderboards/leaderboard_full.csv` for the saved rankings. The selected-model forecast archive does not contain all candidate forecast CSVs required to rescore the complete comparison. To remake the paper comparison figures directly, use step 8.
 

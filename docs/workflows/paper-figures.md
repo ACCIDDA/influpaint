@@ -4,7 +4,7 @@ To plot the figures in the paper, download the Zenodo reproducibility archive an
 
 **Zenodo DOI: `10.5281/zenodo.XXXXXXX` (placeholder).**
 
-!!! tip "Use the reproducibility folder"
+!!! tip "Paper reproducibility"
 
     Extract the archive to `influpaint-paper/influpaint_paper_reproduction_data/` under the research repository. Its `README.md` lists the saved inputs and their provenance. The archive also contains the previously generated figures under `regenerated_paper_figures/` if you want to inspect them before rerunning the plotting command.
 

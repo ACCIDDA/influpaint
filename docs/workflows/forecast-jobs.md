@@ -4,9 +4,9 @@ Give each trained candidate the same forecast dates and conditioning settings so
 
 A **forecast job** is one trained checkpoint, one forecast reference date, and one CoPaint configuration. A **manifest** is the table listing those jobs. A **Slurm array** submits that table as multiple cluster tasks, with each task running one row. It will generate an ensemble of possible seasons conditioned on the history available under that date's observation mask. This step defines the experiment; step 5 runs the sampling.
 
-!!! tip "Use the saved paper experiment"
+!!! tip "Paper reproducibility"
 
-    Get the [Zenodo reproducibility archive](start-here.md#reproducibility-archive) to use these saved files.
+    Get the results for this step directly from the [Zenodo reproducibility archive](start-here.md#reproducibility-archive).
 
     The paper manifest is `main_training/paper_runs_2025-07-22/inpaint_jobs_paper-2025-07-22.txt`, with its launcher at `main_training/inpaint_array_paper-2025-07-22.run`. These refer to the historical MLflow runs. To explore saved selected-model forecasts directly, use `forecasts/retrospective/` in the Zenodo archive; its README describes the coverage.
 

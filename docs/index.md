@@ -8,6 +8,19 @@ Forecasting infectious disease incidence can provide important information to gu
 
 [Read the paper on arXiv: *Generative diffusion models for spatiotemporal influenza forecasting*](https://arxiv.org/abs/2604.24913){ .md-button .md-button--primary }
 
+## Explore the walkthrough
+
+Follow the walkthrough to prepare influenza data, train models, and make forecasts. Start by gathering surveillance and simulated seasons, turn them into training images with different source mixtures, and train candidate diffusion models. Then condition each model on observed hospitalizations, compare its forecasts, and use the selected formulation for reconstruction or weekly forecasting.
+
+[Start the step-by-step walkthrough](workflows/start-here.md){ .md-button .md-button--primary }
+[Install the environment](getting-started/installation.md){ .md-button }
+
+!!! tip "Paper reproducibility"
+
+    [Jump here to reproduce the paper](workflows/paper-figures.md) using saved data, forecasts, and scores from the Zenodo reproducibility archive.
+
+    **Zenodo DOI: `10.5281/zenodo.XXXXXXX` (placeholder).**
+
 ## Forecast influenza hospitalizations
 
 [![Paper Figure 2: four-week influenza hospitalization forecasts for two seasons](assets/paper/figure-2-forecasts.png)](assets/paper/figure-2-forecasts.png)
@@ -25,17 +38,6 @@ Forecasting infectious disease incidence can provide important information to gu
 [![Paper Figure 5: encoding epidemic seasons as images, learning to denoise, and conditioning generation with an observation mask](assets/paper/figure-5-methods.png)](assets/paper/figure-5-methods.png)
 
 **Figure 5 — Model overview.** **a.** An influenza season becomes an image whose axes represent weeks and locations and whose pixel intensity represents incidence. **b.** A diffusion model learns to reverse the gradual addition of noise, allowing it to generate new, plausible seasons. **c.** Inpainting combines observed values and a mask with the generation process to infer the missing parts of a season. The paper's forecasting implementation uses CoPaint to condition these generated trajectories on the available observations.
-
-## Explore the walkthrough
-
-Follow the walkthrough to prepare influenza data, train models, and make forecasts. Start by gathering surveillance and simulated seasons, turn them into training images with different source mixtures, and train candidate diffusion models. Then condition each model on observed hospitalizations, compare its forecasts, and use the selected formulation for reconstruction or weekly forecasting.
-
-[Start the step-by-step walkthrough](workflows/start-here.md){ .md-button .md-button--primary }
-[Install the environment](getting-started/installation.md){ .md-button }
-
-To plot the figures in the paper directly from saved results, go to [Reproduce the paper figures](workflows/paper-figures.md). This is the reproducibility workflow: download the Zenodo archive and run the plotting command using its saved data, forecasts, and scores.
-
-**Zenodo DOI: `10.5281/zenodo.XXXXXXX` (placeholder).**
 
 ## Funding
 

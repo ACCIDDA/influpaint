@@ -4,9 +4,9 @@ Use the selected model to reconstruct missing states, missing weeks, and gaps wi
 
 The workflow is the same as forecasting: prepare data and a mask, sample with fixed model weights, and compare the generated values with the hidden observations. Only the observation pattern changes.
 
-!!! tip "Use saved results from the Zenodo archive"
+!!! tip "Paper reproducibility"
 
-    Get the [Zenodo reproducibility archive](start-here.md#reproducibility-archive) to use these saved files.
+    Get the results for this step directly from the [Zenodo reproducibility archive](start-here.md#reproducibility-archive).
 
     Use `influpaint-paper/influpaint_paper_reproduction_data/forecasts/masks/`. Each experiment directory contains `fluforecasts_ti.npy`, `mask.npy`, and `ground_truth.npy`. For example, `influpaint-paper/influpaint_paper_reproduction_data/forecasts/masks/missing_nc_season2023/fluforecasts_ti.npy` contains the North Carolina reconstruction ensemble.
 

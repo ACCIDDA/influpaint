@@ -4,9 +4,9 @@ The starting point for InfluPaint is a **common table of weekly influenza measur
 
 Assemble this table from four source families. Two describe observed epidemics through surveillance; two supply simulated epidemics from transmission models. The table gives them common column names and season labels while retaining their source identities and measurement scales. The first notebook, `dataset_creation/1-gather_all_flu_datasets_ipynb.py`, reads, inspects, and combines them.
 
-!!! tip "Start from the saved source table"
+!!! tip "Paper reproducibility"
 
-    To follow the data exploration without gathering the raw sources, copy the common table from the [Zenodo reproducibility archive](start-here.md#reproducibility-archive):
+    Get the results for this step directly from the [Zenodo reproducibility archive](start-here.md#reproducibility-archive). Copy the saved source table to follow the data exploration:
 
     ```bash
     mkdir -p Flusight/flu-datasets

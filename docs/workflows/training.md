@@ -4,9 +4,9 @@ Train diffusion models on the season images from step 2, then compare how their 
 
 Use `influpaint/batch/config.py` to define these choices, `influpaint/batch/scenarios.py` to combine them, and `influpaint.batch.training` to train one candidate at a time.
 
-!!! tip "Use saved results from the Zenodo archive"
+!!! tip "Paper reproducibility"
 
-    Get the [Zenodo reproducibility archive](start-here.md#reproducibility-archive) to use these saved files.
+    Get the results for this step directly from the [Zenodo reproducibility archive](start-here.md#reproducibility-archive).
 
     The archive contains the selected `i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::3000.pth` checkpoint and training-loss tables under `analysis/`. Its README documents the saved run and dataset. The generated batch workflow uses MLflow run IDs; to load a standalone checkpoint directly, use the `-m` option described in step 5 or the operational notebook in step 9.
 
