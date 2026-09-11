@@ -1,14 +1,52 @@
 [data-md-color-primary="custom"] {
-  --md-primary-fg-color: #fff0f5;
-  --md-primary-fg-color--light: #fff7fa;
-  --md-primary-fg-color--dark: #f4d6e0;
+  --md-primary-fg-color: #77ff9e;
+  --md-primary-fg-color--light: #b0ffc5;
+  --md-primary-fg-color--dark: #3eea71;
   --md-primary-bg-color: #212121de;
   --md-primary-bg-color--light: #2121218a;
+  --md-typeset-a-color: #007852;
 }
 
 [data-md-color-accent="custom"] {
-  --md-accent-fg-color: #e4a6ba;
-  --md-accent-fg-color--transparent: #e4a6ba1a;
-  --md-accent-bg-color: #212121de;
-  --md-accent-bg-color--light: #2121218a;
+  --md-accent-fg-color: #007852;
+  --md-accent-fg-color--transparent: #ff9ee033;
+  --md-accent-bg-color: #ffffff;
+  --md-accent-bg-color--light: #ffffffb3;
+}
+
+.md-typeset a:not(.md-button):not(:has(img)) {
+  box-shadow: inset 0 -0.32em #ff9ee0;
+}
+
+.md-typeset h1 {
+  width: fit-content;
+  padding: 0 0.08em;
+  color: #005c3e;
+  background-color: #ffc9ef;
+}
+
+.md-typeset a:not(.md-button):not(:has(img)):hover,
+.md-typeset a:not(.md-button):not(:has(img)):focus-visible {
+  color: #005c3e;
+  background-color: #ff9ee0;
+  box-shadow: 0 0 0 0.12em #ff9ee0;
+}
+
+.md-nav__link--active {
+  color: #005c3e;
+  background-color: #ff9ee0;
+  box-shadow: 0 0 0 0.12em #ff9ee0;
+}
+
+.md-typeset .md-button--primary {
+  color: #005c3e;
+  background-color: #77ff9e;
+  border-color: #77ff9e;
+}
+
+.md-typeset .md-button--primary:hover,
+.md-typeset .md-button--primary:focus-visible {
+  color: #00462f;
+  background-color: #3eea71;
+  border-color: #3eea71;
 }
