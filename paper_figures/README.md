@@ -1,6 +1,6 @@
 # Influpaint Paper Figures Module
 
-This package contains modularized code for generating publication-quality figures for the Influpaint paper. The original monolithic `influpaint_paperfigures.py` (1857 lines) has been refactored into logical, maintainable modules.
+This package generates the Influpaint paper and supplementary figures. Run `python -m paper_figures.final_figures` from the repository root.
 
 ## Module Structure
 
@@ -14,11 +14,9 @@ paper_figures/
 ├── unconditional_figures.py      # Unconditional generation figures
 ├── correlation_analysis.py       # Spatial correlation analysis
 ├── analyze_flusight_dropbox_tables.py # Archived operational leaderboard analysis
-├── peak_analysis.py              # Peak distribution analysis
 ├── csv_forecasts.py              # CSV forecast quantile fans
 ├── npy_forecasts.py              # NPY full-horizon forecasts
 ├── mask_experiments.py           # Mask experiment visualizations
-├── figure3_ratio_analysis.py     # One-call Figure 3 scoring + comparison pipeline
 ├── main.py                       # Main orchestration script
 └── final_figures.py              # Final paneled figures for paper
 ```
@@ -53,12 +51,6 @@ Functions for generating unconditional (baseline) figures:
 - `generate_unconditional_trajs_and_heatmap()` - Trajectory and heatmap combo
 - `generate_mean_heatmap()` - Mean heatmap only
 
-### peak_analysis.py
-Functions for analyzing peak timing and size distributions:
-- `plot_peak_distributions_comparison()` - Compare generated vs historical peaks
-- `plot_peak_distributions_by_location()` - Location-specific peak analysis
-- `plot_peak_distributions_by_metric()` - Metric-grouped swarmplots (timing/size)
-
 ### csv_forecasts.py
 Functions for plotting CSV (4-week hubverse) forecast quantile fans:
 - `load_truth_for_season()` - Load ground truth data
@@ -87,7 +79,6 @@ Generates final paneled figures for paper publication by composing existing plot
 - `figure1_unconditional_with_correlation()` - Unconditional generation with correlation analysis
 - `figure2_csv_forecasts_two_seasons()` - CSV forecasts for two seasons in 4x2 layout
 - `figure3_npy_forecasts_two_seasons()` - NPY forecasts with A/B panel labels
-- `figure3_ratio_flusight_over_influpaint()` - Figure 3 companion ratio analysis (`WIS_FluSight / WIS_Influpaint`) for 1-4 week-ahead
 - `figure4_mask_experiments()` - Multi-panel mask experiments figure
 - `add_panel_label()` - Utility to add A, B, C labels to panels
 
@@ -132,20 +123,14 @@ To use the archived reproduction inputs with the same script:
 python -m paper_figures.final_figures --data-root influpaint-paper/influpaint_paper_reproduction_data
 ```
 
-This writes those eight data plots, the correlation JSON, and the FluSight leaderboard CSV and plot into `influpaint-paper/influpaint_paper_reproduction_data/regenerated_paper_figures/`. Set `--output-dir` to choose another destination. The default seed is 0 (`--seed` overrides it). The companion ratio analysis and the exploratory figures in `paper_figures.main` are not part of this command.
+This writes those eight data plots, the correlation JSON, and the FluSight leaderboard CSV and plot into `influpaint-paper/influpaint_paper_reproduction_data/regenerated_paper_figures/`. Set `--output-dir` to choose another destination. The default seed is 0 (`--seed` overrides it). The exploratory figures in `paper_figures.main` are not part of this command.
 
-All unconditional, peak-analysis, and correlation figures use the complete
+All unconditional and correlation figures use the complete
 ensemble of 512 samples. Figure 1's insets use
 zero-based indices `(0, 255, 510)` in the full i868 sample array.
 Generated and time-permuted correlations use only the 51 locations defined by
 `SeasonAxis` (the 50 states and DC), excluding spatial padding. Observed
 correlations use the same locations for the 2023–2024 and 2024–2025 seasons.
-
-One-call Figure 3 comparison pipeline (build both inputs, score both with `score_with_scoringutils.R`, then plot):
-
-```bash
-python -m paper_figures.figure3_ratio_analysis
-```
 
 ### Generate Specific Figure Types
 
@@ -159,19 +144,6 @@ uncond = helpers.load_unconditional_samples(config.UNCOND_SAMPLES_PATH)
 
 # Generate specific figures
 unconditional_figures.generate_unconditional_us_grid(uncond, season_axis, config.FIG_DIR, config._MODEL_NUM)
-```
-
-### Use Individual Plotting Functions
-
-```python
-from paper_figures import peak_analysis
-
-fig = peak_analysis.plot_peak_distributions_comparison(
-    inv_samples=samples,
-    season_axis=season_axis,
-    save_path="my_peaks.png",
-    prominence_threshold=50.0
-)
 ```
 
 ## Bugs Fixed
@@ -194,38 +166,24 @@ The refactoring process identified and fixed several bugs present in the origina
 
 ## Dependencies
 
-Same as the original script:
+Required libraries:
 - numpy
 - pandas
 - matplotlib
 - seaborn
-- scipy (for peak detection)
+- scipy (shared Influpaint utilities)
 - plotly (optional, for interactive 3D figures)
 - influpaint package and its dependencies
 
-## Migration from Original Script
+## Exploratory Figures
 
-To switch from the old `influpaint_paperfigures.py` to the new modular version:
-
-```python
-# Old way:
-# python influpaint_paperfigures.py
-
-# New way:
+```bash
 python -m paper_figures.main
-
-# Or in Python:
-from paper_figures.main import main
-main()
 ```
 
-Core exploratory outputs from `paper_figures.main` are generated under `figures/` as before.
-
-For final publication figures, outputs are written to `influpaint-paper/figures/generated/`.
-
-For the Figure 3 ratio companion analysis, scoring horizons `0..3` in `results_good/scoringutils_scores.csv`
-map to CDC 1-4 week-ahead targets.
-
+This writes additional unconditional, correlation, forecast, and mask plots to
+`figures/`. The paper figure entry point writes its outputs to
+`influpaint-paper/figures/generated/` by default.
 
 ## Reproduce the Zenodo archive
 

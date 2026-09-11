@@ -25,7 +25,6 @@ from .helpers import load_unconditional_samples
 
 # Import figure generation modules
 from . import unconditional_figures as uncond_figs
-from . import peak_analysis
 from . import correlation_analysis
 from . import csv_forecasts
 from . import npy_forecasts
@@ -122,59 +121,6 @@ def generate_unconditional_figures(season_axis, uncond_samples):
     plt.close(fig_hist_alt)
 
     print("Unconditional figures complete.")
-
-
-def generate_peak_analysis_figures(season_axis, uncond_samples):
-    """Generate peak analysis figures.
-
-    Args:
-        season_axis: SeasonAxis object
-        uncond_samples: Unconditional samples array
-    """
-    print("Generating peak analysis figures...")
-
-    # Peak distributions comparison
-    fig_peaks = peak_analysis.plot_peak_distributions_comparison(
-        inv_samples=uncond_samples,
-        season_axis=season_axis,
-        save_path=os.path.join(FIG_DIR, f"{_MODEL_NUM}_peak_distributions.png"),
-        prominence_threshold=50.0,
-    )
-    plt.close(fig_peaks)
-
-    # Peak distributions by location
-    fig_peaks_loc = peak_analysis.plot_peak_distributions_by_location(
-        inv_samples=uncond_samples,
-        season_axis=season_axis,
-        states=['CA', 'FL'],
-        save_path=os.path.join(FIG_DIR, f"{_MODEL_NUM}_peak_distributions_by_location.png"),
-        prominence_threshold=50.0,
-    )
-    plt.close(fig_peaks_loc)
-
-    # Peak timing
-    fig_peak_timing = peak_analysis.plot_peak_distributions_by_metric(
-        inv_samples=uncond_samples,
-        season_axis=season_axis,
-        states=['CA', 'FL'],
-        metric='timing',
-        save_path=os.path.join(FIG_DIR, f"{_MODEL_NUM}_peak_timing.png"),
-        prominence_threshold=50.0,
-    )
-    plt.close(fig_peak_timing)
-
-    # Peak size
-    fig_peak_size = peak_analysis.plot_peak_distributions_by_metric(
-        inv_samples=uncond_samples,
-        season_axis=season_axis,
-        states=['CA', 'FL'],
-        metric='size',
-        save_path=os.path.join(FIG_DIR, f"{_MODEL_NUM}_peak_size.png"),
-        prominence_threshold=50.0,
-    )
-    plt.close(fig_peak_size)
-
-    print("Peak analysis figures complete.")
 
 
 def generate_csv_forecast_figures(season_axis):
@@ -333,11 +279,6 @@ def main():
         print(f"Error generating unconditional figures: {e}")
         raise ValueError("")
 
-    try:
-        generate_peak_analysis_figures(season_axis, uncond_samples)
-    except Exception as e:
-        print(f"Error generating peak analysis figures: {e}")
-        raise ValueError("")
     try:
         generate_correlation_figures(season_axis, uncond_samples)
     except Exception as e:
