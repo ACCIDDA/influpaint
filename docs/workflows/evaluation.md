@@ -84,7 +84,7 @@ MPLBACKEND=Agg python -m evaluation.plot_evaluation_results \
   --leaderboard-dir influpaint-paper/influpaint_paper_reproduction_data/model_candidate_evaluation/leaderboards
 ```
 
-The archive README documents the folder contents, the separate operational leaderboard command, and the retained FluSight-only plot snapshots that the default command does not regenerate.
+The [Zenodo archive README](../reproducibility/README.md) documents the folder contents, the separate operational leaderboard command, and the retained FluSight-only plot snapshots that the default command does not regenerate.
 
 The plotting script calculates **relative WIS** by dividing each forecast's WIS by FluSight-baseline's WIS for the same location, target date, and horizon. A ratio of 0.8 means 20% lower WIS than the baseline for that forecast; 1.0 means equal WIS; 1.2 means 20% higher. A missing or zero baseline score leaves the ratio undefined.
 

@@ -11,7 +11,11 @@ InfluPaint represents influenza seasons as images, with weeks and locations as a
 
 Start with [installing the environment and cloning the repositories](docs/getting-started/installation.md), the first page of the walkthrough. Follow the [workflow guide](docs/workflows/start-here.md) for source data, training, inpainting, evaluation, and paper figures, or use the [quick start](docs/getting-started/quick-start.md) to reproduce figures from saved results. [Cluster and notebook instructions](docs/getting-started/cluster.md) cover UNC Longleaf.
 
+### Paper reproducibility
+
 To plot the figures in the paper, follow [Reproduce the paper figures](docs/workflows/paper-figures.md). This uses the saved data and results in the Zenodo reproducibility archive. **Zenodo DOI: `10.5281/zenodo.XXXXXXX` (placeholder).**
+
+See the [Zenodo archive README](docs/reproducibility/README.md) for archive contents and provenance.
 
 ## Forecast influenza hospitalizations
 

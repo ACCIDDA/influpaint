@@ -13,7 +13,7 @@ Assemble this table from four source families. Two describe observed epidemics t
     cp influpaint-paper/influpaint_paper_reproduction_data/datasets/sources/all_datasets.parquet Flusight/flu-datasets/all_datasets.parquet
     ```
 
-    The explanations and counts below describe this saved table. It is the November 7, 2025 source snapshot; the archive does not establish it as the original input to the July training files. For the paper's exact training images, use the saved NetCDF files described near the top of [step 2](build-training-datasets.md). The archive README records the reproduction inputs and provenance.
+    The explanations and counts below describe this saved table. It is the November 7, 2025 source snapshot; the archive does not establish it as the original input to the July training files. For the paper's exact training images, use the saved NetCDF files described near the top of [step 2](build-training-datasets.md). The [Zenodo archive README](../reproducibility/README.md) records the reproduction inputs and provenance.
 
 ## 1. Understand the common table
 

@@ -8,7 +8,7 @@ Use `influpaint/batch/config.py` to define these choices, `influpaint/batch/scen
 
     Get the results for this step directly from the [Zenodo reproducibility archive](start-here.md#reproducibility-archive).
 
-    The archive contains the selected `i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::3000.pth` checkpoint and training-loss tables under `analysis/`. Its README documents the saved run and dataset. The generated batch workflow uses MLflow run IDs; to load a standalone checkpoint directly, use the `-m` option described in step 5 or the operational notebook in step 9.
+    The archive contains the selected `i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::3000.pth` checkpoint and training-loss tables under `analysis/`. The [Zenodo archive README](../reproducibility/README.md) documents the saved run and dataset. The generated batch workflow uses MLflow run IDs; to load a standalone checkpoint directly, use the `-m` option described in step 5 or the operational notebook in step 9.
 
 ## 1. Understand what defines a candidate
 
