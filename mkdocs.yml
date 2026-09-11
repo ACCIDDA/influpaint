@@ -19,7 +19,7 @@ theme:
     - search.highlight
 
 nav:
-  - How InfluPaint Works: index.md
+  - InfluPaint: index.md
   - Paper Walkthrough:
       - "1. Gather source datasets": workflows/compiling-data-sources.md
       - "2. Create training data": workflows/build-training-datasets.md
