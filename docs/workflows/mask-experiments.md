@@ -6,7 +6,9 @@ The workflow is the same as forecasting: prepare data and a mask, sample with fi
 
 !!! tip "Paper reproducibility"
 
-    Get the results for this step directly from the [Zenodo reproducibility archive](start-here.md#reproducibility-archive).
+    You can bypass this stage by getting its final outputs directly from the [Zenodo reproducibility archive](https://doi.org/10.5281/zenodo.22699980) ([archive README](../reproducibility/README.md)): the reconstruction samples, masks, and ground-truth arrays under `forecasts/masks/`.
+
+    If you have not completed the previous stages, these saved arrays let you inspect the six paper reconstruction experiments directly. Running new reconstructions with the script below still requires a finished MLflow training run and its matching training dataset; the script is configured to load that run rather than the standalone archived checkpoint.
 
     Use `influpaint-paper/influpaint_paper_reproduction_data/forecasts/masks/`. Each experiment directory contains `fluforecasts_ti.npy`, `mask.npy`, and `ground_truth.npy`. For example, `influpaint-paper/influpaint_paper_reproduction_data/forecasts/masks/missing_nc_season2023/fluforecasts_ti.npy` contains the North Carolina reconstruction ensemble.
 

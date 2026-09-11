@@ -6,9 +6,11 @@ Use `influpaint/batch/config.py` to define these choices, `influpaint/batch/scen
 
 !!! tip "Paper reproducibility"
 
-    Get the results for this step directly from the [Zenodo reproducibility archive](start-here.md#reproducibility-archive).
+    You can bypass training the paper's selected model by getting its final output, `i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::3000.pth`, directly from the [Zenodo reproducibility archive](https://doi.org/10.5281/zenodo.22699980) ([archive README](../reproducibility/README.md)). Training-loss tables for the candidate models are also saved under `analysis/`.
 
-    The archive contains the selected `i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::3000.pth` checkpoint and training-loss tables under `analysis/`. The [Zenodo archive README](../reproducibility/README.md) documents the saved run and dataset. The generated batch workflow uses MLflow run IDs; to load a standalone checkpoint directly, use the `-m` option described in step 5 or the operational notebook in step 9.
+    If you have not completed step 2, you can start training with the four `TS_*_2025-07-17.nc` files in `datasets/training/` from the archive. Copy them into `training_datasets/` as shown in [step 2](build-training-datasets.md).
+
+    The generated batch workflow uses MLflow run IDs; to load a standalone checkpoint directly, use the `-m` option described in step 5 or the operational notebook in step 9.
 
 ## 1. Understand what defines a candidate
 

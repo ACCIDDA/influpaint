@@ -8,7 +8,9 @@ Open the Jupytext script as notebook cells and use the repository root as the wo
 
 !!! tip "Paper reproducibility"
 
-    Get the results for this step directly from the [Zenodo reproducibility archive](start-here.md#reproducibility-archive).
+    You can bypass this stage by getting its final outputs, the four July 17, 2025 NetCDF training datasets, directly from the [Zenodo reproducibility archive](https://doi.org/10.5281/zenodo.22699980) ([archive README](../reproducibility/README.md)).
+
+    If you have not completed step 1, you can start this stage with `datasets/sources/all_datasets.parquet` from the same archive. Copy it to `Flusight/flu-datasets/all_datasets.parquet`, then run the notebook below. This November source snapshot is not established as the original input to the July datasets; use the archived NetCDFs for the exact paper training inputs.
 
     Use the exact paper inputs in `influpaint-paper/influpaint_paper_reproduction_data/datasets/training/`:
 

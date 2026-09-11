@@ -6,9 +6,11 @@ Run `influpaint.batch.inpainting` to generate the forecasts. Each job loads one 
 
 !!! tip "Paper reproducibility"
 
-    Get the results for this step directly from the [Zenodo reproducibility archive](start-here.md#reproducibility-archive).
+    You can bypass forecast generation for the selected model by getting its final outputs directly from the [Zenodo reproducibility archive](https://doi.org/10.5281/zenodo.22699980) ([archive README](../reproducibility/README.md)): the ensembles and forecast CSVs in `forecasts/retrospective/`, and the generated seasons in `forecasts/unconditional/`.
 
-    `forecasts/retrospective/` contains the selected i868 ensemble and CSV for each of 29 reference dates; `forecasts/unconditional/` contains generated seasons without conditioning. These support the selected-model analyses. The full candidate comparison requires the other candidates' forecasts as well. To submit the preserved historical manifest using its MLflow runs, use `sbatch main_training/inpaint_array_paper-2025-07-22.run`.
+    If you have not completed training or job preparation, you can start this stage with `i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::3000.pth` and `datasets/training/TS_30S70M_2025-07-17.nc` from the archive. Copy the NetCDF into `training_datasets/`, use scenario `868`, and pass the checkpoint path with `-m` in the command below instead of a training run ID. The matching training dataset is needed to reconstruct the model's transformations; the observation data described below are still required.
+
+    The saved retrospective forecasts cover 29 reference dates. They support selected-model analyses; rescoring the full candidate comparison also requires the other candidates' forecasts.
 
 ## 1. Turn observed history into a conditioning image
 

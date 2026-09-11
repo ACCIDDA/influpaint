@@ -6,7 +6,11 @@ To plot the figures in the paper, download the Zenodo reproducibility archive an
 
 !!! tip "Paper reproducibility"
 
-    Extract the archive to `influpaint-paper/influpaint_paper_reproduction_data/` under the research repository. The [Zenodo archive README](../reproducibility/README.md) lists the saved inputs and their provenance. The archive also contains the previously generated figures under `regenerated_paper_figures/` if you want to inspect them before rerunning the plotting command.
+    You can bypass plotting by getting the final figures in `regenerated_paper_figures/` directly from the [Zenodo reproducibility archive](https://doi.org/10.5281/zenodo.22699980) ([archive README](../reproducibility/README.md)).
+
+    If you have not completed the previous stages, you can start plotting with the archive's `forecasts/`, `observations/`, `analysis/`, and `model_candidate_evaluation/` folders. These supply the saved samples, observations, losses, and scores needed by the command below.
+
+    Extract the archive to `influpaint-paper/influpaint_paper_reproduction_data/` under the research repository. The [Zenodo archive README](../reproducibility/README.md) lists the saved inputs and their provenance.
 
 ## 1. Plot the figures
 

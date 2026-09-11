@@ -6,9 +6,11 @@ The evaluation pipeline joins the forecast CSVs to truth, computes probabilistic
 
 !!! tip "Paper reproducibility"
 
-    Get the results for this step directly from the [Zenodo reproducibility archive](start-here.md#reproducibility-archive).
+    You can bypass scoring and ranking by getting the final outputs directly from the [Zenodo reproducibility archive](https://doi.org/10.5281/zenodo.22699980) ([archive README](../reproducibility/README.md)): `model_candidate_evaluation/scoringutils_scores.csv` and `model_candidate_evaluation/leaderboards/leaderboard_full.csv`.
 
-    Use `influpaint-paper/influpaint_paper_reproduction_data/model_candidate_evaluation/scoringutils_scores.csv` for the saved per-forecast scores, and `influpaint-paper/influpaint_paper_reproduction_data/model_candidate_evaluation/leaderboards/leaderboard_full.csv` for the saved rankings. The selected-model forecast archive does not contain all candidate forecast CSVs required to rescore the complete comparison. To remake the paper comparison figures directly, use step 8.
+    If you have not completed forecast generation, you can still run the model-comparison plots in this chapter using the saved `scoringutils_scores.csv`. The archive contains only the selected model's retrospective forecasts, so it does not supply all inputs needed to recompute scores for every candidate.
+
+    Extract the archive to `influpaint-paper/influpaint_paper_reproduction_data/` for the plotting command below. To remake the paper comparison figures directly, use [step 8](paper-figures.md).
 
 ## 1. Choose the forecasts and join them to observations
 

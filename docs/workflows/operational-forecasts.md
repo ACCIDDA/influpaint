@@ -104,9 +104,11 @@ With the notebook's default prefix `UNC_IDD-InfluPaint`, the outputs are:
 
 The array files are written when `save_raw_arrays=True`. Open the CSV and check its `reference_date`, `target_end_date`, state codes, and quantile probabilities against the intended run. Horizons 0–3 should target the reference date and the next three weekly dates. Open both report PDFs to inspect the national and state forecasts. If the dates or observations are wrong, correct the notebook settings and regenerate the forecast and exports. Running the notebook creates local files; submission to FluSight is a separate action.
 
-??? tip "Inspect a saved operational forecast"
+!!! tip "Paper reproducibility"
 
-    To use the paper's selected checkpoint, set `scenario_id = 868`, `experiment_name = None`, `run_id = None`, and `model_path = "influpaint-paper/influpaint_paper_reproduction_data/i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::3000.pth"`. Use its July 17 training dataset as described in step 2.
+    If you have not completed training, you can start this stage with `i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::3000.pth` and `datasets/training/TS_30S70M_2025-07-17.nc` from the [Zenodo reproducibility archive](https://doi.org/10.5281/zenodo.22699980) ([archive README](../reproducibility/README.md)). Copy the NetCDF into `training_datasets/`, set `scenario_id = 868`, `experiment_name = None`, `run_id = None`, and `model_path = "influpaint-paper/influpaint_paper_reproduction_data/i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::3000.pth"`. You still need to update surveillance data for the new forecast date.
+
+??? tip "Inspect a saved operational forecast"
 
     The example report and its preview are included on this page, so no model run is needed to inspect them. The original November 29 files are under `Flusight/2025-2026/Flusight 2025-2026/2025-11-29/` in the local research archive. These are separate from the paper reproduction archive's earlier operational submissions in `forecasts/operational/`.
 

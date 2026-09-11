@@ -6,9 +6,11 @@ A **forecast job** is one trained checkpoint, one forecast reference date, and o
 
 !!! tip "Paper reproducibility"
 
-    Get the results for this step directly from the [Zenodo reproducibility archive](start-here.md#reproducibility-archive).
+    You can bypass job preparation and forecast generation for the selected model by getting the saved forecasts in `forecasts/retrospective/` directly from the [Zenodo reproducibility archive](https://doi.org/10.5281/zenodo.22699980) ([archive README](../reproducibility/README.md)).
 
-    The paper manifest is `main_training/paper_runs_2025-07-22/inpaint_jobs_paper-2025-07-22.txt`, with its launcher at `main_training/inpaint_array_paper-2025-07-22.run`. These refer to the historical MLflow runs. To explore saved selected-model forecasts directly, use `forecasts/retrospective/` in the Zenodo archive; the [Zenodo archive README](../reproducibility/README.md) describes the coverage.
+    If you have not completed training and want to generate new forecasts with the selected model, take `i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::3000.pth` and `datasets/training/TS_30S70M_2025-07-17.nc` from the archive and use the direct checkpoint command in [step 5](inpainting.md). This does not require a job manifest.
+
+    Generating a manifest for all candidates still requires their finished MLflow training runs. The paper manifest is preserved in this repository at `main_training/paper_runs_2025-07-22/inpaint_jobs_paper-2025-07-22.txt`, with its launcher at `main_training/inpaint_array_paper-2025-07-22.run`; both refer to historical MLflow runs, which the archived checkpoint does not replace.
 
 ## 1. Select the training runs
 

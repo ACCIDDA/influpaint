@@ -6,7 +6,7 @@ Assemble this table from four source families. Two describe observed epidemics t
 
 !!! tip "Paper reproducibility"
 
-    Get the results for this step directly from the [Zenodo reproducibility archive](start-here.md#reproducibility-archive). Copy the saved source table to follow the data exploration:
+    You can bypass source gathering by getting the saved output, `datasets/sources/all_datasets.parquet`, directly from the [Zenodo reproducibility archive](https://doi.org/10.5281/zenodo.22699980) ([archive README](../reproducibility/README.md)). Copy it into the location used by the walkthrough:
 
     ```bash
     mkdir -p Flusight/flu-datasets
