@@ -2,7 +2,7 @@
 
 To plot the figures in the paper, download the Zenodo reproducibility archive and run the command below. It uses the saved generated seasons, forecasts, reconstructions, observations, and score tables to produce the four main data figures and four supplementary figures. You do not need to retrain the models, generate forecasts, or calculate scores again.
 
-**Zenodo DOI: `10.5281/zenodo.XXXXXXX` (placeholder).**
+**Zenodo DOI: [10.5281/zenodo.22699980](https://doi.org/10.5281/zenodo.22699980).**
 
 !!! tip "Paper reproducibility"
 

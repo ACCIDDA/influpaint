@@ -2,7 +2,7 @@
 
 To prepare data, train models, and make forecasts, follow [the walkthrough](../workflows/start-here.md).
 
-For reproducibility, download the Zenodo archive (DOI placeholder: `10.5281/zenodo.XXXXXXX`). To plot the figures in the paper, place the extracted archive at `influpaint-paper/influpaint_paper_reproduction_data/` and run from the research repository root:
+For reproducibility, download the Zenodo archive (DOI: [10.5281/zenodo.22699980](https://doi.org/10.5281/zenodo.22699980)). To plot the figures in the paper, place the extracted archive at `influpaint-paper/influpaint_paper_reproduction_data/` and run from the research repository root:
 
 ```bash
 python -m paper_figures.final_figures --data-root influpaint-paper/influpaint_paper_reproduction_data

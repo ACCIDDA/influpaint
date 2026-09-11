@@ -19,7 +19,7 @@ Follow the walkthrough to prepare influenza data, train models, and make forecas
 
     [Jump here to reproduce the paper](workflows/paper-figures.md) using saved data, forecasts, and scores from the Zenodo reproducibility archive.
 
-    **Zenodo DOI: `10.5281/zenodo.XXXXXXX` (placeholder).**
+    **Zenodo DOI: [10.5281/zenodo.22699980](https://doi.org/10.5281/zenodo.22699980).**
 
 ## Forecast influenza hospitalizations
 

@@ -8,7 +8,7 @@ You will start with historical surveillance and simulated epidemics, put them on
 
 !!! tip "Paper reproducibility"
 
-    **Zenodo DOI: `10.5281/zenodo.XXXXXXX` (placeholder).**
+    **Zenodo DOI: [10.5281/zenodo.22699980](https://doi.org/10.5281/zenodo.22699980).**
 
     To reproduce the paper, use the Zenodo archive. It contains the source table, four training datasets, the selected model checkpoint, saved forecasts, and score and loss tables. The [Zenodo archive README](../reproducibility/README.md) documents the exact reproduction inputs and their provenance. Place it at `influpaint-paper/influpaint_paper_reproduction_data/` to use the archive paths in this walkthrough. To plot the figures in the paper without rerunning training or forecasts, go to [Reproduce the paper figures](paper-figures.md). To start at another step, use the saved files listed near the top of that chapter.
 

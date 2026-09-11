@@ -60,7 +60,7 @@ The repository does not provide a pinned environment lockfile. The paper's Slurm
 
 ## Use the reproduction archive
 
-**Zenodo DOI: `10.5281/zenodo.XXXXXXX` (placeholder).**
+**Zenodo DOI: [10.5281/zenodo.22699980](https://doi.org/10.5281/zenodo.22699980).**
 
 To reproduce saved results, place the extracted Zenodo reproduction archive at `influpaint-paper/influpaint_paper_reproduction_data/` under the research repository. Create the parent directory locally before extracting the archive.
 

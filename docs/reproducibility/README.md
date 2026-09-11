@@ -1,5 +1,7 @@
 # Data and figures for the Influpaint paper
 
+**Zenodo DOI: [10.5281/zenodo.22699980](https://doi.org/10.5281/zenodo.22699980).**
+
 Paths below are relative to the extracted archive unless a command specifies the research repository root.
 
 The Zenodo reproducibility archive contains the pretrained model, forecast outputs, observations, and analysis data used to generate the paper's figures and supplementary figures. It also contains the regenerated figures. Forecasts and model weights are provided as archived outputs; plotting them does not require retraining the model or generating new forecasts.

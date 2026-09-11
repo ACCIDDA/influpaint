@@ -13,7 +13,7 @@ Start with [installing the environment and cloning the repositories](docs/gettin
 
 ### Paper reproducibility
 
-To plot the figures in the paper, follow [Reproduce the paper figures](docs/workflows/paper-figures.md). This uses the saved data and results in the Zenodo reproducibility archive. **Zenodo DOI: `10.5281/zenodo.XXXXXXX` (placeholder).**
+To plot the figures in the paper, follow [Reproduce the paper figures](docs/workflows/paper-figures.md). This uses the saved data and results in the Zenodo reproducibility archive. **Zenodo DOI: [10.5281/zenodo.22699980](https://doi.org/10.5281/zenodo.22699980).**
 
 See the [Zenodo archive README](docs/reproducibility/README.md) for archive contents and provenance.
 
