@@ -25,6 +25,13 @@
   background-color: #ffc9ef;
 }
 
+.md-typeset h2 {
+  width: fit-content;
+  padding: 0 0.08em;
+  color: #005c3e;
+  background-color: #ffc9ef;
+}
+
 .md-typeset a:not(.md-button):not(:has(img)):hover,
 .md-typeset a:not(.md-button):not(:has(img)):focus-visible {
   color: #005c3e;
@@ -49,4 +56,24 @@
   color: #00462f;
   background-color: #3eea71;
   border-color: #3eea71;
+}
+
+.md-typeset .monet-inpainting {
+  float: left;
+  width: min(45%, 12.5rem);
+  margin: 0.25rem 1.5rem 1rem 0;
+}
+
+.md-typeset .monet-inpainting img {
+  display: block;
+  width: 100%;
+  border-radius: 0.2rem;
+}
+
+.md-typeset .monet-inpainting figcaption {
+  margin-top: 0.4rem;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.62rem;
+  line-height: 1.35;
+  text-align: center;
 }

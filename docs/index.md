@@ -1,4 +1,4 @@
-# influpaint: Generative diffusion models for spatiotemporal influenza forecasting
+# influpaint: generative diffusion models for spatiotemporal influenza forecasting
 
 <div class="doc-author">
   <div>Joseph Lemaitre and Justin Lessler</div>
@@ -6,6 +6,14 @@
 </div>
 
 ## Abstract
+
+<figure class="monet-inpainting">
+  <img src="assets/monet-inpainting.png" alt="Claude Monet painting an influenza forecast for North Carolina">
+  <figcaption>
+    <em>Claude Monet peignant la grippe en Caroline du Nord</em><br>
+    John Singer Sargent, 1885, Tate Britain
+  </figcaption>
+</figure>
 
 Forecasting infectious disease incidence can provide important information to guide public health planning, yet is difficult because epidemic dynamics are complex. Current mechanistic and statistical approaches often struggle to capture multimodal uncertainty or emergent trends. Influpaint adapts denoising diffusion probabilistic models to epidemic forecasting. By encoding influenza seasons as spatiotemporal images in which pixel intensity represents incidence, Influpaint learns a rich distribution of disease dynamics from a hybrid dataset of surveillance and simulated trajectories. Forecasting is formulated as a conditional generation (inpainting) task from partial observations. We show that Influpaint generates realistic, diverse epidemic trajectories and achieves forecast accuracy that is competitive with leading ensemble methods in retrospective evaluation. In real-time evaluation during the 2023–2025 U.S. CDC FluSight challenges, performance improved substantially across seasons, with highly accurate but somewhat overconfident projections in 2024–2025. The best performance was achieved with a training dataset containing 30% surveillance and 70% simulated trajectories. These results show that diffusion models can capture important spatiotemporal structure in influenza dynamics and provide a flexible framework for probabilistic infectious disease forecasting.
 
