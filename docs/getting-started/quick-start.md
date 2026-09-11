@@ -1,6 +1,6 @@
 # Quick start
 
-To understand the full process, follow [How InfluPaint works](../index.md). To recreate the paper figures, place the reproduction archive at `influpaint-paper/influpaint_paper_reproduction_data/` and run from the research repository root:
+To understand the full process, follow [Walkthrough → Start here](../workflows/start-here.md). To recreate the paper figures, place the reproduction archive at `influpaint-paper/influpaint_paper_reproduction_data/` and run from the research repository root:
 
 ```bash
 python -m paper_figures.final_figures --data-root influpaint-paper/influpaint_paper_reproduction_data

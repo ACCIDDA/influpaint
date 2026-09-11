@@ -27,4 +27,18 @@ The paper's i868 + `celebahq_noTTJ5` ranks second in both combined absolute and 
 
 The local full forecast directory lacks the expected i932/i996 outputs. Those models have large logged training losses, but the available artifacts do not establish their final scheduler outcome. The saved scores and leaderboard document the comparison that was actually available.
 
+## See how model choices affect forecast scores
+
+[![Supplementary Figure 1: changes in forecast performance when varying one model setting](../assets/scoring/sup_forest_effect.png)](../assets/scoring/sup_forest_effect.png)
+
+**Supplementary Figure 1 — Compare one setting at a time.** Each row changes one setting relative to the baseline formulation: the diffusion process, U-Net, training-data mixture, transform, enrichment, or inpainting configuration. The horizontal axis shows percentage improvement in WIS over the baseline. Positive values indicate better forecast performance; negative values indicate worse performance. The dashed zero line marks the baseline. This comparison helps identify which modeling choices matter for forecast accuracy.
+
+## Compare training loss with forecasting performance
+
+[![Supplementary Figure 3: training loss versus relative and absolute weighted interval scores](../assets/scoring/sup_lossVSwis.png)](../assets/scoring/sup_lossVSwis.png)
+
+**Supplementary Figure 3 — Select on forecast performance as well as training loss.** The horizontal axis shows average training loss over the last 100 logged steps. The vertical axes show relative WIS (left) and absolute WIS (right), with lower scores indicating better forecasts. Colors distinguish training-data mixtures, and marker shapes distinguish inpainting settings. The selected `i868_noTTJ5` formulation is labeled in red. A low denoising loss alone does not identify the strongest forecasting formulation; the held-out forecast scores provide the comparison used for selection.
+
+These are the existing figures included in the paper's supplement. The underlying saved inputs are `analysis/leaderboard_full.csv` and `analysis/mlflow_losses.csv` in the reproduction archive. [Step 8](paper-figures.md) explains how to regenerate the supplementary figures.
+
 [Previous: 5. Generate forecasts](inpainting.md) · [Next: 7. Reconstruct missing observations](mask-experiments.md)

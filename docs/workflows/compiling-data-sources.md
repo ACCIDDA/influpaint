@@ -61,4 +61,4 @@ Run the standard cells through the Parquet save. The notebook's intentional `ass
 
 The story images are regenerated with `python -m main_training.render_notebook_stories`. They visualize the archived data without rerunning downloads or random source sampling.
 
-[Next: 2. Create training data](build-training-datasets.md)
+[Previous: Start here](start-here.md) · [Next: 2. Create training data](build-training-datasets.md)

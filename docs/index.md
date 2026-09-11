@@ -1,12 +1,12 @@
-# InfluPaint
+# influpaint: Generative diffusion models for spatiotemporal influenza forecasting
+
+Joseph Lemaitre and Justin Lessler
 
 ## Abstract
 
 Forecasting infectious disease incidence can provide important information to guide public health planning, yet is difficult because epidemic dynamics are complex. Current mechanistic and statistical approaches often struggle to capture multimodal uncertainty or emergent trends. Influpaint adapts denoising diffusion probabilistic models to epidemic forecasting. By encoding influenza seasons as spatiotemporal images in which pixel intensity represents incidence, Influpaint learns a rich distribution of disease dynamics from a hybrid dataset of surveillance and simulated trajectories. Forecasting is formulated as a conditional generation (inpainting) task from partial observations. We show that Influpaint generates realistic, diverse epidemic trajectories and achieves forecast accuracy that is competitive with leading ensemble methods in retrospective evaluation. In real-time evaluation during the 2023–2025 U.S. CDC FluSight challenges, performance improved substantially across seasons, with highly accurate but somewhat overconfident projections in 2024–2025. The best performance was achieved with a training dataset containing 30% surveillance and 70% simulated trajectories. These results show that diffusion models can capture important spatiotemporal structure in influenza dynamics and provide a flexible framework for probabilistic infectious disease forecasting.
 
 [Read the paper on arXiv: *Generative diffusion models for spatiotemporal influenza forecasting*](https://arxiv.org/abs/2604.24913){ .md-button .md-button--primary }
-
-Joseph Lemaitre and Justin Lessler
 
 ## Forecast influenza hospitalizations
 
@@ -26,29 +26,14 @@ Joseph Lemaitre and Justin Lessler
 
 **Figure 5 — How InfluPaint works.** **a.** An influenza season becomes an image whose axes represent weeks and locations and whose pixel intensity represents incidence. **b.** A diffusion model learns to reverse the gradual addition of noise, allowing it to generate new, plausible seasons. **c.** Inpainting combines observed values and a mask with the generation process to infer the missing parts of a season. The paper's forecasting implementation uses CoPaint to condition these generated trajectories on the available observations.
 
-## Follow the workflow
+## Explore the walkthrough
 
-The walkthrough follows the paper from source data to publication figures. Each numbered step explains what you will use and produce, and identifies files in the Zenodo reproduction archive that let you skip ahead.
+[Start here: from source data to paper figures](workflows/start-here.md){ .md-button }
 
-## Contents
+!!! tip "Skip any step with the reproduction archive"
 
-| Step | You will use | You will produce |
-| --- | --- | --- |
-| [1. Gather source datasets](workflows/compiling-data-sources.md) | FluView, FluSurv, and simulated trajectories | One standardized source table |
-| [2. Create training data](workflows/build-training-datasets.md) | Source table and mixing rules | Four complete season-image datasets |
-| [3. Train candidate models](workflows/training.md) | Training images and diffusion configurations | Model checkpoints and training losses |
-| [4. Prepare forecast jobs](workflows/forecast-jobs.md) | Finished training runs, dates, and CoPaint settings | A forecast manifest and Slurm array |
-| [5. Generate forecasts with inpainting](workflows/inpainting.md) | A checkpoint and observed history | Conditional trajectories and forecast quantiles |
-| [6. Score forecasts and select the formulation](workflows/evaluation.md) | Forecast quantiles and observed truth | Scores and a model leaderboard |
-| [7. Reconstruct missing observations](workflows/mask-experiments.md) | The selected model and observation masks | Reconstructed seasons |
-| [8. Reproduce the paper figures](workflows/paper-figures.md) | Archived samples, observations, and analysis tables | The paper's eight data figures |
+    **You can skip any step.** The Zenodo reproduction archive provides saved files so you can begin at the stage that interests you. Each chapter identifies the exact files to use in a tip like this one. See [Walkthrough → Start here](workflows/start-here.md) for the complete workflow, or go directly to [reproducing the paper figures](workflows/paper-figures.md).
 
-## Before you start
+## Funding
 
-Follow [Installation](getting-started/installation.md) for the research environment. All commands and repository paths in this walkthrough are relative to the **research repository root**, the directory containing `influpaint/`, `main_training/`, and `mkdocs.yml`.
-
-Place the reproduction archive at `influpaint-paper/influpaint_paper_reproduction_data/`. Its `README.md` inventories every shortcut used here. The paper's exact training inputs are the July 17, 2025 NetCDF files; newer datasets are different training realizations. [Steps 1 and 2](workflows/compiling-data-sources.md) also tell the notebooks' story through captioned plots from saved data.
-
-The paper's cluster launchers, saved scenario definitions, and job manifests live in `main_training/`; `main_training/runs.txt` collects the commands. Reusable model and batch code lives in `influpaint/`.
-
-To reproduce figures immediately, go to [step 8](workflows/paper-figures.md). To understand the model itself, start with [step 1](workflows/compiling-data-sources.md) and follow the next-page links.
+This work was supported by the National Institutes of Health (NIH, award *5R01AI102939*). This project was made possible by cooperative agreement CDC-RFA-FT-23-0069 from the CDC's Center for Forecasting and Outbreak Analytics. Its contents are solely the responsibility of the authors and do not necessarily represent the official views of the Centers for Disease Control and Prevention.

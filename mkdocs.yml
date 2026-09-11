@@ -20,7 +20,8 @@ theme:
 
 nav:
   - InfluPaint: index.md
-  - Paper Walkthrough:
+  - Walkthrough:
+      - Start here: workflows/start-here.md
       - "1. Gather source datasets": workflows/compiling-data-sources.md
       - "2. Create training data": workflows/build-training-datasets.md
       - "3. Train candidate models": workflows/training.md
