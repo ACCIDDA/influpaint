@@ -25,15 +25,16 @@
   background-color: #ffc9ef;
 }
 
-.md-typeset h1 .title-brand {
-  font-weight: 700;
-}
-
 .md-header__topic:first-child .md-ellipsis {
-  width: fit-content;
   padding: 0 0.08em;
   color: #005c3e;
-  background-color: #ffc9ef;
+  background: linear-gradient(
+    to bottom,
+    transparent 29%,
+    #ffc9ef 29%,
+    #ffc9ef 71%,
+    transparent 71%
+  );
 }
 
 .md-typeset h2 {
