@@ -8,7 +8,7 @@
 ## Abstract
 
 <figure class="monet-inpainting">
-  <img src="assets/monet-inpainting.png" alt="Claude Monet painting an influenza forecast for North Carolina">
+  <img src="assets/monet-inpainting.webp" alt="Claude Monet painting an influenza forecast for North Carolina">
   <figcaption>
     <em>Claude Monet peignant la grippe en Caroline du Nord</em><br>
     John Singer Sargent, 1885, Tate Britain
