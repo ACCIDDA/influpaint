@@ -21,6 +21,10 @@
 .md-typeset h1 {
   width: fit-content;
   padding: 0 0.08em;
+}
+
+.md-typeset h1 .title-brand {
+  padding: 0 0.08em;
   color: #005c3e;
   background-color: #ffc9ef;
 }

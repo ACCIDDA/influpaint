@@ -1,4 +1,4 @@
-# influpaint: generative diffusion models for spatiotemporal influenza forecasting
+# <span class="title-brand">influpaint</span>: generative diffusion models for spatiotemporal influenza forecasting
 
 <div class="doc-author">
   <div>Joseph Lemaitre and Justin Lessler</div>
@@ -24,7 +24,7 @@ Forecasting infectious disease incidence can provide important information to gu
 Follow the walkthrough to prepare influenza data, train models, and make forecasts. Start by gathering surveillance and simulated seasons, turn them into training images with different source mixtures, and train candidate diffusion models. Then condition each model on observed hospitalizations, compare its forecasts, and use the selected formulation for reconstruction or weekly forecasting.
 
 [Start the step-by-step walkthrough](workflows/start-here.md){ .md-button .md-button--primary }
-[Install the environment](getting-started/installation.md){ .md-button }
+[Install the environment](getting-started/installation.md){ .md-button .md-button--primary }
 
 !!! tip "Paper reproducibility"
 

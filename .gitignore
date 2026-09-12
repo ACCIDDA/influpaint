@@ -8,7 +8,6 @@ mlruns/
 training_datasets/
 influpaint-paper/
 archives/dev/aider.chat.history.md
-CLAUDE.md
 custom_datasets/*
 *.out
 CoPaint4influpaint/
