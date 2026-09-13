@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Influpaint</title>
+  <path fill="#77ff9e" d="M0 0h64v64H0z"/>
+  <path fill="#ffc9ef" d="M6 8h52v48H6z"/>
+  <g fill="#29252b" transform="translate(-3 0)">
+    <path d="M15 14h7v36h-7z"/>
+    <path fill-rule="evenodd" d="M29 14h12c9 0 14 4 14 12s-5 12-14 12h-5v12h-7zm7 6v12h5c5 0 7-2 7-6s-2-6-7-6z"/>
+  </g>
+</svg>
