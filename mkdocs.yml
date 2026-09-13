@@ -7,7 +7,7 @@ repo_name: influpaint
 theme:
   name: material
   logo: assets/in-logo-basic-no-words.png
-  favicon: assets/favicon.svg
+  favicon: assets/favicon.png
   palette:
     scheme: default
     primary: custom

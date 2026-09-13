@@ -5,7 +5,7 @@
 
 Influpaint represents influenza seasons as images, with weeks and locations as axes and incidence as pixel intensity. A denoising diffusion model learns from surveillance and simulated trajectories; CoPaint conditions generated seasons on observed data to forecast future hospitalizations or reconstruct missing observations without retraining.
 
-[Read the paper on arXiv](https://arxiv.org/abs/2604.24913) · [Documentation](docs/index.md)
+[Read the paper on arXiv](https://arxiv.org/abs/2604.24913) · [Documentation](https://accidda.github.io/influpaint/)
 
 ## Running influpaint
 
