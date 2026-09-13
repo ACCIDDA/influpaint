@@ -21,13 +21,13 @@
 .md-typeset h1 {
   width: fit-content;
   padding: 0 0.08em;
-  color: #005c3e;
+  color: #29252b;
   background-color: #ffc9ef;
 }
 
 .md-header__topic:first-child .md-ellipsis {
   padding: 0 0.08em;
-  color: #005c3e;
+  color: #29252b;
   background: linear-gradient(
     to bottom,
     transparent 29%,
@@ -40,32 +40,32 @@
 .md-typeset h2 {
   width: fit-content;
   padding: 0 0.08em;
-  color: #005c3e;
+  color: #29252b;
   background-color: #ffc9ef;
 }
 
 .md-typeset a:not(.md-button):not(:has(img)):hover,
 .md-typeset a:not(.md-button):not(:has(img)):focus-visible {
-  color: #005c3e;
+  color: #29252b;
   background-color: #ff9ee0;
   box-shadow: 0 0 0 0.12em #ff9ee0;
 }
 
 .md-nav__link--active {
-  color: #005c3e;
+  color: #29252b;
   background-color: #ff9ee0;
   box-shadow: 0 0 0 0.12em #ff9ee0;
 }
 
 .md-typeset .md-button--primary {
-  color: #005c3e;
+  color: #29252b;
   background-color: #77ff9e;
   border-color: #77ff9e;
 }
 
 .md-typeset .md-button--primary:hover,
 .md-typeset .md-button--primary:focus-visible {
-  color: #00462f;
+  color: #29252b;
   background-color: #3eea71;
   border-color: #3eea71;
 }

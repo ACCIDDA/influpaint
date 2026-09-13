@@ -1,6 +1,6 @@
 # 1. Gather source datasets
 
-The starting point for InfluPaint is a **common table of weekly influenza measurements and simulated hospitalizations**, saved as `Flusight/flu-datasets/all_datasets.parquet`. Each row holds one value for one location and week within a particular source, season, and trajectory. Grouping those rows gives epidemic curves; arranging the curves for all locations side by side will give the training images in step 2.
+The starting point for influpaint is a **common table of weekly influenza measurements and simulated hospitalizations**, saved as `Flusight/flu-datasets/all_datasets.parquet`. Each row holds one value for one location and week within a particular source, season, and trajectory. Grouping those rows gives epidemic curves; arranging the curves for all locations side by side will give the training images in step 2.
 
 Assemble this table from four source families. Two describe observed epidemics through surveillance; two supply simulated epidemics from transmission models. The table gives them common column names and season labels while retaining their source identities and measurement scales. The first notebook, `dataset_creation/1-gather_all_flu_datasets_ipynb.py`, reads, inspects, and combines them.
 
@@ -33,7 +33,7 @@ The table is stored in Parquet, a format for saving tabular data. It has **2,535
 
 **H1 and H2 describe where a record came from.** H1 groups related data into a family; H2 distinguishes datasets within that family. A family with only one sub-source still has both columns. For FluView they both contain `fluview`; for FluSurv the family is `flusurv` and the selected processed sub-source is `csp_flusurv`.
 
-A Hub sub-source needs a more detailed name. In `round4_USC-SIkJalpha_A-2023-08-14`, `round4` identifies the modeling round, `USC-SIkJalpha` the submitted model, and `A-2023-08-14` the scenario identifier. That H2 contains 20 sampled trajectories. Other scenarios from the same model get different H2 labels. These are the source models that generated training material; InfluPaint's candidate models are trained later in step 3.
+A Hub sub-source needs a more detailed name. In `round4_USC-SIkJalpha_A-2023-08-14`, `round4` identifies the modeling round, `USC-SIkJalpha` the submitted model, and `A-2023-08-14` the scenario identifier. That H2 contains 20 sampled trajectories. Other scenarios from the same model get different H2 labels. These are the source models that generated training material; influpaint's candidate models are trained later in step 3.
 
 ### From rows to a season
 

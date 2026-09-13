@@ -1,6 +1,6 @@
 # Architecture overview
 
-InfluPaint represents seasons as week-by-location images. Dataset preparation makes complete frames; a U-Net diffusion model learns to denoise them; CoPaint conditions generated seasons on observed entries. The [paper walkthrough](../index.md) explains the full sequence.
+Influpaint represents seasons as week-by-location images. Dataset preparation makes complete frames; a U-Net diffusion model learns to denoise them; CoPaint conditions generated seasons on observed entries. The [paper walkthrough](../index.md) explains the full sequence.
 
 | Component | Source |
 | --- | --- |

@@ -1,6 +1,6 @@
 # Start here
 
-The goal of this walkthrough is to build an influenza forecasting model and understand the choices that shape its predictions. InfluPaint first learns what complete influenza seasons look like. It then uses the observed part of a season to generate possible continuations, producing an ensemble of trajectories across states and weeks.
+The goal of this walkthrough is to build an influenza forecasting model and understand the choices that shape its predictions. Influpaint first learns what complete influenza seasons look like. It then uses the observed part of a season to generate possible continuations, producing an ensemble of trajectories across states and weeks.
 
 You will start with historical surveillance and simulated epidemics, put them on a common calendar, and build training datasets with different mixtures of the two. After training candidate models, you will forecast the same reference dates with each candidate, compare their probabilistic accuracy, and use a selected model to fill missing observations or make an operational forecast.
 

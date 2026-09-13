@@ -37,7 +37,7 @@ Run from the research repository root after copying the cluster outputs:
 python -m evaluation.prepare_dataset_for_scoringutils
 ```
 
-The output is `model_candidate_evaluation/combined_forecast_truth_data.csv`. It has one row per quantile for a model, reference date, target week, location, and horizon. `predicted` is the forecast quantile value, `quantile` is its probability, and `observed` is the matching hospitalization count. The same observed count is repeated across the 23 quantile rows for a forecast. `group` distinguishes InfluPaint candidates (`influpaint`) from official hub submissions (`flusight`). The script joins by location and target date and stops if that join loses forecast rows.
+The output is `model_candidate_evaluation/combined_forecast_truth_data.csv`. It has one row per quantile for a model, reference date, target week, location, and horizon. `predicted` is the forecast quantile value, `quantile` is its probability, and `observed` is the matching hospitalization count. The same observed count is repeated across the 23 quantile rows for a forecast. `group` distinguishes influpaint candidates (`influpaint`) from official hub submissions (`flusight`). The script joins by location and target date and stops if that join loses forecast rows.
 
 ## 2. Calculate and interpret the scores
 
@@ -94,7 +94,7 @@ The saved leaderboard uses **the sum of WIS** and **the mean of per-forecast rel
 
 The current plotting code excludes i808, UGuelph-CompositeCurve, and CADPH-FluCAT_Ensemble. It also allows a model to miss at most five reference dates per season, based on the dates present in the loaded scores. With 15 dates in one season, that requires at least 10; with 14 dates, at least 9. A model must meet the threshold in every season to enter the combined comparison. This date-count rule does not guarantee every location/horizon is present, so also inspect the missing-data summaries.
 
-The saved leaderboard contains 36 InfluPaint formulations: 12 included training scenarios × 3 conditioning settings. The paper's i868 with `celebahq_noTTJ5` ranks second in both combined absolute and relative WIS. The paper selected it using both rankings.
+The saved leaderboard contains 36 influpaint formulations: 12 included training scenarios × 3 conditioning settings. The paper's i868 with `celebahq_noTTJ5` ranks second in both combined absolute and relative WIS. The paper selected it using both rankings.
 
 ## 4. Compare one model choice at a time
 

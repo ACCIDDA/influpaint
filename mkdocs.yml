@@ -1,4 +1,4 @@
-site_name: InfluPaint
+site_name: Influpaint
 site_description: Inpainting denoising diffusion probabilistic models for infectious disease forecasting
 site_author: Joseph Lemaitre, Justin Lessler
 repo_url: https://github.com/ACCIDDA/influpaint
@@ -7,7 +7,7 @@ repo_name: influpaint
 theme:
   name: material
   logo: assets/in-logo-basic-no-words.png
-  favicon: assets/in-logo-basic-no-words.png
+  favicon: assets/favicon.svg
   palette:
     scheme: default
     primary: custom
@@ -24,7 +24,7 @@ extra_css:
   - stylesheets/extra.css
 
 nav:
-  - InfluPaint: index.md
+  - Influpaint: index.md
   - Walkthrough:
       - Start here: workflows/start-here.md
       - "0. Clone repositories and install the environment": getting-started/installation.md

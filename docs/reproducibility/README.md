@@ -1,4 +1,4 @@
-# Data and figures for the Influpaint paper
+# Data and figures for the influpaint paper
 
 **Zenodo DOI: [10.5281/zenodo.22699980](https://doi.org/10.5281/zenodo.22699980).**
 
@@ -6,7 +6,7 @@ Paths below are relative to the extracted archive unless a command specifies the
 
 The Zenodo reproducibility archive contains the pretrained model, forecast outputs, observations, and analysis data used to generate the paper's figures and supplementary figures. It also contains the regenerated figures. Forecasts and model weights are provided as archived outputs; plotting them does not require retraining the model or generating new forecasts.
 
-This archive is a companion to the [Influpaint GitHub repository](https://github.com/ACCIDDA/influpaint), which contains the code. From the root of a cloned Influpaint repository, using the Influpaint Python environment, run:
+This archive is a companion to the [influpaint GitHub repository](https://github.com/ACCIDDA/influpaint), which contains the code. From the root of a cloned influpaint repository, using the influpaint Python environment, run:
 
 ```bash
 python -m paper_figures.final_figures --data-root "influpaint-paper/influpaint_paper_reproduction_data"
@@ -50,7 +50,7 @@ Dimensions are `(sample, feature, season_week, place)`, with shape `(N, 1, 64, 6
 | Training duration | 3,000 epochs |
 | Forecast conditioning | CoPaint, configuration `celebahq_noTTJ5` |
 
-The file contains the trained network weights, optimizer state, epoch setting, and loss-type metadata. The network architecture and preprocessing are defined in the [Influpaint source code](https://github.com/ACCIDDA/influpaint).
+The file contains the trained network weights, optimizer state, epoch setting, and loss-type metadata. The network architecture and preprocessing are defined in the [influpaint source code](https://github.com/ACCIDDA/influpaint).
 
 The original checkpoint filename was `i868::m_U500cRx1224::ds_30S70M::tr_Sqrt::ri_No::3000.pth`, from the `paper-2025-07-22_training` experiment.
 
@@ -106,7 +106,7 @@ The retrospective, unconditional, and reconstructed sample arrays all have shape
 
 The model pads the week and location dimensions to 64. The first 51 spatial positions represent the 50 states and Washington, DC; the remaining positions are padding. Their order follows `observations/influpaint_locations.csv` after excluding the national `US` entry and territories, as done by `SeasonAxis.for_flusight(remove_us=True, remove_territories=True)`.
 
-Use the Influpaint `SeasonAxis` calendar, the season identifier, and observation dates to interpret the time dimension. The season calendar starts in August. Padded positions are not additional weeks or locations to include in epidemiological summaries. National trajectories in Figure 3 are obtained by summing the 51 state/DC trajectories within each sample.
+Use the influpaint `SeasonAxis` calendar, the season identifier, and observation dates to interpret the time dimension. The season calendar starts in August. Padded positions are not additional weeks or locations to include in epidemiological summaries. National trajectories in Figure 3 are obtained by summing the 51 state/DC trajectories within each sample.
 
 ## Operational forecasts and comparison forecasts
 `forecasts/operational/` contains selected CSVs copied from the official FluSight forecast-hub repositories for each season:
@@ -122,7 +122,7 @@ These are historical submissions. They are distinct from the retrospective forec
 | `observations/2023-2024/target-hospital-admissions.csv` | Observed weekly influenza hospital admissions, copied from the 2023–2024 FluSight hub's target data; used for the corresponding forecast and reconstruction comparisons |
 | `observations/2024-2025/target-hospital-admissions.csv` | Observed weekly influenza hospital admissions, copied from the 2024–2025 FluSight hub's target data; used for the corresponding forecast comparisons |
 | `observations/nhsn_flusight_past.csv` | Historical NHSN/FluSight hospitalization series, copied from `influpaint/data/nhsn_flusight_past.csv`; includes season and season-week fields and supplies the historical curves and observed correlations in Figure 1 |
-| `observations/influpaint_locations.csv` | Location codes, names, abbreviations, population, and geographic identifiers, copied from the Influpaint package; used to associate array positions with states |
+| `observations/influpaint_locations.csv` | Location codes, names, abbreviations, population, and geographic identifiers, copied from the influpaint package; used to associate array positions with states |
 
 These are snapshots of the local observation files used by the plotting code. A file may include dates outside the season named by its directory; the plots select the appropriate dates and locations. Location codes should be read as strings to preserve leading zeros.
 
@@ -144,14 +144,14 @@ The two loss tables were exported from the training experiments. These tables in
 | Path within the folder | Contents |
 | --- | --- |
 | `scoringutils_scores.csv` | Saved per-forecast scores for all candidates and FluSight comparison models |
-| `leaderboards/leaderboard_full.csv` | WIS sums, mean relative WIS, and ranks for 36 InfluPaint formulations in each season and combined; used by the supplementary paper figures |
+| `leaderboards/leaderboard_full.csv` | WIS sums, mean relative WIS, and ranks for 36 influpaint formulations in each season and combined; used by the supplementary paper figures |
 | `simple_plots/2023-2024/`, `simple_plots/2024-2025/`, `simple_plots/Combined/` | Diagnostic heatmaps, performance comparisons, time series, and state-level WIS components |
 | `simple_plots/interactive_model_selection.html` | Interactive comparison of candidate scores |
 | `simple_plots/paper_model_analysis.csv` | Selected-model and FluSight comparison summary |
 | `flusight_dropbox_analysis.csv` | Summary of the archived operational FluSight leaderboards |
 | `plot_evaluation_results.log` | Console output from the diagnostic plotting run |
 
-To regenerate the candidate evaluation directly inside this archive, run from the cloned research repository root with the Influpaint Python environment:
+To regenerate the candidate evaluation directly inside this archive, run from the cloned research repository root with the influpaint Python environment:
 
 ```bash
 MPLBACKEND=Agg python -u -m evaluation.plot_evaluation_results \
@@ -221,11 +221,11 @@ The calculation uses the 51 state/DC locations, excluding spatial padding, and P
 | `2023-2024_table_flusight_dropbox.txt` | 2023–2024 FluSight Dropbox leaderboard snapshot |
 | `2024-2025_table_flusight_dropbox.txt` | 2024–2025 FluSight Dropbox leaderboard snapshot |
 
-The code is `paper_figures/analyze_flusight_dropbox_tables.py` in the Influpaint repository. The reproduction command above runs it automatically and writes these additional files in `regenerated_paper_figures/`:
+The code is `paper_figures/analyze_flusight_dropbox_tables.py` in the influpaint repository. The reproduction command above runs it automatically and writes these additional files in `regenerated_paper_figures/`:
 
 | File | Contents |
 | --- | --- |
-| `flusight_dropbox_analysis.csv` | InfluPaint's absolute WIS, relative WIS, MAE, ranks, coverage, and comparison-model counts for all three seasons |
+| `flusight_dropbox_analysis.csv` | influpaint's absolute WIS, relative WIS, MAE, ranks, coverage, and comparison-model counts for all three seasons |
 | `2024-2025_wis_pairgrid.png` | Absolute and relative WIS comparison across eligible 2024–2025 models |
 
 All seasons exclude model names starting with `FluSight` (case-insensitive). The 2023–2024 and 2024–2025 analyses also require at least 70% of forecasts submitted; the 2022–2023 analysis uses the supplied evaluation table without that additional threshold. Coverage columns retain the source tables' labels (`50% Coverage (%)` and `95% Coverage (%)`). These outputs summarize the archived leaderboard values; they do not rescore raw forecasts.

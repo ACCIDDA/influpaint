@@ -1,13 +1,13 @@
-# InfluPaint: Generative diffusion models for spatiotemporal influenza forecasting
+# Influpaint: Generative diffusion models for spatiotemporal influenza forecasting
 
 * **Authors:** Joseph Lemaitre, Justin Lessler
 * **Affiliation:** The University of North Carolina at Chapel Hill
 
-InfluPaint represents influenza seasons as images, with weeks and locations as axes and incidence as pixel intensity. A denoising diffusion model learns from surveillance and simulated trajectories; CoPaint conditions generated seasons on observed data to forecast future hospitalizations or reconstruct missing observations without retraining.
+Influpaint represents influenza seasons as images, with weeks and locations as axes and incidence as pixel intensity. A denoising diffusion model learns from surveillance and simulated trajectories; CoPaint conditions generated seasons on observed data to forecast future hospitalizations or reconstruct missing observations without retraining.
 
 [Read the paper on arXiv](https://arxiv.org/abs/2604.24913) · [Documentation](docs/index.md)
 
-## Running InfluPaint
+## Running influpaint
 
 Start with [installing the environment and cloning the repositories](docs/getting-started/installation.md), the first page of the walkthrough. Follow the [workflow guide](docs/workflows/start-here.md) for source data, training, inpainting, evaluation, and paper figures, or use the [quick start](docs/getting-started/quick-start.md) to reproduce figures from saved results. [Cluster and notebook instructions](docs/getting-started/cluster.md) cover UNC Longleaf.
 
@@ -21,15 +21,15 @@ See the [Zenodo archive README](docs/reproducibility/README.md) for archive cont
 
 [![Paper Figure 2: four-week influenza hospitalization forecasts for two seasons](docs/assets/paper/figure-2-forecasts.png)](docs/assets/paper/figure-2-forecasts.png)
 
-**Figure 2 — Forecasts from observed history.** InfluPaint conditions on the observed part of a season to generate 512 possible trajectories for future hospitalizations. Colored fans show forecast uncertainty and colored lines show medians for North Carolina, New York, Texas, and Florida across the 2023–2024 and 2024–2025 seasons. Black lines show observed hospitalizations, dotted lines show the FluSight ensemble, and dashed vertical lines mark the last observed week for each forecast. These retrospective forecasts use finalized observations up to each forecast date.
+**Figure 2 — Forecasts from observed history.** Influpaint conditions on the observed part of a season to generate 512 possible trajectories for future hospitalizations. Colored fans show forecast uncertainty and colored lines show medians for North Carolina, New York, Texas, and Florida across the 2023–2024 and 2024–2025 seasons. Black lines show observed hospitalizations, dotted lines show the FluSight ensemble, and dashed vertical lines mark the last observed week for each forecast. These retrospective forecasts use finalized observations up to each forecast date.
 
 ## Adapt to different observation patterns without retraining
 
 [![Paper Figure 4: reconstructions with missing states, missing weeks, and checkerboard observation masks](docs/assets/paper/figure-4-reconstruction.png)](docs/assets/paper/figure-4-reconstruction.png)
 
-**Figure 4 — One trained model, many reconstruction tasks.** InfluPaint can adapt to different patterns of missing data by changing the observation mask at sampling time, without retraining the model. The same model reconstructs missing states, fills midseason gaps, infers early-season dynamics from later observations, and handles checkerboard patterns of missing weeks and locations. Black curves show observed hospitalizations; colored fans and lines show predictive quantiles and medians. The insets identify observed entries in green and hidden entries in red. This flexibility lets the model work with partial spatial coverage and interrupted time series.
+**Figure 4 — One trained model, many reconstruction tasks.** Influpaint can adapt to different patterns of missing data by changing the observation mask at sampling time, without retraining the model. The same model reconstructs missing states, fills midseason gaps, infers early-season dynamics from later observations, and handles checkerboard patterns of missing weeks and locations. Black curves show observed hospitalizations; colored fans and lines show predictive quantiles and medians. The insets identify observed entries in green and hidden entries in red. This flexibility lets the model work with partial spatial coverage and interrupted time series.
 
-## How InfluPaint works
+## How influpaint works
 
 [![Paper Figure 5: encoding epidemic seasons as images, learning to denoise, and conditioning generation with an observation mask](docs/assets/paper/figure-5-methods.png)](docs/assets/paper/figure-5-methods.png)
 
@@ -94,7 +94,7 @@ In Feb 2023, Rout et al. showed that the RePaint algorithm has some theoretical 
 No dataset corresponds to what we want to model (New Hospital Admission at the state level). We use either data generated by a mechanistic influenza transmission model (taken from Round 1 of the [US Flu Scenario Modeling Hub](https://fluscenariomodelinghub.org)) or reported US influenza data ([FluView](https://gis.cdc.gov/grasp/fluview/fluportaldashboard.html), [FluSurv](https://www.cdc.gov/flu/weekly/influenza-hospitalization-surveillance.htm)) at different locations, or more generally a mix of the above in certain proportions. We augment the dataset with random transform.
 
 ### FluSight
-We submit weekly Flu hospitalization forecasts for each U.S. state to the FluSight challenge, organized by the CDC. We have found that InfluPaint is been plug-n-play, but good performance required a bit of “care”: mainly applying the right transforms to enrich the dataset, having the right diffusion timing and the right inpainting parameters, such as resampling and jumps. It is not too computationally intensive (only 30 min on a Tesla V100-16GB, training included). 
+We submit weekly Flu hospitalization forecasts for each U.S. state to the FluSight challenge, organized by the CDC. We have found that influpaint is been plug-n-play, but good performance required a bit of “care”: mainly applying the right transforms to enrich the dataset, having the right diffusion timing and the right inpainting parameters, such as resampling and jumps. It is not too computationally intensive (only 30 min on a Tesla V100-16GB, training included).
 
 A benefit of this approach is the nice diversity in forecasts compared to mechanistic models (double peaks and single peaks, little bumps …), but our performance is inequal as we iteratively improved the algorithm for this Flu season.
 
