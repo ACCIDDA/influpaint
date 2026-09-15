@@ -7,6 +7,10 @@
   --md-typeset-a-color: #007852;
 }
 
+[data-md-color-scheme="default"] {
+  --md-default-bg-color: #fffdf3;
+}
+
 [data-md-color-accent="custom"] {
   --md-accent-fg-color: #007852;
   --md-accent-fg-color--transparent: #ff9ee033;
